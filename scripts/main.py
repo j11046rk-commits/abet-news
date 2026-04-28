@@ -13,12 +13,19 @@ from render_pdf import render_pdf
 from post_lark import post_to_lark
 
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "templates")
+ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
+
+
 def main():
     today = datetime.now(ZoneInfo("Asia/Tokyo"))
     today_str = today.strftime("%Y-%m-%d")
     date_filename = today.strftime("%Y%m%d")
-    output_path = f"output/A-BET新聞_{date_filename}.pdf"
-    os.makedirs("output", exist_ok=True)
+    output_path = os.path.join(OUTPUT_DIR, f"A-BET新聞_{date_filename}.pdf")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"=== A-BET新聞 {today_str} ===")
 
@@ -40,8 +47,8 @@ def main():
         subsidy=subsidy,
         output_path=output_path,
         today=today,
-        template_dir="templates",
-        assets_dir="assets",
+        template_dir=TEMPLATES_DIR,
+        assets_dir=ASSETS_DIR,
     )
 
     # ④ Lark投稿
