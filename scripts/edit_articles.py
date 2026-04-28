@@ -101,6 +101,7 @@ def select_and_edit_articles(articles: list[dict], today_str: str) -> dict:
 {{
   "lead": {{
     "tag": "本日の一面",
+    "source_index": 採用した記事番号(整数1始まり),
     "headline_main": "メイン見出し（16〜20字、2行に分けても可）",
     "headline_sub": "サブ見出し（25〜30字）",
     "subhead": "リード文(40〜60字)",
@@ -112,18 +113,19 @@ def select_and_edit_articles(articles: list[dict], today_str: str) -> dict:
   "mid": [
     {{
       "category": "国内動向",
+      "source_index": 採用した記事番号(整数1始まり),
       "headline": "見出し(13〜15字)",
       "subhead": "サブ(15〜20字)",
       "body": "本文(95〜115字、1段落)"
     }},
-    {{ "category": "エージェントAI", "headline": "...", "subhead": "...", "body": "..." }},
-    {{ "category": "法務リスク", "headline": "...", "subhead": "...", "body": "..." }}
+    {{ "category": "エージェントAI", "source_index": ..., "headline": "...", "subhead": "...", "body": "..." }},
+    {{ "category": "法務リスク", "source_index": ..., "headline": "...", "subhead": "...", "body": "..." }}
   ],
   "briefs": [
-    {{ "headline": "短信1見出し(15字以内)", "body": "本文(75〜85字)" }},
-    {{ "headline": "短信2見出し(15字以内)", "body": "本文(75〜85字)" }},
-    {{ "headline": "短信3見出し(15字以内)", "body": "本文(75〜85字)" }},
-    {{ "headline": "短信4見出し(15字以内)", "body": "本文(75〜85字)" }}
+    {{ "source_index": ..., "headline": "短信1見出し(15字以内)", "body": "本文(75〜85字)" }},
+    {{ "source_index": ..., "headline": "短信2見出し(15字以内)", "body": "本文(75〜85字)" }},
+    {{ "source_index": ..., "headline": "短信3見出し(15字以内)", "body": "本文(75〜85字)" }},
+    {{ "source_index": ..., "headline": "短信4見出し(15字以内)", "body": "本文(75〜85字)" }}
   ],
   "column": {{
     "title": "天 声 A I 語",
@@ -139,6 +141,7 @@ def select_and_edit_articles(articles: list[dict], today_str: str) -> dict:
 - 天声AI語は朝日「天声人語」風の短いコラム。当日のトピックから1つ取り、人間味のある考察を加える
 - 全文日本語で
 - 各項目の文字数上限は厳守。1字でも超えれば不採用となる
+- source_index は必ず候補記事の番号(1〜{len(articles[:40])})から選び、整数で返すこと（紙面に元記事の画像を載せるため不可欠）
 """
 
     user_prompt = base_user_prompt

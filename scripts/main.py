@@ -20,6 +20,23 @@ ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
 
 
+def _enrich_with_images(edited: dict, articles: list[dict]) -> dict:
+    """Claudeが返した source_index を使って各セクションに image_url を埋める"""
+    def _get_url(idx):
+        try:
+            i = int(idx)
+            if 1 <= i <= len(articles):
+                return articles[i - 1].get("image_url")
+        except (TypeError, ValueError):
+            pass
+        return None
+
+    edited["lead"]["image_url"] = _get_url(edited.get("lead", {}).get("source_index"))
+    for m in edited.get("mid", []):
+        m["image_url"] = _get_url(m.get("source_index"))
+    return edited
+
+
 def main():
     today = datetime.now(ZoneInfo("Asia/Tokyo"))
     today_str = today.strftime("%Y-%m-%d")
@@ -38,6 +55,7 @@ def main():
     # ② 編集（Anthropic API）
     print("\n[2/4] 記事編集中...")
     edited = select_and_edit_articles(articles, today_str)
+    edited = _enrich_with_images(edited, articles)
     subsidy = get_subsidy_topic()
 
     # ③ PDF生成

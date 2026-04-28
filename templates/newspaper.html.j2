@@ -359,7 +359,7 @@ html, body {
     <div class="lead-content">
         <div class="lead-photo">
             <span class="photo-num">PHOTO 01</span>
-            <img src="photo_lead.svg" alt="">
+            <img src="{{ lead.image_url or 'photo_lead.svg' }}" alt="">
             <div class="caption">{{ lead.caption }}</div>
         </div>
         <div class="lead-body">
@@ -371,7 +371,7 @@ html, body {
 <section class="mid-section">
     {% for m in mid %}
     <article class="mid-article">
-        <img class="mid-photo" src="{{ m.icon }}" alt="">
+        <img class="mid-photo" src="{{ m.image_url or m.icon }}" alt="">
         <div class="mid-tag {% if loop.index is odd %}dark{% endif %}">{{ m.category }}</div>
         <h3 class="mid-headline">{{ m.headline }}</h3>
         <div class="mid-subhead">{{ m.subhead }}</div>
