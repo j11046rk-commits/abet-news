@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3d3046"/>
+      <stop offset="100%" stop-color="#2a1f33"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="120" fill="url(#bg3)"/>
+
+  <!-- 神殿風建物（裁判所アイコン） -->
+  <g transform="translate(60, 20)">
+    <!-- 屋根三角 -->
+    <polygon points="40,0 80,15 0,15" fill="#bdb6c9"/>
+    <polygon points="40,0 80,15 0,15" fill="none" stroke="#fff" stroke-width="0.5"/>
+    <!-- 上部柱台 -->
+    <rect x="-2" y="13" width="84" height="5" fill="#bdb6c9"/>
+    <!-- 柱 -->
+    <rect x="5" y="18" width="6" height="50" fill="#d6cfdf"/>
+    <rect x="22" y="18" width="6" height="50" fill="#d6cfdf"/>
+    <rect x="39" y="18" width="6" height="50" fill="#d6cfdf"/>
+    <rect x="56" y="18" width="6" height="50" fill="#d6cfdf"/>
+    <rect x="73" y="18" width="6" height="50" fill="#d6cfdf"/>
+    <!-- 下部基壇 -->
+    <rect x="-4" y="68" width="88" height="6" fill="#a59cb3"/>
+    <rect x="-6" y="74" width="92" height="4" fill="#8c829e"/>
+  </g>
+
+  <!-- 天秤 -->
+  <g transform="translate(150, 50)" stroke="#fff" stroke-width="1" fill="none">
+    <!-- 中心柱 -->
+    <line x1="0" y1="-15" x2="0" y2="35"/>
+    <!-- 横棒 -->
+    <line x1="-20" y1="-10" x2="20" y2="-10"/>
+    <!-- 左皿 -->
+    <line x1="-20" y1="-10" x2="-20" y2="-2"/>
+    <ellipse cx="-20" cy="0" rx="9" ry="2" fill="#7b2cbf"/>
+    <!-- 右皿 -->
+    <line x1="20" y1="-10" x2="20" y2="-2"/>
+    <ellipse cx="20" cy="0" rx="9" ry="2" fill="#7b2cbf"/>
+    <!-- 台 -->
+    <line x1="-8" y1="35" x2="8" y2="35"/>
+  </g>
+
+  <!-- 警告マーク -->
+  <g transform="translate(20, 75)">
+    <polygon points="0,-15 13,8 -13,8" fill="#ff6b6b" stroke="#fff" stroke-width="1"/>
+    <text y="5" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="11" fill="#fff">!</text>
+  </g>
+
+  <!-- AI幻覚を示すグリッチ風テキスト -->
+  <g font-family="monospace" font-size="6" fill="#7b2cbf" opacity="0.7">
+    <text x="5" y="15">[CITATION ERROR]</text>
+    <text x="120" y="105">case_not_found</text>
+  </g>
+</svg>

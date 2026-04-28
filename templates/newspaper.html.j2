@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>A-BET新聞</title>
+<style>
+@page { size: A4; margin: 8mm 9mm 7mm 9mm; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    font-family: "Noto Serif CJK JP", "Yu Mincho", serif;
+    color: #111;
+    font-size: 8.5pt;
+    line-height: 1.55;
+}
+.masthead {
+    border-bottom: 4px double #111;
+    padding-bottom: 2mm;
+    margin-bottom: 2.5mm;
+    display: grid;
+    grid-template-columns: 32mm 1fr 32mm;
+    align-items: center;
+    gap: 3mm;
+}
+.masthead-left { display: flex; align-items: center; gap: 2mm; }
+.masthead-left img { width: 13mm; height: auto; }
+.masthead-left .info { font-size: 6.5pt; line-height: 1.35; }
+.masthead-left .info .vol { font-weight: 900; font-size: 7.5pt; }
+.masthead-center { text-align: center; }
+.masthead-title {
+    font-weight: 900;
+    font-size: 32pt;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    margin-bottom: 1mm;
+}
+.masthead-title .accent { color: #7b2cbf; }
+.masthead-subtitle {
+    font-size: 7pt;
+    letter-spacing: 0.6em;
+    color: #555;
+    padding-left: 0.6em;
+}
+.masthead-right { text-align: right; font-size: 6.5pt; line-height: 1.35; }
+.masthead-right .date {
+    font-weight: 900;
+    font-size: 8pt;
+    border-bottom: 1px solid #111;
+    padding-bottom: 0.5mm;
+    margin-bottom: 0.5mm;
+}
+
+.lead-section {
+    border-bottom: 1px solid #444;
+    padding-bottom: 3mm;
+    margin-bottom: 3mm;
+}
+.lead-tag {
+    display: inline-block;
+    background: #7b2cbf;
+    color: white;
+    font-size: 7pt;
+    font-weight: 900;
+    padding: 0.5mm 2.5mm;
+    margin-bottom: 1.5mm;
+    letter-spacing: 0.15em;
+}
+.lead-headline-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3mm;
+    align-items: end;
+    margin-bottom: 2mm;
+    padding-bottom: 1.5mm;
+    border-bottom: 2px solid #111;
+}
+.lead-headline {
+    font-weight: 900;
+    font-size: 26pt;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+}
+.lead-headline .accent { color: #7b2cbf; }
+.lead-headline-meta {
+    font-size: 7pt;
+    color: #555;
+    text-align: right;
+    line-height: 1.4;
+    padding-bottom: 1mm;
+}
+.lead-subhead {
+    font-weight: 700;
+    font-size: 11pt;
+    color: #333;
+    margin-bottom: 2.5mm;
+    border-left: 4px solid #7b2cbf;
+    padding-left: 2.5mm;
+    line-height: 1.4;
+}
+.lead-content {
+    display: grid;
+    grid-template-columns: 65mm 1fr;
+    gap: 3.5mm;
+}
+.lead-photo { position: relative; }
+.lead-photo img {
+    width: 100%;
+    height: 42mm;
+    object-fit: cover;
+    border: 0.5px solid #333;
+    display: block;
+}
+.lead-photo .photo-num {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(0,0,0,0.85);
+    color: white;
+    font-size: 6.5pt;
+    font-weight: 900;
+    padding: 0.5mm 2mm;
+}
+.lead-photo .caption {
+    margin-top: 1mm;
+    font-size: 6.8pt;
+    line-height: 1.4;
+    color: #333;
+    border-top: 0.5px solid #999;
+    padding-top: 1mm;
+}
+.lead-body {
+    column-count: 2;
+    column-gap: 4mm;
+    column-rule: 0.5px solid #ccc;
+    font-size: 8.2pt;
+    line-height: 1.6;
+    text-align: justify;
+    overflow: hidden;
+}
+.lead-body p {
+    margin-bottom: 1mm;
+    text-indent: 1em;
+}
+.lead-body p:first-child::first-letter {
+    font-size: 12pt;
+    font-weight: 900;
+    color: #7b2cbf;
+}
+
+.mid-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1.1fr;
+    gap: 3mm;
+    border-bottom: 1px solid #444;
+    padding-bottom: 3mm;
+    margin-bottom: 3mm;
+}
+.mid-article { font-size: 7.8pt; }
+.mid-article + .mid-article { border-left: 0.5px solid #ccc; padding-left: 3mm; }
+.mid-photo {
+    width: 100%;
+    height: 17mm;
+    object-fit: cover;
+    border: 0.5px solid #555;
+    margin-bottom: 1.2mm;
+    display: block;
+}
+.mid-tag {
+    font-size: 6.5pt;
+    font-weight: 900;
+    color: #fff;
+    background: #7b2cbf;
+    padding: 0.4mm 2mm;
+    display: inline-block;
+    margin-bottom: 1mm;
+    letter-spacing: 0.1em;
+}
+.mid-tag.dark { background: #111; }
+.mid-headline {
+    font-weight: 900;
+    font-size: 10.5pt;
+    line-height: 1.25;
+    margin-bottom: 1mm;
+    border-bottom: 0.5px solid #777;
+    padding-bottom: 0.8mm;
+    letter-spacing: 0.01em;
+}
+.mid-subhead {
+    font-size: 7.3pt;
+    font-weight: 700;
+    color: #555;
+    margin-bottom: 1mm;
+}
+.mid-body {
+    font-size: 7.4pt;
+    line-height: 1.55;
+    text-align: justify;
+}
+.mid-body p { text-indent: 1em; margin-bottom: 0.7mm; }
+
+.subsidy-box {
+    border: 1.5px solid #c19a3a;
+    background: #fff8e1;
+    padding: 2mm 2.5mm;
+    position: relative;
+    overflow: hidden;
+}
+.subsidy-box::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1.5mm;
+    background: repeating-linear-gradient(
+        45deg, #c19a3a 0, #c19a3a 2mm, #e8c970 2mm, #e8c970 4mm
+    );
+}
+.subsidy-title {
+    font-weight: 900;
+    font-size: 10pt;
+    color: #6b4c0e;
+    text-align: center;
+    border-bottom: 1px solid #c19a3a;
+    padding: 2mm 0 1mm;
+    margin-bottom: 1.5mm;
+    letter-spacing: 0.15em;
+}
+.subsidy-headline {
+    font-size: 9.5pt;
+    font-weight: 900;
+    line-height: 1.3;
+    margin-bottom: 1.2mm;
+    color: #3a2700;
+}
+.subsidy-headline .alert {
+    font-size: 8pt;
+    color: #b22222;
+}
+.subsidy-points {
+    background: white;
+    border: 0.5px solid #c19a3a;
+    padding: 1.5mm 2mm;
+    font-size: 7pt;
+    line-height: 1.55;
+    list-style: none;
+}
+.subsidy-points li { margin-bottom: 0.5mm; color: #3a2700; }
+.subsidy-points li::before { content: "■ "; color: #c19a3a; }
+.subsidy-points li strong { color: #b22222; }
+
+.bottom-section {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr;
+    gap: 4mm;
+}
+.local-news { border-right: 1px dashed #888; padding-right: 4mm; }
+.section-banner {
+    font-weight: 900;
+    font-size: 10pt;
+    background: #111;
+    color: #fff;
+    padding: 0.8mm 2mm;
+    margin-bottom: 1.5mm;
+    letter-spacing: 0.15em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.section-banner .right-text {
+    font-size: 7pt;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+}
+.local-list { list-style: none; }
+.local-list li {
+    border-bottom: 0.5px dotted #999;
+    padding: 1.3mm 0;
+    font-size: 7.5pt;
+    line-height: 1.5;
+}
+.local-list li:last-child { border-bottom: none; }
+.local-list .item-head {
+    font-weight: 900;
+    font-size: 9pt;
+    margin-bottom: 0.4mm;
+    display: block;
+    color: #111;
+}
+.local-list .item-head::before { content: "▶ "; color: #7b2cbf; }
+
+.column {
+    background: #f5f0e6;
+    border: 0.5px solid #c9b88a;
+    padding: 2.5mm;
+    box-shadow: inset 0 0 0 1px #f5f0e6, inset 0 0 0 1.5px #c9b88a;
+}
+.column-title {
+    font-weight: 900;
+    font-size: 11pt;
+    text-align: center;
+    border-bottom: 0.5px solid #c9b88a;
+    padding-bottom: 1.2mm;
+    margin-bottom: 1.5mm;
+    letter-spacing: 0.3em;
+}
+.column-body { font-size: 7.5pt; line-height: 1.7; text-align: justify; }
+.column-body p { text-indent: 1em; margin-bottom: 1mm; }
+.column-signature {
+    text-align: right;
+    font-size: 7pt;
+    color: #555;
+    margin-top: 1.5mm;
+}
+
+.footer {
+    margin-top: 2.5mm;
+    padding-top: 1.5mm;
+    border-top: 2px solid #111;
+    font-size: 6.5pt;
+    color: #555;
+    display: flex;
+    justify-content: space-between;
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+    <div class="masthead-left">
+        <img src="logo.jpeg" alt="A-BET">
+        <div class="info">
+            <div class="vol">第 {{ edition_no }} 号</div>
+            <div>株式会社A-BET</div>
+            <div>編集室 発行</div>
+        </div>
+    </div>
+    <div class="masthead-center">
+        <div class="masthead-title">A-BET<span class="accent">新聞</span></div>
+        <div class="masthead-subtitle">A I  D A I L Y  N E W S</div>
+    </div>
+    <div class="masthead-right">
+        <div class="date">{{ today }}</div>
+        <div>{{ reiwa }}</div>
+        <div>朝刊・第1面</div>
+    </div>
+</header>
+
+<section class="lead-section">
+    <span class="lead-tag">{{ lead.tag }}</span>
+    <div class="lead-headline-row">
+        <h1 class="lead-headline">{{ lead.headline_main | safe }}<br>{{ lead.headline_sub }}</h1>
+        <div class="lead-headline-meta">
+            <div>{{ lead.meta }}</div>
+            <div>{{ lead.date_note }}</div>
+        </div>
+    </div>
+    <h2 class="lead-subhead">{{ lead.subhead }}</h2>
+
+    <div class="lead-content">
+        <div class="lead-photo">
+            <span class="photo-num">PHOTO 01</span>
+            <img src="photo_lead.svg" alt="">
+            <div class="caption">{{ lead.caption }}</div>
+        </div>
+        <div class="lead-body">
+            {% for p in lead.body %}<p>{{ p }}</p>{% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="mid-section">
+    {% for m in mid %}
+    <article class="mid-article">
+        <img class="mid-photo" src="{{ m.icon }}" alt="">
+        <div class="mid-tag {% if loop.index is odd %}dark{% endif %}">{{ m.category }}</div>
+        <h3 class="mid-headline">{{ m.headline }}</h3>
+        <div class="mid-subhead">{{ m.subhead }}</div>
+        <div class="mid-body"><p>{{ m.body }}</p></div>
+    </article>
+    {% endfor %}
+
+    <aside class="subsidy-box">
+        <div class="subsidy-title">{{ subsidy.title }}</div>
+        <h3 class="subsidy-headline">{{ subsidy.headline }}<br><span class="alert">{{ subsidy.alert }}</span></h3>
+        <ul class="subsidy-points">
+            {% for label, value in subsidy.points %}
+            <li><strong>{{ label }}</strong> {{ value }}</li>
+            {% endfor %}
+        </ul>
+    </aside>
+</section>
+
+<section class="bottom-section">
+    <div class="local-news">
+        <div class="section-banner">
+            <span>国内ニュース短信</span>
+            <span class="right-text">JAPAN BRIEF</span>
+        </div>
+        <ul class="local-list">
+            {% for b in briefs %}
+            <li>
+                <span class="item-head">{{ b.headline }}</span>
+                {{ b.body }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <aside class="column">
+        <div class="column-title">{{ column.title }}</div>
+        <div class="column-body">
+            {% for p in column.body %}<p>{{ p }}</p>{% endfor %}
+            <div class="column-signature">{{ column.signature }}</div>
+        </div>
+    </aside>
+</section>
+
+<footer class="footer">
+    <div>発行 | 株式会社A-BET 編集室</div>
+    <div>本紙はAIにより自動生成されています</div>
+    <div>NO.{{ edition_no }} | {{ today }}</div>
+</footer>
+
+</body>
+</html>

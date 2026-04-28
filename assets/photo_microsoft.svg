@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a2733"/>
+      <stop offset="100%" stop-color="#3d5670"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="120" fill="url(#bg1)"/>
+  <!-- データセンター棟をシンプル化 -->
+  <g fill="#7b2cbf" opacity="0.85">
+    <rect x="20" y="35" width="30" height="70"/>
+    <rect x="55" y="50" width="25" height="55"/>
+    <rect x="85" y="25" width="35" height="80"/>
+    <rect x="125" y="45" width="25" height="60"/>
+    <rect x="155" y="55" width="25" height="50"/>
+  </g>
+  <!-- 窓 -->
+  <g fill="#ffd966" opacity="0.8">
+    <rect x="25" y="45" width="3" height="3"/>
+    <rect x="33" y="45" width="3" height="3"/>
+    <rect x="41" y="45" width="3" height="3"/>
+    <rect x="25" y="55" width="3" height="3"/>
+    <rect x="41" y="55" width="3" height="3"/>
+    <rect x="33" y="65" width="3" height="3"/>
+    <rect x="25" y="75" width="3" height="3"/>
+    <rect x="41" y="75" width="3" height="3"/>
+    <rect x="90" y="35" width="3" height="3"/>
+    <rect x="100" y="35" width="3" height="3"/>
+    <rect x="110" y="35" width="3" height="3"/>
+    <rect x="90" y="50" width="3" height="3"/>
+    <rect x="110" y="50" width="3" height="3"/>
+    <rect x="100" y="65" width="3" height="3"/>
+    <rect x="90" y="80" width="3" height="3"/>
+    <rect x="110" y="80" width="3" height="3"/>
+  </g>
+  <!-- 円札マーク（投資イメージ） -->
+  <g transform="translate(160, 25)">
+    <circle r="13" fill="#fff" opacity="0.95"/>
+    <text y="5" text-anchor="middle" font-family="serif" font-weight="900" font-size="16" fill="#7b2cbf">¥</text>
+  </g>
+  <!-- 上昇矢印 -->
+  <g stroke="#7b2cbf" stroke-width="1.5" fill="none">
+    <path d="M10,100 L60,75 L90,85 L130,55 L180,30"/>
+  </g>
+  <g fill="#7b2cbf">
+    <polygon points="180,30 175,40 185,35"/>
+  </g>
+</svg>
