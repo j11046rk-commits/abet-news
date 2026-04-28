@@ -4,7 +4,36 @@
 import os
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
+from weasyprint import HTML, CSS
+
+
+# auto-fitで段階的に試すフォントスケール (1ページに収まるまで)
+AUTOFIT_SCALES = [1.0, 0.96, 0.92, 0.88, 0.85]
+
+
+def _autofit_pdf(html: HTML, output_path: str) -> int:
+    """1ページに収まるまでフォントを段階縮小して試行。最終的なpage数を返す。"""
+    for scale in AUTOFIT_SCALES:
+        if scale == 1.0:
+            doc = html.render()
+        else:
+            scale_pct = int(scale * 100)
+            adjustment_css = CSS(string=f"""
+                html, body {{ font-size: {8.3 * scale:.2f}pt !important; line-height: 1.4 !important; }}
+                .lead-headline {{ font-size: {26 * scale:.1f}pt !important; }}
+                .lead-photo img {{ height: {34 * scale:.1f}mm !important; }}
+                .mid-photo {{ height: {13 * scale:.1f}mm !important; }}
+            """)
+            doc = html.render(stylesheets=[adjustment_css])
+        if len(doc.pages) <= 1:
+            if scale != 1.0:
+                print(f"  auto-fit: scaled to {int(scale * 100)}% to fit single page")
+            doc.write_pdf(output_path)
+            return len(doc.pages)
+    # 最後の手段(85%)でもダメだった場合
+    doc.write_pdf(output_path)
+    print(f"  WARNING: auto-fit failed at min scale 85%, page count={len(doc.pages)}")
+    return len(doc.pages)
 
 
 def render_pdf(edited: dict, subsidy: dict, output_path: str, today: datetime,
@@ -53,6 +82,7 @@ def render_pdf(edited: dict, subsidy: dict, output_path: str, today: datetime,
     with open(output_path.replace(".pdf", ".html"), "w", encoding="utf-8") as f:
         f.write(html_str)
 
-    HTML(string=html_str, base_url=os.path.abspath(assets_dir)).write_pdf(output_path)
-    print(f"PDF generated: {output_path}")
+    html = HTML(string=html_str, base_url=os.path.abspath(assets_dir))
+    pages = _autofit_pdf(html, output_path)
+    print(f"PDF generated: {output_path} (pages={pages})")
     return output_path
