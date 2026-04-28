@@ -43,6 +43,7 @@ jobs:
           LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
           LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
           LARK_CHAT_ID: ${{ secrets.LARK_CHAT_ID }}
+          LARK_DOMAIN: ${{ secrets.LARK_DOMAIN }}
         run: |
           cd scripts && python main.py
 
