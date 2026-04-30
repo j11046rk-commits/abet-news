@@ -95,6 +95,7 @@ def main():
             headline=headline,
             summary=summary,
             date_str=date_display,
+            release_tag=f"news-{date_filename}",
         )
     except Exception as e:
         print(f"LINE post failed (continuing): {e}")

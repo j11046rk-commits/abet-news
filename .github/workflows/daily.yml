@@ -10,6 +10,8 @@ jobs:
   build-and-send:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write  # Release作成・アセットアップロード用
 
     steps:
       - name: Checkout code
@@ -46,6 +48,8 @@ jobs:
           LARK_DOMAIN: ${{ secrets.LARK_DOMAIN }}
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
         run: |
           cd scripts && python main.py
 

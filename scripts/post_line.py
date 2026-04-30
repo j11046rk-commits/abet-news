@@ -2,21 +2,24 @@
 LINE Messaging APIにグループ宛てで配信する。
 
 LINEはbot側からPDFを直接送る仕組みが無いため、
-- PDFと1ページ目のPNGを catbox.moe に匿名アップして公開URLを得る
+- PDFと1ページ目のPNGを公開URLにアップ
+  (優先順位: GitHub Releases → 0x0.st → catbox.moe)
 - LINEには画像メッセージ(サムネイル)とテキストメッセージ(見出し+PDFリンク)を送る
 
 環境変数:
 - LINE_CHANNEL_ACCESS_TOKEN (long-lived)
 - LINE_GROUP_ID (Cで始まる33文字)
+- GITHUB_TOKEN, GH_REPOSITORY (Actions実行時に自動付与、Release作成に使用)
 未設定の場合は何もせずスキップ。
 """
+import mimetypes
 import os
 import requests
 
 
 LINE_PUSH_API = "https://api.line.me/v2/bot/message/push"
 
-# 公開アップロード先。先頭から順に試し、失敗したら次に fallback。
+# Fallback の公開アップロード先 (GitHub Releases が使えない時のみ)
 UPLOAD_PROVIDERS = [
     {"name": "0x0.st", "url": "https://0x0.st", "field": "file", "data": {}},
     {"name": "catbox", "url": "https://catbox.moe/user/api.php", "field": "fileToUpload",
@@ -25,8 +28,50 @@ UPLOAD_PROVIDERS = [
 UPLOAD_USER_AGENT = "abet-news/1.0 (+https://github.com/j11046rk-commits/abet-news)"
 
 
-def _upload_to_public(file_path: str) -> str:
-    """複数の公開アップローダを順に試して公開URLを得る"""
+def _upload_to_github_release(file_path: str, tag: str) -> str:
+    """GitHub Releases にアップロードして browser_download_url を返す。
+    既に同名アセットがあれば事前削除して再アップロード。
+    """
+    token = os.environ["GITHUB_TOKEN"]
+    repo = os.environ["GH_REPOSITORY"]
+    name = os.path.basename(file_path)
+    api = f"https://api.github.com/repos/{repo}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+
+    # 既存タグがあれば取得、無ければ作成
+    r = requests.get(f"{api}/releases/tags/{tag}", headers=headers, timeout=20)
+    if r.status_code == 200:
+        release = r.json()
+    else:
+        r = requests.post(
+            f"{api}/releases", headers=headers, timeout=30,
+            json={"tag_name": tag, "name": f"A-BET News {tag}", "draft": False, "prerelease": False},
+        )
+        r.raise_for_status()
+        release = r.json()
+
+    # 同名アセットを削除 (再アップロードのため)
+    for asset in release.get("assets", []):
+        if asset["name"] == name:
+            requests.delete(asset["url"], headers=headers, timeout=20)
+
+    # アップロード
+    upload_url = release["upload_url"].split("{")[0]
+    ctype = mimetypes.guess_type(name)[0] or "application/octet-stream"
+    with open(file_path, "rb") as f:
+        body = f.read()
+    r = requests.post(
+        f"{upload_url}?name={name}",
+        headers={**headers, "Content-Type": ctype},
+        data=body,
+        timeout=120,
+    )
+    r.raise_for_status()
+    return r.json()["browser_download_url"]
+
+
+def _upload_anonymous(file_path: str) -> str:
+    """匿名公開アップローダを順に試して公開URLを得る"""
     last_err = None
     for prov in UPLOAD_PROVIDERS:
         try:
@@ -50,6 +95,18 @@ def _upload_to_public(file_path: str) -> str:
     raise RuntimeError(f"All upload providers failed. Last error: {last_err}")
 
 
+def _upload_to_public(file_path: str, tag: str | None) -> str:
+    """GitHub Releases を優先、ダメなら匿名アップローダにフォールバック"""
+    if tag and os.environ.get("GITHUB_TOKEN") and os.environ.get("GH_REPOSITORY"):
+        try:
+            url = _upload_to_github_release(file_path, tag)
+            print(f"  uploaded to GitHub Release ({tag}): {url}")
+            return url
+        except Exception as e:
+            print(f"  GitHub Release upload failed → {e}")
+    return _upload_anonymous(file_path)
+
+
 def _push_messages(token: str, group_id: str, messages: list) -> dict:
     r = requests.post(
         LINE_PUSH_API,
@@ -66,7 +123,8 @@ def _push_messages(token: str, group_id: str, messages: list) -> dict:
 
 
 def post_to_line(pdf_path: str, png_path: str | None,
-                 headline: str, summary: str, date_str: str):
+                 headline: str, summary: str, date_str: str,
+                 release_tag: str | None = None):
     """環境変数が揃っていれば LINEグループに配信"""
     token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
     group_id = os.environ.get("LINE_GROUP_ID")
@@ -75,12 +133,12 @@ def post_to_line(pdf_path: str, png_path: str | None,
         return
 
     print("Uploading files to public storage ...")
-    pdf_url = _upload_to_public(pdf_path)
+    pdf_url = _upload_to_public(pdf_path, release_tag)
     print(f"  PDF URL: {pdf_url}")
     png_url = None
     if png_path and os.path.exists(png_path):
         try:
-            png_url = _upload_to_public(png_path)
+            png_url = _upload_to_public(png_path, release_tag)
             print(f"  PNG URL: {png_url}")
         except Exception as e:
             print(f"  WARNING: PNG upload failed: {e}")
