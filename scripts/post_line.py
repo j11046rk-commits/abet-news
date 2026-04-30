@@ -133,8 +133,6 @@ def post_to_line(pdf_path: str, png_path: str | None,
         return
 
     print("Uploading files to public storage ...")
-    pdf_url = _upload_to_public(pdf_path, release_tag)
-    print(f"  PDF URL: {pdf_url}")
     png_url = None
     if png_path and os.path.exists(png_path):
         try:
@@ -149,8 +147,6 @@ def post_to_line(pdf_path: str, png_path: str | None,
         f"【本日の一面】{headline}",
         "",
         summary,
-        "",
-        f"🔗 PDF: {pdf_url}",
     ]
     text_body = "\n".join(text_lines)[:4900]  # LINE text の上限は5000字
 

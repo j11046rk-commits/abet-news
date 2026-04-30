@@ -42,7 +42,8 @@ def main():
     today = datetime.now(ZoneInfo("Asia/Tokyo"))
     today_str = today.strftime("%Y-%m-%d")
     date_filename = today.strftime("%Y%m%d")
-    output_path = os.path.join(OUTPUT_DIR, f"A-BET新聞_{date_filename}.pdf")
+    # GitHub Releasesアセット名がASCIIに制限されるため出力ファイル名はASCIIにする
+    output_path = os.path.join(OUTPUT_DIR, f"A-BET-news_{date_filename}.pdf")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     print(f"=== A-BET新聞 {today_str} ===")
