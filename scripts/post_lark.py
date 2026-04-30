@@ -14,7 +14,7 @@ import requests
 
 
 def _domain() -> str:
-    return os.environ.get("LARK_DOMAIN", "open.larksuite.com")
+    return os.environ.get("LARK_DOMAIN", "").strip() or "open.larksuite.com"
 
 
 def send_lark_text(webhook_url: str, headline: str, summary: str, date_str: str):
