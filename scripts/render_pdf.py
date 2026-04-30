@@ -85,4 +85,17 @@ def render_pdf(edited: dict, subsidy: dict, output_path: str, today: datetime,
     html = HTML(string=html_str, base_url=os.path.abspath(assets_dir))
     pages = _autofit_pdf(html, output_path)
     print(f"PDF generated: {output_path} (pages={pages})")
-    return output_path
+
+    png_path = output_path.replace(".pdf", "_page1.png")
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(output_path)
+        pix = doc.load_page(0).get_pixmap(dpi=150)
+        pix.save(png_path)
+        doc.close()
+        print(f"PNG (page 1) generated: {png_path}")
+    except Exception as e:
+        print(f"WARNING: PNG generation failed: {e}")
+        png_path = None
+
+    return output_path, png_path

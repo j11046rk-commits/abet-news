@@ -11,6 +11,7 @@ from collect_news import fetch_recent_articles
 from edit_articles import select_and_edit_articles, get_subsidy_topic
 from render_pdf import render_pdf
 from post_lark import post_to_lark
+from post_line import post_to_line
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -59,8 +60,8 @@ def main():
     subsidy = get_subsidy_topic()
 
     # ③ PDF生成
-    print("\n[3/4] PDF生成中...")
-    render_pdf(
+    print("\n[3/5] PDF生成中...")
+    pdf_path, png_path = render_pdf(
         edited=edited,
         subsidy=subsidy,
         output_path=output_path,
@@ -69,16 +70,34 @@ def main():
         assets_dir=ASSETS_DIR,
     )
 
-    # ④ Lark投稿
-    print("\n[4/4] Lark投稿中...")
     headline = f"{edited['lead']['headline_main']} / {edited['lead']['headline_sub']}"
     summary = edited['lead']['subhead']
-    post_to_lark(
-        pdf_path=output_path,
-        headline=headline,
-        summary=summary,
-        date_str=today.strftime("%Y年%-m月%-d日"),
-    )
+    date_display = today.strftime("%Y年%-m月%-d日")
+
+    # ④ Lark投稿
+    print("\n[4/5] Lark投稿中...")
+    try:
+        post_to_lark(
+            pdf_path=pdf_path,
+            headline=headline,
+            summary=summary,
+            date_str=date_display,
+        )
+    except Exception as e:
+        print(f"Lark post failed (continuing): {e}")
+
+    # ⑤ LINE投稿
+    print("\n[5/5] LINE投稿中...")
+    try:
+        post_to_line(
+            pdf_path=pdf_path,
+            png_path=png_path,
+            headline=headline,
+            summary=summary,
+            date_str=date_display,
+        )
+    except Exception as e:
+        print(f"LINE post failed (continuing): {e}")
 
     print("\n✓ Done.")
 

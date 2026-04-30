@@ -44,6 +44,8 @@ jobs:
           LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
           LARK_CHAT_ID: ${{ secrets.LARK_CHAT_ID }}
           LARK_DOMAIN: ${{ secrets.LARK_DOMAIN }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
         run: |
           cd scripts && python main.py
 
