@@ -15,23 +15,39 @@ import requests
 
 
 LINE_PUSH_API = "https://api.line.me/v2/bot/message/push"
-CATBOX_API = "https://catbox.moe/user/api.php"
+
+# 公開アップロード先。先頭から順に試し、失敗したら次に fallback。
+UPLOAD_PROVIDERS = [
+    {"name": "0x0.st", "url": "https://0x0.st", "field": "file", "data": {}},
+    {"name": "catbox", "url": "https://catbox.moe/user/api.php", "field": "fileToUpload",
+     "data": {"reqtype": "fileupload"}},
+]
+UPLOAD_USER_AGENT = "abet-news/1.0 (+https://github.com/j11046rk-commits/abet-news)"
 
 
-def _upload_to_catbox(file_path: str) -> str:
-    """匿名で catbox.moe にアップロード、公開URLを返す"""
-    with open(file_path, "rb") as f:
-        r = requests.post(
-            CATBOX_API,
-            data={"reqtype": "fileupload"},
-            files={"fileToUpload": (os.path.basename(file_path), f)},
-            timeout=120,
-        )
-    r.raise_for_status()
-    url = r.text.strip()
-    if not url.startswith("http"):
-        raise RuntimeError(f"catbox upload returned unexpected response: {url[:200]}")
-    return url
+def _upload_to_public(file_path: str) -> str:
+    """複数の公開アップローダを順に試して公開URLを得る"""
+    last_err = None
+    for prov in UPLOAD_PROVIDERS:
+        try:
+            with open(file_path, "rb") as f:
+                r = requests.post(
+                    prov["url"],
+                    data=prov["data"],
+                    files={prov["field"]: (os.path.basename(file_path), f)},
+                    headers={"User-Agent": UPLOAD_USER_AGENT},
+                    timeout=120,
+                )
+            r.raise_for_status()
+            link = r.text.strip()
+            if link.startswith("http"):
+                print(f"  uploaded via {prov['name']}: {link}")
+                return link
+            last_err = f"{prov['name']}: unexpected response: {link[:200]}"
+        except Exception as e:
+            last_err = f"{prov['name']}: {e}"
+        print(f"  upload failed → {last_err}")
+    raise RuntimeError(f"All upload providers failed. Last error: {last_err}")
 
 
 def _push_messages(token: str, group_id: str, messages: list) -> dict:
@@ -58,13 +74,13 @@ def post_to_line(pdf_path: str, png_path: str | None,
         print("No LINE credentials configured. Skipping LINE post.")
         return
 
-    print("Uploading files to catbox.moe ...")
-    pdf_url = _upload_to_catbox(pdf_path)
+    print("Uploading files to public storage ...")
+    pdf_url = _upload_to_public(pdf_path)
     print(f"  PDF URL: {pdf_url}")
     png_url = None
     if png_path and os.path.exists(png_path):
         try:
-            png_url = _upload_to_catbox(png_path)
+            png_url = _upload_to_public(png_path)
             print(f"  PNG URL: {png_url}")
         except Exception as e:
             print(f"  WARNING: PNG upload failed: {e}")
