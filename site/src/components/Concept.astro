@@ -1,0 +1,29 @@
+---
+import site from '../../data/site.json';
+const c = site.コンセプト;
+---
+<section class="section section--alt" id="concept" aria-labelledby="concept-title">
+  <div class="container concept">
+    <p class="kanji-mark concept__seal" aria-hidden="true">志</p>
+    <h2 class="section__title concept__title" id="concept-title">{c.見出し}</h2>
+    <div class="concept__body">
+      {c.本文.map((p) => <p>{p}</p>)}
+    </div>
+  </div>
+</section>
+
+<style>
+  .concept { max-width: 42rem; margin-inline: auto; text-align: center; }
+  .concept__seal {
+    font-size: 2.4rem;
+    border: 1px solid var(--seal);
+    border-radius: 8px;
+    width: 2.6rem; height: 2.6rem;
+    line-height: 2.6rem;
+    margin: 0 auto 1.4rem;
+  }
+  .concept__title { font-size: clamp(1.4rem, 5vw, 2rem); }
+  .concept__title::after { content: ""; display:block; width:44px; height:2px; background:linear-gradient(90deg,var(--gold),transparent); margin:0.9rem auto 0; }
+  .concept__body { margin-top: 1.6rem; color: var(--text-dim); }
+  .concept__body p { margin: 0.9rem 0; }
+</style>

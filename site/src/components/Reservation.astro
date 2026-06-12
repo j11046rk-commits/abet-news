@@ -1,0 +1,41 @@
+---
+import site from '../../data/site.json';
+const r = site.予約問い合わせ;
+const s = site.店舗情報;
+const tel = s.電話番号.replace(/-/g, '');
+const hasLine = r.lineURL && r.lineURL.trim() !== '';
+const hasForm = r.googleフォームURL && r.googleフォームURL.trim() !== '';
+---
+<section class="section" id="reserve" aria-labelledby="reserve-title">
+  <div class="container reserve">
+    <div class="section__head">
+      <p class="section__kicker">Reservation</p>
+      <h2 class="section__title" id="reserve-title">{r.見出し}</h2>
+      <p class="section__lead">{r.リード}</p>
+    </div>
+
+    <div class="reserve__card card">
+      <a class="reserve__phone" href={`tel:${tel}`}>
+        <span class="reserve__phone-ico" aria-hidden="true">☎</span>
+        <span class="reserve__phone-num">{s.電話番号表示用}</span>
+        <span class="reserve__phone-label">タップで発信・{r.電話受付}</span>
+      </a>
+
+      {(hasLine || hasForm) && (
+        <div class="reserve__alt">
+          {hasLine && <a class="btn btn--ghost" href={r.lineURL} target="_blank" rel="noopener">LINEで相談</a>}
+          {hasForm && <a class="btn btn--ghost" href={r.googleフォームURL} target="_blank" rel="noopener">フォームで問い合わせ</a>}
+        </div>
+      )}
+    </div>
+  </div>
+</section>
+
+<style>
+  .reserve__card { max-width: 30rem; margin: 0 auto; padding: 2rem 1.6rem; text-align: center; }
+  .reserve__phone { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; color: var(--text); }
+  .reserve__phone-ico { color: var(--gold); font-size: 1.6rem; }
+  .reserve__phone-num { font-family: var(--font-serif); font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gold-soft); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+  .reserve__phone-label { font-size: 0.82rem; color: var(--text-dim); }
+  .reserve__alt { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin-top: 1.6rem; }
+</style>

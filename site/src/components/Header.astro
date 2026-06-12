@@ -1,0 +1,62 @@
+---
+import site from '../../data/site.json';
+const s = site.店舗情報;
+const tel = s.電話番号.replace(/-/g, '');
+---
+<header class="hdr" id="top">
+  <div class="hdr__inner">
+    <a class="hdr__brand" href="#top">
+      <span class="hdr__name">{s.店名}</span>
+      <span class="hdr__roman">{s.店名ローマ字}</span>
+    </a>
+    <nav class="hdr__nav" aria-label="メインメニュー">
+      <a href="#banquet">宴会・コース</a>
+      <a href="#menu">メニュー</a>
+      <a href="#access">アクセス</a>
+      <a href="#reserve">ご予約</a>
+    </nav>
+    <a class="hdr__tel" href={`tel:${tel}`} aria-label={`電話で予約 ${s.電話番号}`}>
+      <span class="hdr__tel-ico" aria-hidden="true">☎</span>
+      <span class="hdr__tel-num">{s.電話番号表示用}</span>
+    </a>
+  </div>
+</header>
+
+<style>
+  .hdr {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(20, 17, 14, 0.82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .hdr__inner {
+    max-width: var(--maxw);
+    margin-inline: auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem var(--pad);
+  }
+  .hdr__brand { display: flex; align-items: baseline; gap: 0.5rem; color: var(--text); }
+  .hdr__name { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: 0.08em; }
+  .hdr__roman { font-size: 0.6rem; letter-spacing: 0.25em; color: var(--gold); text-transform: uppercase; }
+  .hdr__nav { margin-left: auto; display: none; gap: 1.5rem; font-size: 0.9rem; }
+  .hdr__nav a { color: var(--text-dim); }
+  .hdr__nav a:hover { color: var(--gold); }
+  .hdr__tel {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--gold-soft);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .hdr__tel-ico { color: var(--gold); }
+  @media (min-width: 860px) {
+    .hdr__nav { display: flex; }
+    .hdr__tel { margin-left: 0; }
+  }
+</style>

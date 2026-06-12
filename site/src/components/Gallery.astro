@@ -1,0 +1,30 @@
+---
+import site from '../../data/site.json';
+const g = site.ギャラリー;
+---
+<section class="section" id="gallery" aria-labelledby="gallery-title">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__kicker">Gallery</p>
+      <h2 class="section__title" id="gallery-title">{g.見出し}</h2>
+      <p class="section__lead">{g.リード}</p>
+    </div>
+    <ul class="gallery">
+      {g.画像.map((img) => (
+        <li class="gallery__item">
+          <img src={img.画像} alt={img.alt} width="800" height="600" loading="lazy" decoding="async" />
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .gallery { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .gallery__item { aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--bg-2); border: 1px solid var(--line); }
+  .gallery__item img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+  .gallery__item:hover img { transform: scale(1.05); }
+  @media (min-width: 760px) {
+    .gallery { grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+  }
+</style>

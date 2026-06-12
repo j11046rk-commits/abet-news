@@ -1,0 +1,89 @@
+---
+import '../styles/global.css';
+import site from '../../data/site.json';
+
+const s = site.店舗情報;
+const seo = site.seo;
+const canonical = new URL(Astro.url.pathname, Astro.site).href.replace(/\/$/, '/');
+const ogImage = new URL(seo.ogImage, Astro.site).href;
+
+// 構造化データ用に営業時間を schema.org 形式へ整形
+const dayMap = { Mo: 'Monday', Tu: 'Tuesday', We: 'Wednesday', Th: 'Thursday', Fr: 'Friday', Sa: 'Saturday', Su: 'Sunday' };
+const openingHoursSpec = site.営業時間.openingHours.map((h) => ({
+  '@type': 'OpeningHoursSpecification',
+  dayOfWeek: h.days.map((d) => dayMap[d]),
+  opens: h.opens,
+  // schema.org は 24:00 以降を 00:00〜表記にできないため、最大 23:59 にクランプ（深夜営業の目安）
+  closes: h.closes.replace(/^24:/, '00:').replace(/^25:/, '01:'),
+}));
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Restaurant',
+  '@id': Astro.site + '#restaurant',
+  name: s.店名,
+  url: Astro.site.href,
+  image: ogImage,
+  telephone: s.電話番号,
+  servesCuisine: ['居酒屋', '家庭料理', 'おばんざい', '海鮮'],
+  priceRange: '¥¥',
+  acceptsReservations: 'True',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: s.住所.replace(/^愛媛県新居浜市/, ''),
+    addressLocality: '新居浜市',
+    addressRegion: '愛媛県',
+    postalCode: s.郵便番号,
+    addressCountry: 'JP',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: s.緯度,
+    longitude: s.経度,
+  },
+  openingHoursSpecification: openingHoursSpec,
+  sameAs: [site.instagram.プロフィールURL],
+  hasMenu: canonical + '#menu',
+};
+
+interface Props { title?: string; description?: string; }
+const { title = seo.title, description = seo.description } = Astro.props;
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content={seo.keywords} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#14110e" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- OGP -->
+    <meta property="og:type" content="restaurant.restaurant" />
+    <meta property="og:site_name" content={s.店名} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:locale" content="ja_JP" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- 構造化データ -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

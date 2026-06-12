@@ -1,0 +1,163 @@
+/* =========================================================
+   しっぽり亭 — グローバルスタイル
+   テーマ: ダーク × 暖色・和モダン（大人の隠れ家）
+   モバイル最優先 / 日本語システムフォントで高速表示
+   ========================================================= */
+
+:root {
+  /* 色 — ダーク背景 × 暖色アクセント */
+  --bg:        #14110e;   /* 墨に近い濃茶 */
+  --bg-2:      #1d1813;   /* セクション交互の背景 */
+  --bg-3:      #261f18;   /* カード背景 */
+  --line:      #3a2f25;   /* 罫線 */
+  --text:      #f2ebe0;   /* 暖かみのある白 */
+  --text-dim:  #c4b6a4;   /* 補助テキスト */
+  --gold:      #d4a857;   /* 金・主アクセント */
+  --gold-soft: #e7c989;   /* 明るい金 */
+  --ember:     #c2603a;   /* 炭火のような橙赤 */
+  --seal:      #9b3a31;   /* 朱（判子色） */
+
+  /* フォント — JPシステムフォント優先（DL無しで高速） */
+  --font-serif: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho",
+                "YuMincho", "Noto Serif JP", "Shippori Mincho", serif;
+  --font-sans:  "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+                "YuGothic", "Noto Sans JP", "Meiryo", system-ui, sans-serif;
+
+  /* レイアウト */
+  --maxw: 1040px;
+  --pad: clamp(1.1rem, 5vw, 2.5rem);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--gold-soft); text-decoration: none; }
+a:hover { color: var(--gold); }
+
+h1, h2, h3 { font-family: var(--font-serif); font-weight: 600; line-height: 1.4; letter-spacing: 0.04em; }
+
+/* セクション共通 */
+.section { padding: clamp(3rem, 9vw, 5.5rem) var(--pad); }
+.section--alt { background: var(--bg-2); }
+.container { max-width: var(--maxw); margin-inline: auto; }
+
+.section__head { text-align: center; margin-bottom: clamp(1.8rem, 5vw, 3rem); }
+.section__kicker {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.34em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin: 0 0 0.6rem;
+}
+.section__title {
+  font-size: clamp(1.55rem, 5.5vw, 2.4rem);
+  margin: 0;
+  color: var(--text);
+}
+.section__title::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  margin: 0.9rem auto 0;
+}
+.section__lead {
+  margin: 1rem auto 0;
+  max-width: 38rem;
+  color: var(--text-dim);
+  font-size: 0.98rem;
+}
+
+/* ボタン */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0.95em 1.6em;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  cursor: pointer;
+}
+.btn--primary {
+  background: linear-gradient(135deg, var(--gold), var(--ember));
+  color: #1a130b;
+  box-shadow: 0 6px 22px rgba(212,168,87,0.28);
+}
+.btn--primary:hover { transform: translateY(-2px); color: #1a130b; box-shadow: 0 9px 28px rgba(212,168,87,0.4); }
+.btn--ghost {
+  background: transparent;
+  color: var(--gold-soft);
+  border-color: var(--line);
+}
+.btn--ghost:hover { border-color: var(--gold); color: var(--gold); }
+.btn--lg { font-size: 1.08rem; padding: 1.05em 2em; }
+
+.btn__phone-num { font-variant-numeric: tabular-nums; }
+
+/* カード */
+.card {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* 要確認バッジ（公開前に外す前提・本人へのリマインド） */
+.tbc {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffd9a0;
+  background: rgba(155,58,49,0.28);
+  border: 1px dashed var(--seal);
+  border-radius: 4px;
+  padding: 0.05em 0.5em;
+  vertical-align: middle;
+}
+
+/* アクセシビリティ */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; animation: none !important; }
+}
+
+/* 和柄のうっすらした装飾用 */
+.kanji-mark {
+  font-family: var(--font-serif);
+  color: var(--seal);
+  opacity: 0.85;
+}

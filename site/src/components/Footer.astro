@@ -1,0 +1,40 @@
+---
+import site from '../../data/site.json';
+const s = site.店舗情報;
+const f = site.フッター;
+const ig = site.instagram;
+const tel = s.電話番号.replace(/-/g, '');
+const year = new Date().getFullYear();
+---
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <span class="footer__name">{s.店名}</span>
+      <span class="footer__roman">{s.店名ローマ字}</span>
+    </div>
+    <address class="footer__nap">
+      〒{s.郵便番号} {s.住所}<br />
+      TEL <a href={`tel:${tel}`}>{s.電話番号表示用}</a>
+    </address>
+    <div class="footer__links">
+      <a href={ig.プロフィールURL} target="_blank" rel="noopener">Instagram</a>
+      <a href={s.googleマップURL} target="_blank" rel="noopener">地図</a>
+      <a href="#top">ページ上部へ</a>
+    </div>
+    <p class="footer__copy">© {year} {f.コピーライト}　/　{f.運営}</p>
+  </div>
+</footer>
+
+<style>
+  .footer { background: #0f0c0a; border-top: 1px solid var(--line); padding: clamp(2.4rem, 7vw, 3.4rem) var(--pad) calc(5.2rem + env(safe-area-inset-bottom)); }
+  .footer__inner { text-align: center; }
+  .footer__brand { display: flex; gap: 0.6rem; align-items: baseline; justify-content: center; }
+  .footer__name { font-family: var(--font-serif); font-size: 1.3rem; letter-spacing: 0.1em; }
+  .footer__roman { font-size: 0.62rem; letter-spacing: 0.25em; color: var(--gold); text-transform: uppercase; }
+  .footer__nap { font-style: normal; margin: 1rem 0; color: var(--text-dim); font-size: 0.9rem; line-height: 1.9; }
+  .footer__links { display: flex; gap: 1.4rem; justify-content: center; font-size: 0.86rem; margin-bottom: 1.2rem; }
+  .footer__copy { font-size: 0.74rem; color: var(--text-dim); letter-spacing: 0.06em; margin: 0; }
+  @media (min-width: 760px) {
+    .footer { padding-bottom: clamp(2.4rem, 7vw, 3.4rem); }
+  }
+</style>
