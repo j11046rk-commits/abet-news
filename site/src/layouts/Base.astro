@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
 
 const s = site.店舗情報;
 const seo = site.seo;
@@ -62,8 +63,8 @@ const { title = seo.title, description = seo.description } = Astro.props;
     <meta name="format-detection" content="telephone=no" />
 
     <!-- favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
 
     <!-- OGP -->
     <meta property="og:type" content="restaurant.restaurant" />

@@ -1,6 +1,6 @@
 ---
 import site from '../../data/site.json';
-import { isTBC } from '../lib/text.js';
+import { isTBC, withBase } from '../lib/text.js';
 const m = site.看板メニュー;
 ---
 <section class="section section--alt" id="menu" aria-labelledby="menu-title">
@@ -14,7 +14,7 @@ const m = site.看板メニュー;
       {m.品目.map((item) => (
         <li class="card menu-card">
           <div class="menu-card__media">
-            <img src={item.画像} alt={item.alt} width="600" height="450" loading="lazy" decoding="async" />
+            <img src={withBase(item.画像)} alt={item.alt} width="600" height="450" loading="lazy" decoding="async" />
           </div>
           <div class="menu-card__body">
             <h3 class="menu-card__name">{item.名前}</h3>

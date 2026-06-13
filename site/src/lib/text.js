@@ -8,3 +8,11 @@ export function isTBC(value) {
 export function tbcHint(value) {
   return String(value).replace(/^要確認[:：]?\s*/, '');
 }
+
+// 絶対パス(/images/... など)に Astro の base を付与する。
+// Cloudflare(ルート配信)では base='/' なので素通り。GitHub Pages の
+// サブパス配信(/abet-news/)などでも資産パスが壊れないようにするための保険。
+export function withBase(path) {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+  return typeof path === 'string' && path.startsWith('/') ? base + path : path;
+}

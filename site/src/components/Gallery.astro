@@ -1,5 +1,6 @@
 ---
 import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
 const g = site.ギャラリー;
 ---
 <section class="section" id="gallery" aria-labelledby="gallery-title">
@@ -12,7 +13,7 @@ const g = site.ギャラリー;
     <ul class="gallery">
       {g.画像.map((img) => (
         <li class="gallery__item">
-          <img src={img.画像} alt={img.alt} width="800" height="600" loading="lazy" decoding="async" />
+          <img src={withBase(img.画像)} alt={img.alt} width="800" height="600" loading="lazy" decoding="async" />
         </li>
       ))}
     </ul>
