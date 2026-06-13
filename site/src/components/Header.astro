@@ -1,5 +1,6 @@
 ---
 import site from '../../data/site.json';
+import Icon from './Icon.astro';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 ---
@@ -16,7 +17,7 @@ const tel = s.電話番号.replace(/-/g, '');
       <a href="#reserve">ご予約</a>
     </nav>
     <a class="hdr__tel" href={`tel:${tel}`} aria-label={`電話で予約 ${s.電話番号}`}>
-      <span class="hdr__tel-ico" aria-hidden="true">☎</span>
+      <span class="hdr__tel-ico"><Icon name="phone" size={18} /></span>
       <span class="hdr__tel-num">{s.電話番号表示用}</span>
     </a>
   </div>
@@ -27,7 +28,7 @@ const tel = s.電話番号.replace(/-/g, '');
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(20, 17, 14, 0.82);
+    background: rgba(17, 23, 38, 0.82);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
   }

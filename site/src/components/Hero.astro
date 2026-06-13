@@ -1,5 +1,6 @@
 ---
 import site from '../../data/site.json';
+import Icon from './Icon.astro';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 ---
@@ -12,13 +13,13 @@ const tel = s.電話番号.replace(/-/g, '');
     <p class="hero__sub">{s.サブキャッチ}</p>
     <div class="hero__cta">
       <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
-        <span aria-hidden="true">☎</span>
+        <Icon name="phone" size={20} />
         <span>お電話でご予約</span>
         <span class="btn__phone-num">{s.電話番号表示用}</span>
       </a>
       <a class="btn btn--ghost btn--lg" href="#banquet">宴会・コースを見る</a>
     </div>
-    <p class="hero__note">新居浜駅から車で約5分 ／ 個室あり ／ 年中無休</p>
+    <p class="hero__note">黒ラベル(生) ／ カウンター飲み歓迎 ／ 宴会最大28名 ／ 火曜定休</p>
   </div>
   <a class="hero__scroll" href="#concept" aria-label="下へスクロール"><span></span></a>
 </section>
@@ -38,19 +39,20 @@ const tel = s.電話番号.replace(/-/g, '');
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(120% 90% at 50% 0%, rgba(212,168,87,0.16), transparent 55%),
-      radial-gradient(80% 60% at 80% 100%, rgba(194,96,58,0.14), transparent 60%),
-      linear-gradient(180deg, #14110e 0%, #1b1611 60%, #14110e 100%);
+      radial-gradient(120% 90% at 50% 0%, rgba(210,162,92,0.14), transparent 55%),
+      radial-gradient(90% 70% at 80% 105%, rgba(196,122,61,0.16), transparent 60%),
+      linear-gradient(180deg, #111726 0%, #161d30 55%, #111726 100%);
   }
   .hero__bg::after {
-    /* うっすらした和柄（市松/縦格子）でテクスチャ感 */
+    /* 木目を思わせる縦のうっすらした筋でテクスチャ感 */
     content: "";
     position: absolute;
     inset: 0;
     background-image:
-      repeating-linear-gradient(90deg, rgba(212,168,87,0.05) 0 1px, transparent 1px 38px);
+      repeating-linear-gradient(90deg, rgba(210,162,92,0.05) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(90deg, rgba(196,122,61,0.04) 0 1px, transparent 1px 9px);
     mask-image: radial-gradient(closest-side, #000 0%, transparent 92%);
-    opacity: 0.6;
+    opacity: 0.55;
   }
   .hero__inner { position: relative; max-width: 40rem; }
   .hero__roman {

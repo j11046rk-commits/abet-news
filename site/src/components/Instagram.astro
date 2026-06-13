@@ -1,5 +1,6 @@
 ---
 import site from '../../data/site.json';
+import Icon from './Icon.astro';
 const ig = site.instagram;
 const handle = '@' + ig.ユーザー名;
 // 自動フィードのウィジェット埋め込みコードを使う場合はここに入れる（READMEの「Instagramフィード」参照）。
@@ -22,13 +23,13 @@ const placeholders = Array.from({ length: 6 });
         <div class="ig__fallback">
           <ul class="ig__grid" aria-hidden="true">
             {placeholders.map(() => (
-              <li class="ig__tile"><span class="ig__tile-ico">📷</span></li>
+              <li class="ig__tile"><span class="ig__tile-ico"><Icon name="instagram" size={26} /></span></li>
             ))}
           </ul>
           <div class="ig__cta">
             <p class="ig__note"><span class="tbc">要確認</span> 自動フィードは未設定です（READMEの「Instagramフィード」で有効化）。それまでは下のボタンから最新投稿をご覧いただけます。</p>
             <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
-              <span aria-hidden="true">＋</span> {handle} をフォロー
+              <Icon name="instagram" size={20} /> {handle} をフォロー
             </a>
           </div>
         </div>

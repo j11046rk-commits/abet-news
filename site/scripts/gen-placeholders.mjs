@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDir = join(__dirname, '..', 'public', 'images');
 mkdirSync(outDir, { recursive: true });
 
-const BG = '#1b1611', BG2 = '#251e17', GOLD = '#d4a857', EMBER = '#c2603a', TEXT = '#c4b6a4';
+const BG = '#161d30', BG2 = '#1e2740', GOLD = '#d2a25c', EMBER = '#c47a3d', TEXT = '#a9b4c8';
 
 function placeholderSVG(w, h, label, sub = '写真を差し替え') {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
@@ -32,16 +32,16 @@ function placeholderSVG(w, h, label, sub = '写真を差し替え') {
 
 // オンページ用 SVG（軽量・ブラウザ表示はOK）
 const svgFiles = [
-  ['menu-01.svg', 'おばんざい盛り合わせ'],
-  ['menu-02.svg', '海鮮丼'],
+  ['menu-01.svg', '名物 だし巻き'],
+  ['menu-02.svg', 'おばんざい盛り合わせ'],
   ['menu-03.svg', '本日の刺身'],
-  ['menu-04.svg', '家庭料理'],
-  ['gallery-01.svg', '店内・カウンター'],
-  ['gallery-02.svg', '個室・座敷'],
-  ['gallery-03.svg', 'おばんざいと酒'],
+  ['menu-04.svg', '揚げ物・一品料理'],
+  ['gallery-01.svg', 'カウンター席（55型TV）'],
+  ['gallery-02.svg', '掘りごたつ個室（65型TV）'],
+  ['gallery-03.svg', 'だし巻きと黒ラベル(生)'],
   ['gallery-04.svg', '宴会の様子'],
-  ['gallery-05.svg', '海鮮の盛り合わせ'],
-  ['gallery-06.svg', '店内の照明'],
+  ['gallery-05.svg', 'おばんざいと日本酒'],
+  ['gallery-06.svg', 'にぎやかな店内'],
 ];
 for (const [name, label] of svgFiles) {
   writeFileSync(join(outDir, name), placeholderSVG(800, 600, label));
@@ -51,9 +51,9 @@ for (const [name, label] of svgFiles) {
 const ogpSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
   <rect width="1200" height="630" fill="${BG}"/>
   <rect x="24" y="24" width="1152" height="582" fill="none" stroke="${GOLD}" stroke-opacity="0.4" stroke-width="2" rx="14"/>
-  <text x="600" y="280" fill="#f2ebe0" font-family="serif" font-size="108" text-anchor="middle" letter-spacing="14">しっぽり亭</text>
-  <text x="600" y="350" fill="${GOLD}" font-family="serif" font-size="34" text-anchor="middle" letter-spacing="8">新居浜の夜を、しっぽりと。</text>
-  <text x="600" y="420" fill="${TEXT}" font-family="sans-serif" font-size="24" text-anchor="middle" letter-spacing="3">居酒屋 ・ 個室 ・ 宴会コース ／ 愛媛県新居浜市</text>
+  <text x="600" y="280" fill="#eef1f8" font-family="serif" font-size="108" text-anchor="middle" letter-spacing="14">しっぽり亭</text>
+  <text x="600" y="350" fill="${GOLD}" font-family="serif" font-size="34" text-anchor="middle" letter-spacing="8">ひとりでも、みんなでも。</text>
+  <text x="600" y="420" fill="${TEXT}" font-family="sans-serif" font-size="24" text-anchor="middle" letter-spacing="3">新居浜の大衆居酒屋 ・ カウンター飲み ・ 宴会 ／ 愛媛県新居浜市</text>
 </svg>`;
 await sharp(Buffer.from(ogpSVG)).png().toFile(join(outDir, 'ogp.png'));
 
@@ -61,7 +61,7 @@ await sharp(Buffer.from(ogpSVG)).png().toFile(join(outDir, 'ogp.png'));
 const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
   <rect width="180" height="180" rx="38" fill="${BG}"/>
   <rect x="14" y="14" width="152" height="152" rx="30" fill="none" stroke="${GOLD}" stroke-width="3"/>
-  <text x="90" y="118" fill="${GOLD}" font-family="serif" font-size="96" text-anchor="middle">志</text>
+  <text x="90" y="124" fill="${GOLD}" font-family="serif" font-size="92" text-anchor="middle">し</text>
 </svg>`;
 await sharp(Buffer.from(iconSVG)).png().toFile(join(__dirname, '..', 'public', 'apple-touch-icon.png'));
 

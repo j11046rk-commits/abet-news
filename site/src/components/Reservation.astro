@@ -1,10 +1,13 @@
 ---
 import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
+import Icon from './Icon.astro';
 const r = site.予約問い合わせ;
 const s = site.店舗情報;
+const ig = site.instagram;
 const tel = s.電話番号.replace(/-/g, '');
 const hasLine = r.lineURL && r.lineURL.trim() !== '';
-const hasForm = r.googleフォームURL && r.googleフォームURL.trim() !== '';
+const hasQR = r.lineQR && r.lineQR.trim() !== '';
 ---
 <section class="section" id="reserve" aria-labelledby="reserve-title">
   <div class="container reserve">
@@ -16,26 +19,50 @@ const hasForm = r.googleフォームURL && r.googleフォームURL.trim() !== ''
 
     <div class="reserve__card card">
       <a class="reserve__phone" href={`tel:${tel}`}>
-        <span class="reserve__phone-ico" aria-hidden="true">☎</span>
+        <span class="reserve__phone-ico"><Icon name="phone" size={26} /></span>
         <span class="reserve__phone-num">{s.電話番号表示用}</span>
         <span class="reserve__phone-label">タップで発信・{r.電話受付}</span>
       </a>
 
-      {(hasLine || hasForm) && (
-        <div class="reserve__alt">
-          {hasLine && <a class="btn btn--ghost" href={r.lineURL} target="_blank" rel="noopener">LINEで相談</a>}
-          {hasForm && <a class="btn btn--ghost" href={r.googleフォームURL} target="_blank" rel="noopener">フォームで問い合わせ</a>}
-        </div>
+      <div class="reserve__alt">
+        {hasLine && (
+          <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener">
+            <Icon name="line" size={20} /> 公式LINEで予約
+          </a>
+        )}
+        <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener">
+          <Icon name="instagram" size={20} /> InstagramのDM
+        </a>
+      </div>
+
+      {hasQR && (
+        <figure class="reserve__qr">
+          <img src={withBase(r.lineQR)} alt="しっぽり亭 公式LINE 友だち追加用QRコード" width="160" height="160" loading="lazy" />
+          <figcaption>公式LINEはこちらから</figcaption>
+        </figure>
       )}
+
+      {!hasLine && !hasQR && (
+        <p class="reserve__tbc"><span class="tbc">要確認</span> 公式LINEの友だち追加URL／QRを設定すると、ここにLINE予約ボタンが表示されます。</p>
+      )}
+
+      {r.当日注記 && <p class="reserve__note">{r.当日注記}</p>}
     </div>
   </div>
 </section>
 
 <style>
-  .reserve__card { max-width: 30rem; margin: 0 auto; padding: 2rem 1.6rem; text-align: center; }
+  .reserve__card { max-width: 32rem; margin: 0 auto; padding: 2rem 1.6rem; text-align: center; }
   .reserve__phone { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; color: var(--text); }
-  .reserve__phone-ico { color: var(--gold); font-size: 1.6rem; }
+  .reserve__phone-ico { color: var(--gold); }
   .reserve__phone-num { font-family: var(--font-serif); font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gold-soft); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
   .reserve__phone-label { font-size: 0.82rem; color: var(--text-dim); }
   .reserve__alt { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin-top: 1.6rem; }
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+  .reserve__qr { margin: 1.6rem auto 0; width: fit-content; }
+  .reserve__qr img { border-radius: 10px; background: #fff; padding: 8px; }
+  .reserve__qr figcaption { margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-dim); }
+  .reserve__tbc { margin: 1.4rem 0 0; font-size: 0.84rem; color: var(--text-dim); }
+  .reserve__note { margin: 1.2rem 0 0; font-size: 0.86rem; color: var(--text-dim); }
 </style>

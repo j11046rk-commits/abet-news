@@ -1,20 +1,21 @@
 ---
 import site from '../../data/site.json';
 import { isTBC, tbcHint } from '../lib/text.js';
+import Icon from './Icon.astro';
 const b = site.宴会コース;
 const tel = site.店舗情報.電話番号.replace(/-/g, '');
 const telDisp = site.店舗情報.電話番号表示用;
 
 // 幹事が一目で確認したい項目を並べる
 const facts = [
-  { ico: '🚪', label: '個室・座敷', value: b.個室 },
-  { ico: '👥', label: '最大収容', value: b.最大収容人数 },
-  { ico: '🎉', label: '宴会人数', value: b.宴会最大人数 },
-  { ico: '💴', label: '予算目安', value: b.予算目安 },
-  { ico: '🍶', label: '飲み放題', value: b.コース一覧[0]?.飲み放題 ?? '要確認' },
-  { ico: '🧾', label: '領収書', value: b.領収書対応 },
-  { ico: '📄', label: '請求書', value: b.請求書対応 },
-  { ico: '🔒', label: '貸切', value: b.貸切 },
+  { icon: 'room', label: '個室・座敷', value: b.個室 },
+  { icon: 'seats', label: '総席数', value: b.最大収容人数 },
+  { icon: 'group', label: '宴会人数', value: b.宴会最大人数 },
+  { icon: 'lock', label: '貸切', value: b.貸切 },
+  { icon: 'yen', label: '予算目安', value: b.予算目安 },
+  { icon: 'glass', label: '飲み放題', value: '＋90分2,000円で追加可' },
+  { icon: 'receipt', label: '領収書', value: b.領収書対応 },
+  { icon: 'invoice', label: '請求書', value: b.請求書対応 },
 ];
 ---
 <section class="section" id="banquet" aria-labelledby="banquet-title">
@@ -29,7 +30,7 @@ const facts = [
     <ul class="facts" aria-label="宴会の基本情報">
       {facts.map((f) => (
         <li class="facts__item">
-          <span class="facts__ico" aria-hidden="true">{f.ico}</span>
+          <span class="facts__ico"><Icon name={f.icon} size={20} /></span>
           <span class="facts__label">{f.label}</span>
           <span class="facts__value">
             {isTBC(f.value)
@@ -65,11 +66,11 @@ const facts = [
     <div class="banquet__cta">
       <p class="banquet__cta-lead">{b.予約方法}</p>
       <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
-        <span aria-hidden="true">☎</span>
+        <Icon name="phone" size={20} />
         <span>宴会のご予約・ご相談</span>
         <span class="btn__phone-num">{telDisp}</span>
       </a>
-      <p class="banquet__cta-note">領収書・請求書のご相談もお気軽にどうぞ。</p>
+      <p class="banquet__cta-note">インボイス対応の領収書・請求書のご相談もお気軽にどうぞ。</p>
     </div>
   </div>
 </section>
@@ -95,7 +96,7 @@ const facts = [
     background: var(--bg-3);
     padding: 0.95rem 1.1rem;
   }
-  .facts__ico { font-size: 1.2rem; text-align: center; }
+  .facts__ico { display: flex; align-items: center; justify-content: center; color: var(--gold); }
   .facts__label { color: var(--gold); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; }
   .facts__value { color: var(--text); font-size: 0.95rem; }
   .facts__hint { color: var(--text-dim); font-size: 0.82rem; }

@@ -1,14 +1,15 @@
 ---
 import site from '../../data/site.json';
+import Icon from './Icon.astro';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 ---
 <div class="callbar" role="region" aria-label="クイック予約">
   <a class="callbar__btn callbar__btn--tel" href={`tel:${tel}`}>
-    <span aria-hidden="true">☎</span> 電話で予約 <span class="callbar__num">{s.電話番号表示用}</span>
+    <Icon name="phone" size={18} /> 電話で予約 <span class="callbar__num">{s.電話番号表示用}</span>
   </a>
   <a class="callbar__btn callbar__btn--map" href={s.googleマップURL} target="_blank" rel="noopener" aria-label="地図を開く">
-    <span aria-hidden="true">📍</span>
+    <Icon name="pin" size={20} />
   </a>
 </div>
 
@@ -20,7 +21,7 @@ const tel = s.電話番号.replace(/-/g, '');
     display: flex;
     gap: 0.5rem;
     padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom));
-    background: rgba(15, 12, 10, 0.92);
+    background: rgba(13, 18, 30, 0.93);
     backdrop-filter: blur(8px);
     border-top: 1px solid var(--line);
   }
