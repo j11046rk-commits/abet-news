@@ -6,6 +6,7 @@ name: Preview (GitHub Pages)
 on:
   push:
     branches:
+      - main
       - claude/shipporitei-official-site-umht7v
     paths:
       - 'site/**'
