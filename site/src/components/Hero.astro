@@ -1,16 +1,26 @@
 ---
 import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
 import Icon from './Icon.astro';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
+const hasPhoto = s.ヒーロー画像 && s.ヒーロー画像.trim() !== '';
+const badges = s.ヒーローバッジ || [];
 ---
-<section class="hero" aria-label="しっぽり亭 トップ">
-  <div class="hero__bg" aria-hidden="true"></div>
+<section class={`hero ${hasPhoto ? 'hero--photo' : ''}`} aria-label="しっぽり亭 トップ">
+  {hasPhoto
+    ? <div class="hero__bg hero__bg--photo" style={`background-image:url(${withBase(s.ヒーロー画像)})`} aria-hidden="true"></div>
+    : <div class="hero__bg" aria-hidden="true"></div>}
   <div class="hero__inner">
     <p class="hero__roman">Izakaya {s.店名ローマ字} ・ Niihama</p>
     <h1 class="hero__title">{s.店名}</h1>
     <p class="hero__catch">{s.キャッチコピー}</p>
     <p class="hero__sub">{s.サブキャッチ}</p>
+    {badges.length > 0 && (
+      <ul class="hero__badges" aria-label="お店のポイント">
+        {badges.map((b) => <li class="hero__badge">{b}</li>)}
+      </ul>
+    )}
     <div class="hero__cta">
       <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
         <Icon name="phone" size={20} />
@@ -19,7 +29,6 @@ const tel = s.電話番号.replace(/-/g, '');
       </a>
       <a class="btn btn--ghost btn--lg" href="#banquet">宴会・コースを見る</a>
     </div>
-    <p class="hero__note">黒ラベル(生) ／ カウンター飲み歓迎 ／ 宴会最大28名 ／ 火曜定休</p>
   </div>
   <a class="hero__scroll" href="#concept" aria-label="下へスクロール"><span></span></a>
 </section>
@@ -76,9 +85,28 @@ const tel = s.電話番号.replace(/-/g, '');
     margin: 1.2rem 0 0.4rem;
     letter-spacing: 0.1em;
   }
-  .hero__sub { color: var(--text-dim); font-size: 0.95rem; margin: 0 0 2rem; }
+  .hero__sub { color: var(--text-dim); font-size: 0.95rem; margin: 0 0 1.4rem; }
+  .hero__badges {
+    list-style: none; margin: 0 0 2rem; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;
+  }
+  .hero__badge {
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.02em;
+    color: var(--gold-soft);
+    background: rgba(210,162,92,0.12);
+    border: 1px solid rgba(210,162,92,0.4);
+    border-radius: 999px;
+    padding: 0.35em 0.9em;
+  }
   .hero__cta { display: flex; flex-direction: column; gap: 0.8rem; align-items: stretch; }
-  .hero__note { margin-top: 1.6rem; font-size: 0.8rem; color: var(--text-dim); letter-spacing: 0.08em; }
+  /* 写真ヒーロー用：暗い被せで文字を読みやすく */
+  .hero__bg--photo {
+    background-size: cover; background-position: center;
+  }
+  .hero--photo .hero__bg--photo::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(17,23,38,0.72), rgba(17,23,38,0.86));
+  }
   .hero__scroll {
     position: absolute;
     bottom: 1.4rem; left: 50%;
