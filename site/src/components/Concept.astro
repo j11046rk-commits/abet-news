@@ -2,9 +2,8 @@
 import site from '../../data/site.json';
 const c = site.コンセプト;
 ---
-<section class="section section--alt" id="concept" aria-labelledby="concept-title">
+<section class="section" id="concept" aria-labelledby="concept-title">
   <div class="container concept">
-    <p class="kanji-mark concept__seal" aria-hidden="true">志</p>
     <h2 class="section__title concept__title" id="concept-title">{c.見出し}</h2>
     <div class="concept__body">
       {c.本文.map((p) => <p>{p}</p>)}

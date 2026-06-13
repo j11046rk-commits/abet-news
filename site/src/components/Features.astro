@@ -1,0 +1,61 @@
+---
+import site from '../../data/site.json';
+import Icon from './Icon.astro';
+const f = site.特長;
+---
+<section class="section section--alt" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__kicker">Our Style</p>
+      <h2 class="section__title" id="features-title">{f.見出し}</h2>
+      <p class="section__lead">{f.リード}</p>
+    </div>
+
+    <ul class="feat">
+      {f.items.map((item) => (
+        <li class="card feat__item">
+          <span class="feat__ico"><Icon name={item.アイコン} size={26} /></span>
+          <h3 class="feat__title">{item.見出し}</h3>
+          <p class="feat__text">{item.本文}</p>
+        </li>
+      ))}
+    </ul>
+
+    {f.ドリンク && f.ドリンク.length > 0 && (
+      <div class="drinks">
+        <span class="drinks__label"><Icon name="glass" size={18} /> ドリンク</span>
+        <ul class="drinks__list">
+          {f.ドリンク.map((d) => <li>{d}</li>)}
+        </ul>
+      </div>
+    )}
+  </div>
+</section>
+
+<style>
+  .feat { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; }
+  .feat__item { padding: 1.5rem 1.4rem; }
+  .feat__ico {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.8rem; height: 2.8rem; border-radius: 50%;
+    color: var(--gold);
+    background: rgba(210,162,92,0.12);
+    border: 1px solid var(--line);
+    margin-bottom: 0.9rem;
+  }
+  .feat__title { margin: 0 0 0.4rem; font-size: 1.1rem; color: var(--text); }
+  .feat__text { margin: 0; font-size: 0.9rem; color: var(--text-dim); line-height: 1.8; }
+
+  .drinks {
+    margin-top: 1.6rem;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+  }
+  .drinks__label { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--gold); font-weight: 700; font-size: 0.9rem; }
+  .drinks__list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .drinks__list li { font-size: 0.85rem; color: var(--text); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 0.25em 0.8em; }
+
+  @media (min-width: 620px) { .feat { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .feat { grid-template-columns: 1fr 1fr 1fr; } }
+</style>
