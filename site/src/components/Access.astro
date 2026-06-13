@@ -1,0 +1,86 @@
+---
+import site from '../../data/site.json';
+import { isTBC, tbcHint } from '../lib/text.js';
+const s = site.店舗情報;
+const a = site.アクセス;
+const h = site.営業時間;
+const tel = s.電話番号.replace(/-/g, '');
+---
+<section class="section section--alt" id="access" aria-labelledby="access-title">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__kicker">Access & Hours</p>
+      <h2 class="section__title" id="access-title">アクセス・営業時間</h2>
+    </div>
+
+    <div class="access">
+      <div class="access__map">
+        <iframe
+          title="しっぽり亭の地図"
+          src={s.googleマップ埋め込みURL}
+          width="100%" height="100%"
+          style="border:0;"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen></iframe>
+      </div>
+
+      <div class="access__info">
+        <dl class="info-list">
+          <div class="info-row">
+            <dt>住所</dt>
+            <dd>
+              〒{s.郵便番号}<br />{s.住所}
+              <a class="info-link" href={s.googleマップURL} target="_blank" rel="noopener">Googleマップで開く →</a>
+            </dd>
+          </div>
+          <div class="info-row">
+            <dt>電話</dt>
+            <dd><a href={`tel:${tel}`} class="info-tel">{s.電話番号表示用}</a></dd>
+          </div>
+          <div class="info-row">
+            <dt>アクセス</dt>
+            <dd>{a.最寄り}<br />{a.バス}</dd>
+          </div>
+          <div class="info-row">
+            <dt>駐車場</dt>
+            <dd>{isTBC(a.駐車場) ? <><span class="tbc">要確認</span> <span class="info-hint">{tbcHint(a.駐車場)}</span></> : a.駐車場}</dd>
+          </div>
+          <div class="info-row">
+            <dt>営業時間</dt>
+            <dd>
+              {h.表示.map((row) => <div><span class="info-day">{row.曜日}</span>{row.時間}</div>)}
+            </dd>
+          </div>
+          <div class="info-row">
+            <dt>定休日</dt>
+            <dd>{h.定休日}</dd>
+          </div>
+          {h.備考 && (
+            <div class="info-row">
+              <dt>備考</dt>
+              <dd>{isTBC(h.備考) ? <><span class="tbc">要確認</span> {tbcHint(h.備考)}</> : h.備考}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .access { display: grid; grid-template-columns: 1fr; gap: 1.4rem; }
+  .access__map { aspect-ratio: 4 / 3; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+  .access__map iframe { display: block; }
+  .info-list { margin: 0; }
+  .info-row { display: grid; grid-template-columns: 5rem 1fr; gap: 0.8rem; padding: 0.9rem 0; border-bottom: 1px solid var(--line); }
+  .info-row dt { color: var(--gold); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; margin: 0; }
+  .info-row dd { margin: 0; font-size: 0.94rem; color: var(--text); }
+  .info-link { display: inline-block; margin-top: 0.4rem; font-size: 0.85rem; }
+  .info-tel { font-size: 1.25rem; font-family: var(--font-serif); font-variant-numeric: tabular-nums; }
+  .info-day { display: inline-block; min-width: 4.2rem; color: var(--text-dim); }
+  .info-hint { color: var(--text-dim); font-size: 0.84rem; }
+  @media (min-width: 820px) {
+    .access { grid-template-columns: 1.1fr 1fr; gap: 2rem; align-items: start; }
+  }
+</style>

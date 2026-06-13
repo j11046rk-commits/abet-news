@@ -1,0 +1,138 @@
+---
+import site from '../../data/site.json';
+import { isTBC, tbcHint } from '../lib/text.js';
+const b = site.宴会コース;
+const tel = site.店舗情報.電話番号.replace(/-/g, '');
+const telDisp = site.店舗情報.電話番号表示用;
+
+// 幹事が一目で確認したい項目を並べる
+const facts = [
+  { ico: '🚪', label: '個室・座敷', value: b.個室 },
+  { ico: '👥', label: '最大収容', value: b.最大収容人数 },
+  { ico: '🎉', label: '宴会人数', value: b.宴会最大人数 },
+  { ico: '💴', label: '予算目安', value: b.予算目安 },
+  { ico: '🍶', label: '飲み放題', value: b.コース一覧[0]?.飲み放題 ?? '要確認' },
+  { ico: '🧾', label: '領収書', value: b.領収書対応 },
+  { ico: '📄', label: '請求書', value: b.請求書対応 },
+  { ico: '🔒', label: '貸切', value: b.貸切 },
+];
+---
+<section class="section" id="banquet" aria-labelledby="banquet-title">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__kicker">Banquet & Course</p>
+      <h2 class="section__title" id="banquet-title">{b.見出し}</h2>
+      <p class="section__lead">{b.リード}</p>
+    </div>
+
+    <!-- 幹事チェック表 -->
+    <ul class="facts" aria-label="宴会の基本情報">
+      {facts.map((f) => (
+        <li class="facts__item">
+          <span class="facts__ico" aria-hidden="true">{f.ico}</span>
+          <span class="facts__label">{f.label}</span>
+          <span class="facts__value">
+            {isTBC(f.value)
+              ? <><span class="tbc">要確認</span> <span class="facts__hint">{tbcHint(f.value)}</span></>
+              : f.value}
+          </span>
+        </li>
+      ))}
+    </ul>
+
+    <!-- コースカード -->
+    <div class="courses">
+      {b.コース一覧.map((course) => (
+        <article class="card course">
+          <h3 class="course__name">
+            {isTBC(course.名称) ? <><span class="tbc">要確認</span> {tbcHint(course.名称)}</> : course.名称}
+          </h3>
+          <p class="course__price">
+            {isTBC(course.価格) ? <span class="tbc">要確認</span> : course.価格}
+          </p>
+          <dl class="course__spec">
+            <div><dt>飲み放題</dt><dd>{isTBC(course.飲み放題) ? <span class="tbc">要確認</span> : course.飲み放題}</dd></div>
+            <div><dt>品数</dt><dd>{isTBC(course.品数) ? <span class="tbc">要確認</span> : course.品数}</dd></div>
+          </dl>
+          <p class="course__detail">
+            {isTBC(course.内容) ? tbcHint(course.内容) : course.内容}
+          </p>
+        </article>
+      ))}
+    </div>
+
+    <!-- 強調CTA -->
+    <div class="banquet__cta">
+      <p class="banquet__cta-lead">{b.予約方法}</p>
+      <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+        <span aria-hidden="true">☎</span>
+        <span>宴会のご予約・ご相談</span>
+        <span class="btn__phone-num">{telDisp}</span>
+      </a>
+      <p class="banquet__cta-note">領収書・請求書のご相談もお気軽にどうぞ。</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .facts {
+    list-style: none;
+    margin: 0 0 clamp(2rem, 6vw, 3rem);
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .facts__item {
+    display: grid;
+    grid-template-columns: 2.2rem 5.5rem 1fr;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--bg-3);
+    padding: 0.95rem 1.1rem;
+  }
+  .facts__ico { font-size: 1.2rem; text-align: center; }
+  .facts__label { color: var(--gold); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; }
+  .facts__value { color: var(--text); font-size: 0.95rem; }
+  .facts__hint { color: var(--text-dim); font-size: 0.82rem; }
+
+  .courses {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+    margin-bottom: clamp(2rem, 6vw, 3rem);
+  }
+  .course { padding: 1.6rem 1.4rem; position: relative; }
+  .course::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: linear-gradient(var(--gold), var(--ember));
+  }
+  .course__name { margin: 0; font-size: 1.2rem; color: var(--text); }
+  .course__price { margin: 0.4rem 0 1rem; font-size: 1.4rem; color: var(--gold-soft); font-family: var(--font-serif); }
+  .course__spec { display: flex; gap: 1.6rem; margin: 0 0 1rem; padding: 0.8rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .course__spec dt { font-size: 0.72rem; color: var(--text-dim); margin: 0; }
+  .course__spec dd { margin: 0.2rem 0 0; font-size: 0.95rem; color: var(--text); }
+  .course__detail { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
+
+  .banquet__cta {
+    text-align: center;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(1.8rem, 6vw, 2.6rem);
+  }
+  .banquet__cta-lead { font-family: var(--font-serif); font-size: 1.15rem; color: var(--text); margin: 0 0 1.2rem; }
+  .banquet__cta-note { margin: 1rem 0 0; font-size: 0.84rem; color: var(--text-dim); }
+
+  @media (min-width: 620px) {
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+  @media (min-width: 820px) {
+    .facts { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .courses { grid-template-columns: 1fr 1fr; }
+  }
+</style>

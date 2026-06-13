@@ -1,0 +1,48 @@
+---
+import site from '../../data/site.json';
+const s = site.店舗情報;
+const tel = s.電話番号.replace(/-/g, '');
+---
+<div class="callbar" role="region" aria-label="クイック予約">
+  <a class="callbar__btn callbar__btn--tel" href={`tel:${tel}`}>
+    <span aria-hidden="true">☎</span> 電話で予約 <span class="callbar__num">{s.電話番号表示用}</span>
+  </a>
+  <a class="callbar__btn callbar__btn--map" href={s.googleマップURL} target="_blank" rel="noopener" aria-label="地図を開く">
+    <span aria-hidden="true">📍</span>
+  </a>
+</div>
+
+<style>
+  .callbar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 60;
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom));
+    background: rgba(15, 12, 10, 0.92);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+  }
+  .callbar__btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+    border-radius: 999px;
+    font-weight: 700;
+    padding: 0.85em 1em;
+  }
+  .callbar__btn--tel {
+    flex: 1;
+    background: linear-gradient(135deg, var(--gold), var(--ember));
+    color: #1a130b;
+    font-size: 0.98rem;
+  }
+  .callbar__num { font-variant-numeric: tabular-nums; }
+  .callbar__btn--map {
+    width: 3rem;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    color: var(--gold-soft);
+    font-size: 1.1rem;
+  }
+  @media (min-width: 760px) { .callbar { display: none; } }
+</style>
