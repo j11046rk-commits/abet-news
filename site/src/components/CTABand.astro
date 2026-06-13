@@ -1,0 +1,50 @@
+---
+// くり返し配置する予約CTA帯（日本のLPの定番）。
+import site from '../../data/site.json';
+import Icon from './Icon.astro';
+const c = site.CTA帯;
+const s = site.店舗情報;
+const r = site.予約問い合わせ;
+const ig = site.instagram;
+const tel = s.電話番号.replace(/-/g, '');
+const hasLine = r.lineURL && r.lineURL.trim() !== '';
+---
+<section class="ctaband" aria-label="ご予約・お問い合わせ">
+  <div class="container ctaband__inner">
+    <div class="ctaband__copy">
+      <p class="ctaband__title">{c.見出し}</p>
+      <p class="ctaband__text">{c.本文}</p>
+    </div>
+    <div class="ctaband__btns">
+      <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+        <Icon name="phone" size={20} />
+        <span>電話で予約</span>
+        <span class="btn__phone-num">{s.電話番号表示用}</span>
+      </a>
+      {hasLine
+        ? <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener"><Icon name="line" size={20} /> 公式LINE</a>
+        : <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener"><Icon name="instagram" size={20} /> InstagramのDM</a>}
+    </div>
+  </div>
+</section>
+
+<style>
+  .ctaband {
+    background:
+      radial-gradient(120% 140% at 50% 0%, rgba(210,162,92,0.16), transparent 60%),
+      linear-gradient(180deg, #1a2236, #161d30);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: clamp(2rem, 6vw, 3rem) var(--pad);
+  }
+  .ctaband__inner { display: flex; flex-direction: column; gap: 1.3rem; align-items: center; text-align: center; }
+  .ctaband__title { font-family: var(--font-serif); font-size: clamp(1.2rem, 5vw, 1.6rem); color: var(--text); margin: 0; letter-spacing: 0.04em; }
+  .ctaband__text { margin: 0.4rem 0 0; font-size: 0.9rem; color: var(--text-dim); }
+  .ctaband__btns { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; }
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+  @media (min-width: 820px) {
+    .ctaband__inner { flex-direction: row; justify-content: space-between; text-align: left; }
+    .ctaband__btns { flex-wrap: nowrap; }
+  }
+</style>

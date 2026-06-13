@@ -1,0 +1,39 @@
+---
+import site from '../../data/site.json';
+import Icon from './Icon.astro';
+const sc = site.利用シーン;
+---
+<section class="section section--alt" id="scenes" aria-labelledby="scenes-title">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__kicker">Scene</p>
+      <h2 class="section__title" id="scenes-title">{sc.見出し}</h2>
+      <p class="section__lead">{sc.リード}</p>
+    </div>
+    <ul class="scenes">
+      {sc.items.map((item) => (
+        <li class="scenes__item">
+          <span class="scenes__ico"><Icon name={item.アイコン} size={24} /></span>
+          <span class="scenes__text">{item.テキスト}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .scenes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 0.7rem; }
+  .scenes__item {
+    display: flex; align-items: center; gap: 0.9rem;
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 0.95rem 1.1rem;
+  }
+  .scenes__ico {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 2.4rem; height: 2.4rem; border-radius: 50%;
+    color: var(--gold); background: rgba(210,162,92,0.12); border: 1px solid var(--line);
+  }
+  .scenes__text { font-size: 0.95rem; color: var(--text); }
+  @media (min-width: 620px) { .scenes { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .scenes { grid-template-columns: 1fr 1fr 1fr; } }
+</style>

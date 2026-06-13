@@ -3,7 +3,7 @@ import site from '../../data/site.json';
 import Icon from './Icon.astro';
 const f = site.特長;
 ---
-<section class="section section--alt" id="features" aria-labelledby="features-title">
+<section class="section" id="features" aria-labelledby="features-title">
   <div class="container">
     <div class="section__head">
       <p class="section__kicker">Our Style</p>
@@ -12,8 +12,9 @@ const f = site.特長;
     </div>
 
     <ul class="feat">
-      {f.items.map((item) => (
+      {f.items.map((item, i) => (
         <li class="card feat__item">
+          <span class="feat__num">POINT {String(i + 1).padStart(2, '0')}</span>
           <span class="feat__ico"><Icon name={item.アイコン} size={26} /></span>
           <h3 class="feat__title">{item.見出し}</h3>
           <p class="feat__text">{item.本文}</p>
@@ -34,7 +35,12 @@ const f = site.特長;
 
 <style>
   .feat { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 1rem; }
-  .feat__item { padding: 1.5rem 1.4rem; }
+  .feat__item { padding: 1.5rem 1.4rem; position: relative; }
+  .feat__num {
+    position: absolute; top: 0.9rem; right: 1rem;
+    font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em;
+    color: var(--gold); opacity: 0.7;
+  }
   .feat__ico {
     display: inline-flex; align-items: center; justify-content: center;
     width: 2.8rem; height: 2.8rem; border-radius: 50%;
