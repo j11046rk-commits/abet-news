@@ -27,6 +27,16 @@
   - 予約導線：**公式LINE・Instagram DM・電話**（当日は電話）。
 - **未取得で要対応**：公式LINEの友だち追加URL or QR画像（`予約問い合わせ.lineURL` / `lineQR`。QRは public/images/line-qr.png 等に置く）。
 
+## 写真・デザイン確定（2026-06-16・このセッションで実施）
+- **実店舗写真を組み込み済み**（元素材＝OneDrive「■合同会社しっぽり/写真素材」。長辺2000px・JPEG圧縮して `public/images/` に格納）。
+  - **ヒーロー（ファーストビュー）＝カウンター席の横長写真で確定**（`/images/hero.jpg`＝IMG_8577）。サッポロ黒ラベルのポスター・55型TV・木目カウンターが写りUSPが一目で伝わる構図。
+  - **個室は「掘りごたつ個室」で確定**（site.jsonの表記そのままでOK／`/images/gallery-private-room.jpg`）。
+  - ギャラリー6枚＝外観(夜のれん)／カウンター／テーブル席／掘りごたつ個室／宴会オードブル／二次会セット。altは実態に更新済み。
+  - 看板メニュー4品＝名物だし巻き／冷奴 桜エビのせ／かに味噌の甲羅盛り／本日の刺身（すべて実写真）。**価格は要確認のまま**（店主が確定）。
+  - 旧プレースホルダSVG（gallery-0*.svg／menu-0*.svg）は削除済み。
+- **ヒーローのデザイン調整**：写真の上に濃紺(濃いめ)のオーバーレイ＋ビネットを重ね、白タイトル/金キャッチの可読性を確保。focal point は `background-position: center 42%`、スマホは `58% 42%`＋さらに濃いめの被せ（`Hero.astro` の `@media (max-width:559px)`）。スマホ縦長でも崩れないことを `npm run dev` で目視確認済み。
+- **まだ要確認（店主のみ確定可・勝手に埋めない）**：宴会コースの品数・内容、看板メニュー各品の価格。公式LINEの友だち追加URL/QR。OGP画像（現状はプレースホルダ `ogp.png`、実写真＋店名の1200×630に差し替え推奨）。
+
 ## 公開状況（2026-06-13）
 - 確認用プレビューを **GitHub Pages** で公開中：https://j11046rk-commits.github.io/abet-news/ （`.github/workflows/pages-preview.yml`、main push で自動デプロイ。base=/abet-news はワークフローのenvで付与、本番Cloudflareはルート配信なので無関係）。
 - 本番は未接続：**Cloudflare Pages ＋ 独自ドメイン shipporitei.co.jp**（READMEのDNS手順）。
@@ -59,11 +69,14 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - 画像alt、h1→h2階層、lazy-load、`theme-color`
 
 ## TODO（本人作業／次セッション候補）
-- [ ] `data/site.json` の「要確認」を全部埋める（特に**宴会セクション＝稟議材料**）
-- [ ] 写真差し替え（特に**個室・席**の写真。OGPも実写真に）
+- [ ] `data/site.json` の「要確認」を残り全部埋める＝**宴会コースの品数・内容**と**看板メニュー各品の価格**（店主のみ確定可）
+- [x] 写真差し替え（個室・席・看板メニュー＝2026-06-16実写真組み込み完了。詳細は「写真・デザイン確定」節）
+- [ ] **OGP画像を実写真に**（現状プレースホルダ `public/images/ogp.png`。店の写真＋店名で1200×630推奨）
+- [ ] 公式LINEの友だち追加URL/QRを取得して `予約問い合わせ.lineURL` / `lineQR` に設定（未取得なら空のまま＝LINEボタン非表示）
 - [ ] 緯度経度・Googleマップ埋め込みURLを実店舗ピンに（`店舗情報`）
 - [ ] Instagram自動フィードのウィジェット設定（`src/components/Instagram.astro` の `embedHtml`）
-- [ ] Cloudflare Pages 接続（Root directory=`site`）＋ 独自ドメイン shipporitei.co.jp 接続（READMEのDNS手順）
+- [ ] 独自ドメイン：**今はやらない**方針。やる時は `docs/独自ドメイン-引き継ぎ.md`（お名前.com／`.com`／第一候補 `shippori-tei.com`／ホスティングは今のGitHub Pages継続）に従う
+- [ ] Cloudflare Pages 接続（Root directory=`site`）＋ 独自ドメイン接続（※上記方針では当面保留）
 - [ ] Googleビジネスプロフィールと NAP を一字一句そろえる
 - [ ] 公開後：Search Console 登録・sitemap送信、PageSpeed/Lighthouse 実測
 

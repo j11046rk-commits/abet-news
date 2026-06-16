@@ -99,13 +99,29 @@ const badges = s.ヒーローバッジ || [];
     padding: 0.35em 0.9em;
   }
   .hero__cta { display: flex; flex-direction: column; gap: 0.8rem; align-items: stretch; }
-  /* 写真ヒーロー用：暗い被せで文字を読みやすく */
+  /* 写真ヒーロー用：暗い被せで文字を読みやすく。
+     focal pointはカウンター中央〜やや上（縦位置42%）。
+     上下を濃く・中央をやや明るくして写真の質感を残しつつ可読性を確保。 */
   .hero__bg--photo {
-    background-size: cover; background-position: center;
+    background-size: cover;
+    background-position: center 42%;
   }
   .hero--photo .hero__bg--photo::after {
     content: ""; position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(17,23,38,0.72), rgba(17,23,38,0.86));
+    background:
+      linear-gradient(180deg, rgba(13,18,30,0.78) 0%, rgba(13,18,30,0.66) 44%, rgba(13,18,30,0.9) 100%),
+      radial-gradient(140% 92% at 50% 44%, transparent 26%, rgba(13,18,30,0.55) 100%);
+  }
+  /* スマホ縦長でも崩れないよう、被写体を中央に寄せ、
+     文字が乗る中央部を濃いめに被せて可読性を確保する */
+  @media (max-width: 559px) {
+    .hero { min-height: 92vh; }
+    .hero__bg--photo { background-position: 58% 42%; }
+    .hero--photo .hero__bg--photo::after {
+      background:
+        linear-gradient(180deg, rgba(13,18,30,0.82) 0%, rgba(13,18,30,0.76) 46%, rgba(13,18,30,0.93) 100%),
+        radial-gradient(150% 78% at 50% 42%, transparent 16%, rgba(13,18,30,0.6) 100%);
+    }
   }
   .hero__scroll {
     position: absolute;
