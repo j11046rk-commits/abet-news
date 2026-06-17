@@ -3,9 +3,13 @@ import site from '../../data/site.json';
 import Icon from './Icon.astro';
 const ig = site.instagram;
 const handle = '@' + ig.ユーザー名;
-// 自動フィードのウィジェット埋め込みコードを使う場合はここに入れる（READMEの「Instagramフィード」参照）。
-// 例: <script src="https://snapwidget.com/..."></script> 等。空のままだとプロフィール誘導表示になる。
-const embedHtml = '';
+// 表示する投稿は site.json の instagram.投稿URL に並べる（公式埋め込み・無料・Metaデベロッパー不要）。
+// クエリ文字列（?igsh=... 等）は除いた https://www.instagram.com/p/XXXX/ の形に正規化して使う。
+const posts = (ig.投稿URL || [])
+  .map((u) => (u || '').split('?')[0].replace(/\/?$/, '/'))
+  .filter((u) => /instagram\.com\/(p|reel|tv)\//.test(u));
+// フォールバック：投稿URLが空のときだけ、ウィジェット業者の埋め込みコードを使う。
+const embedHtml = posts.length === 0 ? (ig.埋め込みHTML || '') : '';
 const placeholders = Array.from({ length: 6 });
 ---
 <section class="section section--alt" id="instagram" aria-labelledby="ig-title">
@@ -17,28 +21,62 @@ const placeholders = Array.from({ length: 6 });
       <a class="ig__handle" href={ig.プロフィールURL} target="_blank" rel="noopener">{handle}</a>
     </div>
 
-    {embedHtml
-      ? <div class="ig__embed" set:html={embedHtml} />
-      : (
-        <div class="ig__fallback">
-          <ul class="ig__grid" aria-hidden="true">
-            {placeholders.map(() => (
-              <li class="ig__tile"><span class="ig__tile-ico"><Icon name="instagram" size={26} /></span></li>
-            ))}
-          </ul>
-          <div class="ig__cta">
-            <p class="ig__note"><span class="tbc">要確認</span> 自動フィードは未設定です（READMEの「Instagramフィード」で有効化）。それまでは下のボタンから最新投稿をご覧いただけます。</p>
-            <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
-              <Icon name="instagram" size={20} /> {handle} をフォロー
-            </a>
-          </div>
+    {posts.length > 0 ? (
+      <div class="ig__posts-wrap">
+        <ul class="ig__posts" role="list">
+          {posts.map((url) => (
+            <li class="ig__post">
+              <blockquote
+                class="instagram-media"
+                data-instgrm-permalink={url}
+                data-instgrm-version="14"
+              >
+                <a href={url} target="_blank" rel="noopener">{url}</a>
+              </blockquote>
+            </li>
+          ))}
+        </ul>
+        <div class="ig__cta">
+          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
+            <Icon name="instagram" size={20} /> {handle} をフォロー
+          </a>
         </div>
-      )}
+        <script is:inline async src="//www.instagram.com/embed.js"></script>
+      </div>
+    ) : embedHtml ? (
+      <div class="ig__embed" set:html={embedHtml} />
+    ) : (
+      <div class="ig__fallback">
+        <ul class="ig__grid" aria-hidden="true">
+          {placeholders.map(() => (
+            <li class="ig__tile"><span class="ig__tile-ico"><Icon name="instagram" size={26} /></span></li>
+          ))}
+        </ul>
+        <div class="ig__cta">
+          <p class="ig__note"><span class="tbc">要確認</span> 自動フィードは未設定です（READMEの「Instagramフィード」で有効化）。それまでは下のボタンから最新投稿をご覧いただけます。</p>
+          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
+            <Icon name="instagram" size={20} /> {handle} をフォロー
+          </a>
+        </div>
+      </div>
+    )}
   </div>
 </section>
 
 <style>
   .ig__handle { display: inline-block; margin-top: 0.8rem; font-weight: 700; letter-spacing: 0.06em; }
+  /* 公式埋め込み（投稿）の並び。Instagramのembed.jsが各blockquoteを326〜540px幅に整形する */
+  .ig__posts {
+    list-style: none; margin: 0 0 1.6rem; padding: 0;
+    display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;
+    align-items: flex-start;
+  }
+  .ig__post { flex: 0 1 330px; min-width: 0; max-width: 360px; width: 100%; }
+  .ig__post .instagram-media {
+    min-width: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
   .ig__grid { list-style: none; margin: 0 0 1.6rem; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
   .ig__tile { aspect-ratio: 1; background: linear-gradient(135deg, var(--bg-3), var(--bg-2)); border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; }
   .ig__tile-ico { font-size: 1.6rem; opacity: 0.35; }
