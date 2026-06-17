@@ -52,6 +52,25 @@ a:hover { color: var(--gold); }
 
 h1, h2, h3 { font-family: var(--font-serif); font-weight: 600; line-height: 1.4; letter-spacing: 0.04em; }
 
+/* 日本語の改行をできるだけ自然に（特にスマホ）。
+   - balance: 見出し/キャッチの各行の長さをそろえ、末尾の極端に短い行を防ぐ
+   - pretty: 本文の行末の孤立文字（泣き別れ）を回避
+   - auto-phrase: 文節（フレーズ）単位で折り返す（対応ブラウザのみ／未対応は通常折り返し）
+   - line-break: strict: 句読点などの禁則処理を厳格に */
+h1, h2, h3,
+.hero__catch, .hero__sub {
+  text-wrap: balance;
+}
+:where(h1, h2, h3, p, li, dd,
+  .hero__catch, .hero__sub, .section__lead,
+  .facts__value, .course__detail, .course__price-note) {
+  line-break: strict;
+  word-break: auto-phrase;
+}
+:where(p, .section__lead, .course__detail, .course__price-note) {
+  text-wrap: pretty;
+}
+
 /* セクション共通 */
 .section { padding: clamp(3rem, 9vw, 5.5rem) var(--pad); }
 .section--alt { background: var(--bg-2); }
