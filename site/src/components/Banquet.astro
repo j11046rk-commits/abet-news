@@ -51,6 +51,7 @@ const facts = [
           <p class="course__price">
             {isTBC(course.価格) ? <span class="tbc">要確認</span> : course.価格}
           </p>
+          {course.価格補足 && <p class="course__price-note">{course.価格補足}</p>}
           <dl class="course__spec">
             <div><dt>飲み放題</dt><dd>{isTBC(course.飲み放題) ? <span class="tbc">要確認</span> : course.飲み放題}</dd></div>
             <div><dt>品数</dt><dd>{isTBC(course.品数) ? <span class="tbc">要確認</span> : course.品数}</dd></div>
@@ -113,7 +114,8 @@ const facts = [
     background: linear-gradient(var(--gold), var(--ember));
   }
   .course__name { margin: 0; font-size: 1.2rem; color: var(--text); }
-  .course__price { margin: 0.4rem 0 1rem; font-size: 1.4rem; color: var(--gold-soft); font-family: var(--font-serif); }
+  .course__price { margin: 0.4rem 0 0.5rem; font-size: 1.4rem; color: var(--gold-soft); font-family: var(--font-serif); }
+  .course__price-note { margin: 0 0 1rem; font-size: 0.82rem; line-height: 1.7; color: var(--text-dim); }
   .course__spec { display: flex; gap: 1.6rem; margin: 0 0 1rem; padding: 0.8rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .course__spec dt { font-size: 0.72rem; color: var(--text-dim); margin: 0; }
   .course__spec dd { margin: 0.2rem 0 0; font-size: 0.95rem; color: var(--text); }
