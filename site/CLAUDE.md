@@ -119,7 +119,8 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 
 ## アクセス解析（GA4）と週次レポート連携（2026-06-25）
 - HPにGA4タグを設置済み（`Base.astro`、`site.json` の `解析.gaMeasurementId` が設定されている時だけ `gtag.js` を出力。空なら計測オフ）。
-- **店主の作業**：GA4でプロパティ作成 →「ウェブ」データストリーム（URL=https://shipporitei.jp）→ 発行される**測定ID（G-XXXXXXXXXX）を `site.json` の `解析.gaMeasurementId` に貼る**だけで計測開始。
+- **計測=有効化済み(2026-06-25)**：GA4プロパティ **「しっぽり亭」**（既存のGAアカウント『Google 広告アカウント』配下に新規作成。タイムゾーン日本・通貨JPY・拡張計測ON）＋ウェブストリーム「しっぽり亭サイト」(https://shipporitei.jp) を作成。**測定ID `G-EYK1K6LV85`** を `解析.gaMeasurementId` に設定済み。ライブで `page_view` 送信を確認（作成直後はGoogle側の収集準備で /g/collect が一時503になることがあるが設定は正常、まもなく収集開始）。
+- 週次レポート(Part 2/別repo)用の**数値プロパティID**はGA4管理→プロパティ設定で確認（サービスアカウント鍵とあわせて `shippori-report/GA4-SETUP.md` の手順で設定）。
 - **週次レポート連携**：HPのインサイト（訪問数・流入元・人気ページ等）は、別リポジトリ **`~/Abet/products/shippori-report`**（しっぽり亭の週次売上レポート→LINE）に取り込む実装を追加済み。GA4 Data APIを使用。詳細・必要な認証（GA4プロパティID／GCPサービスアカウント鍵）はそちらのREADME/コード参照。
 
 ## TODO（本人作業／次セッション候補）
