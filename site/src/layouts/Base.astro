@@ -99,6 +99,9 @@ const gaId = (site.解析?.gaMeasurementId || '').trim().replace(/[^A-Za-z0-9-]/
     )}
   </head>
   <body>
+    <!-- ページ最上部アンカー。sticky なヘッダーに #top を付けると「常に表示中」と判定され
+         スクロールしないため、非sticky の先頭センチネルを置く。 -->
+    <span id="top" aria-hidden="true"></span>
     <slot />
   </body>
 </html>
