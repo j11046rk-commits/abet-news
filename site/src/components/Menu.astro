@@ -14,7 +14,7 @@ const m = site.看板メニュー;
       {m.品目.map((item) => (
         <li class="card menu-card">
           <div class="menu-card__media">
-            <img src={withBase(item.画像)} alt={item.alt} width="600" height="450" loading="lazy" decoding="async" />
+            <img src={withBase(item.画像)} alt={item.alt} width="600" height="450" loading="lazy" decoding="async" style={`object-position:${item.位置 || 'center'}`} />
           </div>
           <div class="menu-card__body">
             <h3 class="menu-card__name">{item.名前}</h3>
