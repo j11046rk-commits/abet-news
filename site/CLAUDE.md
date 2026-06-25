@@ -104,6 +104,11 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - OGP/Twitterカード、canonical、favicon、apple-touch-icon、sitemap、robots
 - 画像alt、h1→h2階層、lazy-load、`theme-color`
 
+## アクセス解析（GA4）と週次レポート連携（2026-06-25）
+- HPにGA4タグを設置済み（`Base.astro`、`site.json` の `解析.gaMeasurementId` が設定されている時だけ `gtag.js` を出力。空なら計測オフ）。
+- **店主の作業**：GA4でプロパティ作成 →「ウェブ」データストリーム（URL=https://shipporitei.jp）→ 発行される**測定ID（G-XXXXXXXXXX）を `site.json` の `解析.gaMeasurementId` に貼る**だけで計測開始。
+- **週次レポート連携**：HPのインサイト（訪問数・流入元・人気ページ等）は、別リポジトリ **`~/Abet/products/shippori-report`**（しっぽり亭の週次売上レポート→LINE）に取り込む実装を追加済み。GA4 Data APIを使用。詳細・必要な認証（GA4プロパティID／GCPサービスアカウント鍵）はそちらのREADME/コード参照。
+
 ## TODO（本人作業／次セッション候補）
 - [x] **宴会人数の矛盾を解消**（2026-06-25・店主確定＝36名で統一。貸切/宴会最大人数/最大収容人数/ヒーローバッジ一致確認済み）
 - [x] **アクセスのホテル導線・喫煙表示・地図ピンを店主確定**（2026-06-25：ホテル導線は地図実測へ／喫煙は「全席喫煙可」のみ・20歳未満不可は非表示／ピン座標OK）
