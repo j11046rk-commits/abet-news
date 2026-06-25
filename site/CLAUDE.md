@@ -106,7 +106,7 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 
 ## セキュリティ点検（2026-06-25）
 - **前提**：入力フォーム・ログイン・DB・バックエンドの無い**静的サイト(GitHub Pages配信)**。XSS(ユーザー入力起点)/SQLi/CSRF/認証回避の典型対象が無く、攻撃面は最小。
-- **最重要＝通信のHTTPS化**：独自ドメインのTLS証明書がGitHub Pagesで発行待ちの間、`http://` 配信となりブラウザに「保護されていない通信」と出る。証明書発行後に Pages の **Enforce HTTPS をON**（GitHubが自動でHSTSも付与）。発行は最大72h(通常は数分〜数時間)。
+- **通信のHTTPS化＝完了(2026-06-25)**：当初TLS証明書の発行が「DNS Check in Progress」のまま停滞→GitHub Pages設定でカスタムドメインを一度Remove→再Saveして検証/発行を再トリガし解消。**Enforce HTTPS をON済み**（http→https 301／HSTS自動付与）。`https://shipporitei.jp` で🔒表示。※将来カスタムドメインを変える時は、証明書が停滞したら同じ「Remove→再Save」が有効。
 - **適用済みのハードニング(多層防御)**：
   - 外部リンク `target="_blank"` を全て `rel="noopener noreferrer"`（リバースタブナビング防止＋リファラ抑制）。
   - JSON-LD出力で `<` を `<` にエスケープ（`</script>` 早期終了の防止）。
