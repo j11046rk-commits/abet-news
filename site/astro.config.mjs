@@ -7,7 +7,7 @@ import sitemap from '@astrojs/sitemap';
 export default defineConfig({
   // 既定は本番ドメイン（ルート配信）。プレビュー配信用に環境変数で上書きできる。
   // 例: GitHub Pages プレビュー → SITE_URL / BASE_PATH を渡す（本番は未設定でOK）。
-  site: process.env.SITE_URL || 'https://shipporitei.co.jp',
+  site: process.env.SITE_URL || 'https://shipporitei.jp',
   base: process.env.BASE_PATH || '/',
   integrations: [sitemap()],
   build: {
