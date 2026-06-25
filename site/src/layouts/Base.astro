@@ -59,11 +59,12 @@ const { title = seo.title, description = seo.description } = Astro.props;
     <meta name="description" content={description} />
     <meta name="keywords" content={seo.keywords} />
     <link rel="canonical" href={canonical} />
-    <meta name="theme-color" content="#14110e" />
+    <meta name="theme-color" content="#111726" />
     <meta name="format-detection" content="telephone=no" />
 
-    <!-- favicon -->
-    <link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+    <!-- favicon（しっぽり亭ロゴのマスコット） -->
+    <link rel="icon" type="image/png" sizes="32x32" href={withBase('/favicon-32.png')} />
+    <link rel="icon" type="image/png" sizes="512x512" href={withBase('/favicon-512.png')} />
     <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
 
     <!-- OGP -->
