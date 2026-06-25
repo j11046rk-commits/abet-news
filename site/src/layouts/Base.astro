@@ -51,7 +51,8 @@ interface Props { title?: string; description?: string; }
 const { title = seo.title, description = seo.description } = Astro.props;
 
 // Googleアナリティクス(GA4)。site.json の 解析.gaMeasurementId が設定されている時だけ計測タグを入れる。
-const gaId = (site.解析?.gaMeasurementId || '').trim();
+// 念のためGA4測定IDの許容文字(英数字とハイフン)以外を除去（インラインscriptへの混入を防ぐ多層防御）。
+const gaId = (site.解析?.gaMeasurementId || '').trim().replace(/[^A-Za-z0-9-]/g, '');
 ---
 <!doctype html>
 <html lang="ja">
@@ -63,6 +64,7 @@ const gaId = (site.解析?.gaMeasurementId || '').trim();
     <meta name="keywords" content={seo.keywords} />
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#111726" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="format-detection" content="telephone=no" />
 
     <!-- favicon（しっぽり亭ロゴのマスコット） -->
@@ -85,8 +87,8 @@ const gaId = (site.解析?.gaMeasurementId || '').trim();
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
 
-    <!-- 構造化データ -->
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <!-- 構造化データ（'<' をエスケープして </script> 早期終了を防ぐ多層防御） -->
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd).replace(/</g, '\\u003c')} />
 
     <!-- Googleアナリティクス(GA4)：site.json の 解析.gaMeasurementId 設定時のみ出力 -->
     {gaId && (
