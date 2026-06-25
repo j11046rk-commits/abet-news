@@ -42,10 +42,22 @@ const tel = s.電話番号.replace(/-/g, '');
             <dt>アクセス</dt>
             <dd>{a.最寄り}<br />{a.バス}</dd>
           </div>
+          {a.ホテルから && (
+            <div class="info-row">
+              <dt>ホテルから</dt>
+              <dd>{a.ホテルから}</dd>
+            </div>
+          )}
           <div class="info-row">
             <dt>駐車場</dt>
             <dd>{isTBC(a.駐車場) ? <><span class="tbc">要確認</span> <span class="info-hint">{tbcHint(a.駐車場)}</span></> : a.駐車場}</dd>
           </div>
+          {s.喫煙 && (
+            <div class="info-row">
+              <dt>喫煙</dt>
+              <dd>{s.喫煙}</dd>
+            </div>
+          )}
           <div class="info-row">
             <dt>営業時間</dt>
             <dd>

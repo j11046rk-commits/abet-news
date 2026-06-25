@@ -6,10 +6,11 @@ const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 const hasPhoto = s.ヒーロー画像 && s.ヒーロー画像.trim() !== '';
 const badges = s.ヒーローバッジ || [];
+const heroPos = (s.ヒーロー画像位置 && s.ヒーロー画像位置.trim()) || 'center 42%';
 ---
 <section class={`hero ${hasPhoto ? 'hero--photo' : ''}`} aria-label="しっぽり亭 トップ">
   {hasPhoto
-    ? <div class="hero__bg hero__bg--photo" style={`background-image:url(${withBase(s.ヒーロー画像)})`} aria-hidden="true"></div>
+    ? <div class="hero__bg hero__bg--photo" style={`background-image:url(${withBase(s.ヒーロー画像)});background-position:${heroPos}`} aria-hidden="true"></div>
     : <div class="hero__bg" aria-hidden="true"></div>}
   <div class="hero__inner">
     <p class="hero__roman">Izakaya {s.店名ローマ字} ・ Niihama</p>
@@ -24,7 +25,7 @@ const badges = s.ヒーローバッジ || [];
     <div class="hero__cta">
       <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
         <Icon name="phone" size={20} />
-        <span>お電話でご予約</span>
+        <span>電話で予約</span>
         <span class="btn__phone-num">{s.電話番号表示用}</span>
       </a>
       <a class="btn btn--ghost btn--lg" href="#banquet">宴会・コースを見る</a>
@@ -125,7 +126,7 @@ const badges = s.ヒーローバッジ || [];
      上下を濃く・中央をやや明るくして写真の質感を残しつつ可読性を確保。 */
   .hero__bg--photo {
     background-size: cover;
-    background-position: center 42%;
+    background-position: center 42%; /* site.json『ヒーロー画像位置』でインライン上書き。未設定時の既定値 */
   }
   .hero--photo .hero__bg--photo::after {
     content: ""; position: absolute; inset: 0;
@@ -133,16 +134,25 @@ const badges = s.ヒーローバッジ || [];
       linear-gradient(180deg, rgba(13,18,30,0.8) 0%, rgba(13,18,30,0.72) 44%, rgba(13,18,30,0.92) 100%),
       radial-gradient(140% 92% at 50% 44%, transparent 24%, rgba(13,18,30,0.58) 100%);
   }
-  /* スマホ縦長でも崩れないよう、被写体を中央に寄せ、
-     文字が乗る中央部を濃いめに被せて可読性を確保する */
-  @media (max-width: 559px) {
-    .hero { min-height: 92vh; }
-    .hero__bg--photo { background-position: 58% 42%; }
+  /* スマホ最適化：中央は写真をしっかり見せ、上下だけ濃いグラデにする。
+     文字の可読性は hero__inner::before のスクリムで担保（全面の濃い被せはやめる）。 */
+  @media (max-width: 768px) {
+    .hero { min-height: 80vh; padding: 3rem var(--pad) 3.4rem; }
     .hero--photo .hero__bg--photo::after {
-      background:
-        linear-gradient(180deg, rgba(13,18,30,0.82) 0%, rgba(13,18,30,0.76) 46%, rgba(13,18,30,0.93) 100%),
-        radial-gradient(150% 78% at 50% 42%, transparent 16%, rgba(13,18,30,0.6) 100%);
+      background: linear-gradient(180deg,
+        rgba(13,18,30,0.80) 0%,
+        rgba(13,18,30,0.28) 34%,
+        rgba(13,18,30,0.40) 60%,
+        rgba(13,18,30,0.88) 100%);
     }
+    .hero__inner::before {
+      inset: -8% -10%;
+      background: radial-gradient(closest-side ellipse at 50% 50%,
+        rgba(13,18,30,0.72) 0%, rgba(13,18,30,0.55) 46%, rgba(13,18,30,0) 100%);
+    }
+    .hero__badge { font-size: 0.72rem; padding: 0.35em 0.7em; }
+    .hero__badges { gap: 0.4rem; margin-bottom: 1.5rem; }
+    .hero__roman { letter-spacing: 0.3em; margin-bottom: 1rem; }
   }
   .hero__scroll {
     position: absolute;

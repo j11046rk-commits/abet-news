@@ -121,7 +121,8 @@ h1, h2, h3,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5em;
+  flex-wrap: wrap;
+  gap: 0.3em 0.6em;
   padding: 0.95em 1.6em;
   border-radius: 999px;
   font-family: var(--font-sans);
@@ -145,6 +146,10 @@ h1, h2, h3,
 }
 .btn--ghost:hover { border-color: var(--gold); color: var(--gold); }
 .btn--lg { font-size: 1.08rem; padding: 1.05em 2em; }
+
+/* ボタン内のラベル・電話番号は語の途中で折り返さない（狙わない位置での改行を防ぐ）。
+   幅が足りない時は flex-wrap でラベル行と番号行に分かれて折り返す。 */
+.btn > span { white-space: nowrap; }
 
 .btn__phone-num { font-variant-numeric: tabular-nums; }
 
