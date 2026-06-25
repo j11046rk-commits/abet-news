@@ -104,6 +104,19 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - OGP/Twitterカード、canonical、favicon、apple-touch-icon、sitemap、robots
 - 画像alt、h1→h2階層、lazy-load、`theme-color`
 
+## セキュリティ点検（2026-06-25）
+- **前提**：入力フォーム・ログイン・DB・バックエンドの無い**静的サイト(GitHub Pages配信)**。XSS(ユーザー入力起点)/SQLi/CSRF/認証回避の典型対象が無く、攻撃面は最小。
+- **最重要＝通信のHTTPS化**：独自ドメインのTLS証明書がGitHub Pagesで発行待ちの間、`http://` 配信となりブラウザに「保護されていない通信」と出る。証明書発行後に Pages の **Enforce HTTPS をON**（GitHubが自動でHSTSも付与）。発行は最大72h(通常は数分〜数時間)。
+- **適用済みのハードニング(多層防御)**：
+  - 外部リンク `target="_blank"` を全て `rel="noopener noreferrer"`（リバースタブナビング防止＋リファラ抑制）。
+  - JSON-LD出力で `<` を `<` にエスケープ（`</script>` 早期終了の防止）。
+  - GA4測定IDを英数字・ハイフン以外除去してからインライン出力（混入防止）。
+  - Instagram `embed.js` をプロトコル相対 `//` → `https://` 明示。
+  - `<meta name="referrer" content="strict-origin-when-cross-origin">` を追加。
+  - 地図iframeは title/loading=lazy/referrerpolicy 付与済み。`site.json` の `instagram.埋め込みHTML` は raw HTML 実行欄のため「信頼できる提供元のみ」と明記。
+- **依存(npm audit)**：esbuild由来の low 2件のみ。**dev用・Windows限定**で本番の静的成果物には影響なし。修正にはAstro 7への破壊的更新が必要なため**見送り**（リスク>便益）。
+- **GitHub Pagesの制約**：カスタムHTTPヘッダ(CSP/X-Frame-Options/HSTS)はレスポンスヘッダで設定不可。HSTSはEnforce HTTPSで自動付与。CSPはmeta可だがgtag/Instagram/Maps埋め込みでinline/外部多数のため誤設定で表示破綻リスク高く、入力起点XSSも無いため**現状は見送り**（必要なら将来Cloudflare等のヘッダ機能で付与）。
+
 ## アクセス解析（GA4）と週次レポート連携（2026-06-25）
 - HPにGA4タグを設置済み（`Base.astro`、`site.json` の `解析.gaMeasurementId` が設定されている時だけ `gtag.js` を出力。空なら計測オフ）。
 - **店主の作業**：GA4でプロパティ作成 →「ウェブ」データストリーム（URL=https://shipporitei.jp）→ 発行される**測定ID（G-XXXXXXXXXX）を `site.json` の `解析.gaMeasurementId` に貼る**だけで計測開始。

@@ -26,11 +26,11 @@ const hasQR = r.lineQR && r.lineQR.trim() !== '';
 
       <div class="reserve__alt">
         {hasLine && (
-          <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener">
+          <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener noreferrer">
             <Icon name="line" size={20} /> 公式LINEで予約
           </a>
         )}
-        <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener">
+        <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer">
           <Icon name="instagram" size={20} /> InstagramのDM
         </a>
       </div>

@@ -18,7 +18,7 @@ const placeholders = Array.from({ length: 6 });
       <p class="section__kicker">Instagram</p>
       <h2 class="section__title" id="ig-title">{ig.見出し}</h2>
       <p class="section__lead">{ig.リード}</p>
-      <a class="ig__handle" href={ig.プロフィールURL} target="_blank" rel="noopener">{handle}</a>
+      <a class="ig__handle" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer">{handle}</a>
     </div>
 
     {posts.length > 0 ? (
@@ -31,17 +31,17 @@ const placeholders = Array.from({ length: 6 });
                 data-instgrm-permalink={url}
                 data-instgrm-version="14"
               >
-                <a href={url} target="_blank" rel="noopener">{url}</a>
+                <a href={url} target="_blank" rel="noopener noreferrer">{url}</a>
               </blockquote>
             </li>
           ))}
         </ul>
         <div class="ig__cta">
-          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
+          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer">
             <Icon name="instagram" size={20} /> {handle} をフォロー
           </a>
         </div>
-        <script is:inline async src="//www.instagram.com/embed.js"></script>
+        <script is:inline async src="https://www.instagram.com/embed.js"></script>
       </div>
     ) : embedHtml ? (
       <div class="ig__embed" set:html={embedHtml} />
@@ -54,7 +54,7 @@ const placeholders = Array.from({ length: 6 });
         </ul>
         <div class="ig__cta">
           <p class="ig__note"><span class="tbc">要確認</span> 自動フィードは未設定です（READMEの「Instagramフィード」で有効化）。それまでは下のボタンから最新投稿をご覧いただけます。</p>
-          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener">
+          <a class="btn btn--primary" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer">
             <Icon name="instagram" size={20} /> {handle} をフォロー
           </a>
         </div>

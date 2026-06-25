@@ -22,8 +22,8 @@ const hasLine = r.lineURL && r.lineURL.trim() !== '';
         <span class="btn__phone-num">{s.電話番号表示用}</span>
       </a>
       {hasLine
-        ? <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener"><Icon name="line" size={20} /> 公式LINE</a>
-        : <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener"><Icon name="instagram" size={20} /> InstagramのDM</a>}
+        ? <a class="btn btn--line" href={r.lineURL} target="_blank" rel="noopener noreferrer"><Icon name="line" size={20} /> 公式LINE</a>
+        : <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer"><Icon name="instagram" size={20} /> InstagramのDM</a>}
     </div>
   </div>
 </section>
