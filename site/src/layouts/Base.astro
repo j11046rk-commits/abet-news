@@ -95,6 +95,9 @@ const gaId = (site.解析?.gaMeasurementId || '').trim().replace(/[^A-Za-z0-9-]/
       <>
         <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
         <script is:inline set:html={`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`}></script>
+        {/* 架電・Instagram・LINE・地図のタップを計測（電話tel:はGA4が自動計測しないため必須）。
+            リンク種別をhrefから判定して該当イベントを送る（イベント委譲で将来のリンクにも自動対応）。 */}
+        <script is:inline set:html={`document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a||typeof window.gtag!=='function')return;var h=a.getAttribute('href')||'';var ev=null;if(h.indexOf('tel:')===0)ev='tel_click';else if(/instagram\\.com/i.test(h))ev='instagram_click';else if(/(line\\.me|lin\\.ee|liff\\.line)/i.test(h))ev='line_click';else if(/(maps\\.google|google\\.[^/]+\\/maps|maps\\.app\\.goo)/i.test(h))ev='map_click';if(ev)window.gtag('event',ev,{link_url:h,transport_type:'beacon'});},true);`}></script>
       </>
     )}
   </head>
