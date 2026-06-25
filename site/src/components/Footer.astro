@@ -4,7 +4,7 @@ const s = site.店舗情報;
 const f = site.フッター;
 const ig = site.instagram;
 const tel = s.電話番号.replace(/-/g, '');
-const year = new Date().getFullYear();
+const year = (f.著作権年 && String(f.著作権年).trim()) || new Date().getFullYear();
 ---
 <footer class="footer">
   <div class="container footer__inner">
