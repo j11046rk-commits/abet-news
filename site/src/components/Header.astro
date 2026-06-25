@@ -1,14 +1,18 @@
 ---
 import site from '../../data/site.json';
 import Icon from './Icon.astro';
+import { withBase } from '../lib/text.js';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 ---
 <header class="hdr" id="top">
   <div class="hdr__inner">
     <a class="hdr__brand" href="#top">
-      <span class="hdr__name">{s.店名}</span>
-      <span class="hdr__roman">{s.店名ローマ字}</span>
+      <img class="hdr__logo" src={withBase('/images/logo-mark.png')} alt="" width="40" height="40" decoding="async" />
+      <span class="hdr__words">
+        <span class="hdr__name">{s.店名}</span>
+        <span class="hdr__roman">{s.店名ローマ字}</span>
+      </span>
     </a>
     <nav class="hdr__nav" aria-label="メインメニュー">
       <a href="#banquet">宴会・コース</a>
@@ -42,8 +46,10 @@ const tel = s.電話番号.replace(/-/g, '');
     gap: 1rem;
     padding: 0.6rem var(--pad);
   }
-  .hdr__brand { display: flex; align-items: baseline; gap: 0.5rem; color: var(--text); }
-  .hdr__name { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: 0.08em; }
+  .hdr__brand { display: flex; align-items: center; gap: 0.6rem; color: var(--text); }
+  .hdr__logo { width: auto; height: 40px; display: block; flex-shrink: 0; }
+  .hdr__words { display: flex; align-items: baseline; gap: 0.5rem; }
+  .hdr__name { font-family: var(--font-serif); font-size: 1.15rem; letter-spacing: 0.08em; white-space: nowrap; }
   .hdr__roman { font-size: 0.62rem; letter-spacing: 0.25em; color: var(--gold-soft); text-transform: uppercase; }
   .hdr__nav { margin-left: auto; display: none; gap: 1.6rem; font-size: 0.92rem; }
   .hdr__nav a { color: var(--text); font-weight: 600; letter-spacing: 0.02em; }
@@ -57,8 +63,13 @@ const tel = s.電話番号.replace(/-/g, '');
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
-  .hdr__tel-num { color: var(--gold-soft); }
+  .hdr__tel-num { color: var(--gold-soft); white-space: nowrap; }
   .hdr__tel-ico { color: var(--gold); }
+  /* 狭幅ではローマ字字幕を隠してブランドを1行に収める（ロゴ＋店名＋電話が窮屈になるため） */
+  @media (max-width: 520px) {
+    .hdr__roman { display: none; }
+    .hdr__logo { height: 34px; }
+  }
   @media (min-width: 860px) {
     .hdr__nav { display: flex; }
     .hdr__tel { margin-left: 0; }
