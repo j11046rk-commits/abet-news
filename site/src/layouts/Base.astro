@@ -49,6 +49,9 @@ const jsonLd = {
 
 interface Props { title?: string; description?: string; }
 const { title = seo.title, description = seo.description } = Astro.props;
+
+// Googleアナリティクス(GA4)。site.json の 解析.gaMeasurementId が設定されている時だけ計測タグを入れる。
+const gaId = (site.解析?.gaMeasurementId || '').trim();
 ---
 <!doctype html>
 <html lang="ja">
@@ -84,6 +87,14 @@ const { title = seo.title, description = seo.description } = Astro.props;
 
     <!-- 構造化データ -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+    <!-- Googleアナリティクス(GA4)：site.json の 解析.gaMeasurementId 設定時のみ出力 -->
+    {gaId && (
+      <>
+        <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
+        <script is:inline set:html={`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`}></script>
+      </>
+    )}
   </head>
   <body>
     <slot />
