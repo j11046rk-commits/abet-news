@@ -186,7 +186,7 @@
   },
 
   "解析": {
-    "gaMeasurementId": "",
+    "gaMeasurementId": "G-EYK1K6LV85",
     "_gaMeasurementId注意": "Googleアナリティクス4(GA4)の測定ID（G-で始まる）。GA4でプロパティ作成→『ウェブ』データストリーム(URL=https://shipporitei.jp)を作ると発行される。ここに貼ると全ページにアクセス計測タグ(gtag.js)が入る。空ならタグは入らない（計測オフ）。週次レポート(別repo: shippori-report)へのHPインサイト連携にもGA4を使用。"
   },
 
