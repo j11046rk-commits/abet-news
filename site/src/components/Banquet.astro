@@ -89,17 +89,21 @@ const facts = [
     border-radius: var(--radius);
     overflow: hidden;
   }
+  /* アイコン＋ラベルを上段、値を下段(セル幅いっぱい)に。
+     値を横並びにすると4カラム時に固定幅ラベル＋長文でセル幅を超え、
+     overflow:hidden で4列目（貸切・請求書）の値が見切れていたため縦積みに変更。 */
   .facts__item {
     display: grid;
-    grid-template-columns: 2.2rem 5.5rem 1fr;
-    align-items: center;
-    gap: 0.6rem;
+    grid-template-columns: 2.2rem 1fr;
+    align-items: start;
+    gap: 0.35rem 0.6rem;
     background: var(--bg-3);
     padding: 0.95rem 1.1rem;
+    min-width: 0;
   }
-  .facts__ico { display: flex; align-items: center; justify-content: center; color: var(--gold); }
-  .facts__label { color: var(--gold); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; }
-  .facts__value { color: var(--text); font-size: 0.95rem; }
+  .facts__ico { display: flex; align-items: center; justify-content: center; color: var(--gold); height: 1.45rem; }
+  .facts__label { align-self: center; color: var(--gold); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; min-width: 0; }
+  .facts__value { grid-column: 2; color: var(--text); font-size: 0.95rem; line-height: 1.7; min-width: 0; overflow-wrap: anywhere; }
   .facts__hint { color: var(--text-dim); font-size: 0.82rem; }
 
   .courses {
