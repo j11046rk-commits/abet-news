@@ -60,9 +60,11 @@
   - 修正＝`Banquet.astro` の `.facts__item` 内レイアウトを「**アイコン＋ラベルを上段／値を下段(セル幅いっぱい)**」の縦積みに変更し、`min-width:0` ＋ `overflow-wrap:anywhere` で破綻防止。はみ出し解消（overflowX=0）を実機計測で確認。PC(1456/1280)・モバイル(375)で全8項目の値が表示されることを `npm run dev` で確認済み。
   - 教訓：`.facts` 等の固定幅ラベル×多カラムグリッドに**長文を入れると見切れる**。長文を入れるときは縦積み or カラム数を減らす。短い値（席数・価格）前提の表だった。
 
-## 公開状況（2026-06-13）
-- 確認用プレビューを **GitHub Pages** で公開中：https://j11046rk-commits.github.io/abet-news/ （`.github/workflows/pages-preview.yml`、main push で自動デプロイ。base=/abet-news はワークフローのenvで付与、本番Cloudflareはルート配信なので無関係）。
-- 本番は未接続：**Cloudflare Pages ＋ 独自ドメイン shipporitei.co.jp**（READMEのDNS手順）。
+## 公開状況（2026-06-13 / 2026-06-25更新）
+- 確認用プレビューを **GitHub Pages** で公開中：https://j11046rk-commits.github.io/abet-news/ （`.github/workflows/pages-preview.yml`、main push で自動デプロイ。base=/abet-news はワークフローのenvで付与、本番ルート配信とは無関係）。
+- **独自ドメイン取得済み（2026-06-25）：`shipporitei.jp`**（お名前.comで登録・受付完了。レンタルサーバー/ネットde診断/Whois公開代行がバンドルされている＝静的サイトでは未使用。サービス維持調整費が発生するため、不要ならキャンセル可）。
+  - ⚠️ 以前の想定 `shipporitei.co.jp` / `shippori-tei.com` は**いずれも未取得**。正は **shipporitei.jp**。`astro.config.mjs` の `site:` と `public/robots.txt` は shipporitei.jp に更新済み（canonical/OGP/JSON-LD/sitemapに反映）。
+  - **未接続**：DNSとホスティングは未決定（GitHub Pagesにカスタムドメイン接続／お名前.comのレンタルサーバー／Cloudflare Pages のいずれか）。決定後にDNSレコード設定＋（GitHub Pagesなら）ルート配信用のCNAMEファイルとワークフローのbase調整が必要。
 
 ## 技術スタック / 構成判断
 - **Astro 6（静的出力）** を採用。理由：データ(JSON)とビューを分離しつつ、ビルド時に静的HTMLへ事前レンダリング → SEO（JSON-LD/メタを初期HTMLに含める）と非エンジニアの編集容易性を両立できるため。
@@ -70,7 +72,7 @@
 - **フォントはJPシステムフォント**（Hiragino/Yu/Noto）でWebフォントDLなし → モバイル表示が速く Lighthouse 有利。外部依存ゼロ。
 - 画像は `public/images/` の素朴な `<img loading="lazy">`。理由：JSONの動的パスで差し替える運用と、非エンジニアが「フォルダに置くだけ」で済む手軽さを優先（astro:assetsの静的import縛りを避けた）。実写真は事前圧縮前提（READMEに明記）。
 - sitemap は `@astrojs/sitemap`（`sitemap-index.xml`）。robots.txt は `public/` に手書き。
-- `site:` は `https://shipporitei.co.jp`（astro.config.mjs）。ドメイン変更時はここ1か所。
+- `site:` は `https://shipporitei.jp`（astro.config.mjs）。ドメイン変更時はここ1か所（robots.txtのSitemap行も合わせる）。
 
 ## セクション順（src/pages/index.astro）
 Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gallery → Access(地図+営業時間) → Reservation → Instagram → Footer ＋ MobileCallBar（スマホ固定の電話/地図バー）。
@@ -81,8 +83,9 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 
 ## 確定事項（変えないもの）
 - 電話：**0897-47-4494**（正）。**0897-47-6767 は誤りなので使用禁止**。
-- 住所：愛媛県新居浜市若水町1-7-2（〒792-0007）。
-- 営業：日〜木 18:00〜24:30(LO24:00) / 金土 18:00〜25:00(LO24:30)、定休なし。
+- 住所：愛媛県新居浜市若水町1-7-2（〒**792-0017**／2026-06-25に店主修正。旧792-0007は誤り）。
+- 営業：日〜木 18:00〜24:00(LO23:30) / 金土 18:00〜25:00(LO24:30)、**定休＝火曜**（※「方針アップデート」節が最新。本行も同期済み）。
+- ドメイン：**shipporitei.jp**（2026-06-25取得・お名前.com）。co.jp/.com は未取得。
 - 情報の正は **Instagram @shipporitei**。他媒体と矛盾したらIG優先。
 
 ## SEO実装済み
@@ -98,10 +101,11 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - [x] 写真差し替え（個室・席・看板メニュー＝2026-06-16実写真組み込み完了。詳細は「写真・デザイン確定」節）
 - [ ] **OGP画像を実写真に**（現状プレースホルダ `public/images/ogp.png`。店の写真＋店名で1200×630推奨）
 - [ ] 公式LINEの友だち追加URL/QRを取得して `予約問い合わせ.lineURL` / `lineQR` に設定（未取得なら空のまま＝LINEボタン非表示）
-- [ ] 緯度経度・Googleマップ埋め込みURLを実店舗ピンに（`店舗情報`）
+- [x] 緯度経度・Googleマップ埋め込みURLを実店舗ピンに（2026-06-25実座標で設定済み・店主確認OK）
 - [ ] Instagram自動フィードのウィジェット設定（`src/components/Instagram.astro` の `embedHtml`）
-- [ ] 独自ドメイン：**今はやらない**方針。やる時は `docs/独自ドメイン-引き継ぎ.md`（お名前.com／`.com`／第一候補 `shippori-tei.com`／ホスティングは今のGitHub Pages継続）に従う
-- [ ] Cloudflare Pages 接続（Root directory=`site`）＋ 独自ドメイン接続（※上記方針では当面保留）
+- [x] 独自ドメイン取得（2026-06-25：**shipporitei.jp** をお名前.comで登録。`site:`/robots.txt 反映済み）
+- [ ] **【次の山場】shipporitei.jp を本番接続**：ホスティング決定（GitHub Pagesカスタムドメイン／お名前.comレンタルサーバー／Cloudflare Pages）→ お名前.comでDNSレコード設定 → 配信側で証明書発行。GitHub Pagesにする場合はルート配信用に `public/CNAME`（shipporitei.jp）追加＋pages-preview.ymlのbaseを `/` に切替が必要
+- [ ] お名前.comのバンドル品（レンタルサーバー/ネットde診断）が不要ならキャンセル（サービス維持調整費の発生防止）
 - [ ] Googleビジネスプロフィールと NAP を一字一句そろえる
 - [ ] 公開後：Search Console 登録・sitemap送信、PageSpeed/Lighthouse 実測
 
