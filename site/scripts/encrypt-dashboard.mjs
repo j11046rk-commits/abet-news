@@ -1,5 +1,7 @@
 // ビルド後の dist/dashboard/index.html をパスワードで暗号化（AES-256-GCM）し、
 // 「合言葉を入れた人だけ復号して閲覧できる」ゲートページに置き換える。
+// 初回に合言葉を入れるとブラウザに記憶し、次回以降は自動で復号して表示（簡単ログイン）。
+// 解除は URL に ?logout を付けて開く。
 // 依存ゼロ（node:crypto ＋ ブラウザ側は Web Crypto 標準）。
 //
 // パスワードは環境変数 DASHBOARD_PASSWORD から取得:
@@ -22,8 +24,6 @@ if (!password) {
 }
 
 const html = await readFile(target, "utf8");
-
-// 既に暗号化済み（ゲートページ）なら二重暗号化しない
 if (html.includes("data-staticgate")) {
   console.log("既に暗号化済み。スキップ。");
   process.exit(0);
@@ -63,34 +63,67 @@ const gate = `<!doctype html>
   input { width:100%; padding:12px 14px; border-radius:11px; border:1px solid rgba(255,255,255,.14);
     background:rgba(255,255,255,.05); color:#fff; font-size:15px; outline:none; }
   input:focus { border-color:var(--g2); }
-  button { width:100%; margin-top:12px; padding:12px; border:0; border-radius:11px; cursor:pointer;
+  .remember { display:flex; align-items:center; gap:7px; justify-content:center; margin-top:12px; font-size:12px; color:#8b93ad; }
+  .remember input { width:auto; }
+  button { width:100%; margin-top:14px; padding:12px; border:0; border-radius:11px; cursor:pointer;
     font-size:14px; font-weight:700; color:#fff; background:linear-gradient(135deg,var(--g1),var(--g2)); }
   button:disabled { opacity:.6; cursor:default; }
   .err { color:#fb7185; font-size:12px; margin-top:12px; min-height:16px; }
+  #loading { color:#8b93ad; font-size:13px; letter-spacing:.05em; }
+  #f { display:none; }
+  .spin { width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.15);
+    border-top-color:#22d3ee;margin:0 auto 12px;animation:sp .8s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
 </style>
 </head>
 <body data-staticgate>
+  <div id="loading"><div class="spin"></div>読み込み中…</div>
   <form class="box" id="f">
     <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
     <h1>アクセス管理ダッシュボード</h1>
     <p>閲覧には合言葉が必要です</p>
-    <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード" autofocus />
+    <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード" />
+    <label class="remember"><input id="rm" type="checkbox" checked /> このブラウザに記憶する（次回から自動）</label>
     <button id="b" type="submit">表示する</button>
     <div class="err" id="e"></div>
   </form>
 <script>
-const SALT="${b64(salt)}", IV="${b64(iv)}", DATA="${b64(payload)}", ITER=${ITER};
+const SALT="${b64(salt)}", IV="${b64(iv)}", DATA="${b64(payload)}", ITER=${ITER}, K="shippori_dash_pw";
 const b2u=(s)=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
-const f=document.getElementById('f'), pw=document.getElementById('pw'), e=document.getElementById('e'), b=document.getElementById('b');
-f.addEventListener('submit',async(ev)=>{
-  ev.preventDefault(); e.textContent=''; b.disabled=true; b.textContent='確認中…';
+const f=document.getElementById('f'), pw=document.getElementById('pw'), e=document.getElementById('e'),
+      b=document.getElementById('b'), rm=document.getElementById('rm'), loading=document.getElementById('loading');
+
+async function tryDecrypt(pass){
   try{
-    const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw.value),'PBKDF2',false,['deriveKey']);
+    const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
     const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b2u(SALT),iterations:ITER,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
     const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b2u(IV)},key,b2u(DATA));
-    const html=new TextDecoder().decode(plain);
-    document.open(); document.write(html); document.close();
-  }catch(err){
+    return new TextDecoder().decode(plain);
+  }catch(err){ return null; }
+}
+function render(html){ document.open(); document.write(html); document.close(); }
+function showForm(){ loading.style.display='none'; f.style.display='block'; pw.focus(); }
+
+(async()=>{
+  // ?logout で記憶を解除
+  if(/[?&]logout\\b/.test(location.search)){ try{localStorage.removeItem(K);}catch(_){} }
+  // 記憶済みの合言葉があれば自動ログイン
+  let saved=null; try{ saved=localStorage.getItem(K); }catch(_){}
+  if(saved){
+    const html=await tryDecrypt(saved);
+    if(html){ render(html); return; }
+    try{ localStorage.removeItem(K); }catch(_){}  // 合言葉変更等で失敗したら記憶を破棄
+  }
+  showForm();
+})();
+
+f.addEventListener('submit',async(ev)=>{
+  ev.preventDefault(); e.textContent=''; b.disabled=true; b.textContent='確認中…';
+  const html=await tryDecrypt(pw.value);
+  if(html){
+    if(rm.checked){ try{ localStorage.setItem(K,pw.value); }catch(_){} }
+    render(html);
+  }else{
     b.disabled=false; b.textContent='表示する'; e.textContent='合言葉が違います'; pw.select();
   }
 });
@@ -100,4 +133,4 @@ f.addEventListener('submit',async(ev)=>{
 `;
 
 await writeFile(target, gate);
-console.log(`🔒 ダッシュボードを暗号化しました: ${target}`);
+console.log(`🔒 ダッシュボードを暗号化しました（記憶＆自動ログイン対応）: ${target}`);
