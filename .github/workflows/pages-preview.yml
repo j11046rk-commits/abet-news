@@ -43,6 +43,7 @@ jobs:
         env:
           SITE_URL: ${{ steps.pages.outputs.origin }}
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          DASHBOARD_PASSWORD: ${{ secrets.DASHBOARD_PASSWORD }}
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
