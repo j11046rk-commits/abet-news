@@ -108,9 +108,8 @@ const ICONS = {
       /* ヘッダー */
       .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 26px; }
       .brand { display: flex; align-items: center; gap: 12px; }
-      .brand .mark { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
-        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow: 0 6px 22px rgba(99,102,241,.5); }
-      .brand .mark svg { width: 21px; height: 21px; stroke: #fff; fill: none; stroke-width: 2; }
+      .brand .mark { width: 42px; height: 42px; object-fit: contain; display: block;
+        filter: drop-shadow(0 4px 14px rgba(0,0,0,.45)); }
       .brand h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: .02em; }
       .brand .crumb { font-size: 11.5px; color: var(--muted); }
       .pill { font-size: 12px; color: #cdd5ee; background: var(--glass2); border: 1px solid var(--line);
@@ -190,7 +189,7 @@ const ICONS = {
     <div class="wrap">
       <header class="top">
         <div class="brand">
-          <span class="mark"><svg width="21" height="21" viewBox="0 0 24 24" set:html={ICONS.map}></svg></span>
+          <img class="mark" src={`${import.meta.env.BASE_URL}images/logo-mark.png`} alt="しっぽり亭" width="42" height="42" />
           <div>
             <h1>アクセス管理ダッシュボード</h1>
             <div class="crumb">しっぽり亭 — shipporitei.jp</div>
@@ -293,25 +292,6 @@ const ICONS = {
             </div>
           ))}
         </div>
-      </div>
-
-      <!-- 人気ページ -->
-      <div class="sec-title">コンテンツ</div>
-      <div class="card pad">
-        <h2 class="h"><span class="d"></span>よく見られているページ</h2>
-        {ga4.topPages.length === 0 ? <div class="empty">データなし</div> : (
-          <table>
-            <thead><tr><th>ページ</th><th class="num">表示回数</th></tr></thead>
-            <tbody>
-              {ga4.topPages.map((pg) => (
-                <tr>
-                  <td><div>{pg.title || '(タイトルなし)'}</div><div class="muted" style="font-size:11px;">{pg.path}</div></td>
-                  <td class="num">{nf.format(pg.views)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
 
       <p class="note">
