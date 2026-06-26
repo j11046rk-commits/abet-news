@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-06-26T06:11:10.539Z",
+  "propertyId": "543139933",
+  "range": {
+    "start": "28daysAgo",
+    "end": "yesterday"
+  },
+  "totals": {
+    "sessions": 7,
+    "users": 7,
+    "pageviews": 11
+  },
+  "prev": {
+    "sessions": 0,
+    "users": 0,
+    "pageviews": 0
+  },
+  "extra": {
+    "engagementRate": 0.2857142857142857,
+    "avgSessionDuration": 12.718474285714288,
+    "newUsers": 8,
+    "viewsPerSession": 1.5714285714285714
+  },
+  "topPages": [
+    {
+      "path": "/",
+      "title": "しっぽり亭｜新居浜のおばんざい居酒屋・カウンター飲み・宴会",
+      "views": 11
+    }
+  ],
+  "channels": [
+    {
+      "name": "Direct",
+      "sessions": 7
+    }
+  ],
+  "devices": [
+    {
+      "name": "desktop",
+      "sessions": 5
+    },
+    {
+      "name": "mobile",
+      "sessions": 2
+    }
+  ],
+  "daily": [
+    {
+      "date": "20260625",
+      "sessions": 7,
+      "users": 7,
+      "pageviews": 11
+    }
+  ],
+  "actions": {
+    "items": [
+      {
+        "key": "line",
+        "label": "公式LINE",
+        "count": 0,
+        "rate": 0
+      },
+      {
+        "key": "instagram",
+        "label": "Instagram",
+        "count": 0,
+        "rate": 0
+      },
+      {
+        "key": "tel",
+        "label": "電話（架電）",
+        "count": 0,
+        "rate": 0
+      },
+      {
+        "key": "map",
+        "label": "地図・経路",
+        "count": 0,
+        "rate": 0
+      }
+    ],
+    "total": 0
+  }
+}

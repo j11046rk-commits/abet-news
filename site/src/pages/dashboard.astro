@@ -1,0 +1,324 @@
+---
+// しっぽり亭 アクセス管理ダッシュボード（GA4 / プロパティ 543139933）
+// データは data/ga4.json（scripts/fetch-ga4.mjs で更新／CIで自動更新）。
+// 管理用ページのため noindex・サイトマップ除外（astro.config.mjs）。
+import ga4 from '../../data/ga4.json';
+
+const nf = new Intl.NumberFormat('ja-JP');
+const pct1 = (v) => `${(v * 100).toFixed(1)}%`;
+const pct0 = (v) => `${Math.round(v * 100)}%`;
+const dur = (sec) => {
+  const s = Math.round(sec);
+  if (s < 60) return `${s}秒`;
+  return `${Math.floor(s / 60)}分${s % 60}秒`;
+};
+const delta = (cur, prev) => {
+  if (!prev) return { kind: 'new' };
+  const d = ((cur - prev) / prev) * 100;
+  return { kind: d >= 0 ? 'up' : 'down', label: `${d >= 0 ? '+' : ''}${d.toFixed(0)}%` };
+};
+
+const t = ga4.totals;
+const p = ga4.prev;
+const ex = ga4.extra;
+
+const kpis = [
+  { label: 'ユーザー数', value: nf.format(t.users), sub: `新規 ${nf.format(ex.newUsers)}`, d: delta(t.users, p.users), accent: 'a' },
+  { label: 'セッション', value: nf.format(t.sessions), sub: `1訪問 ${ex.viewsPerSession.toFixed(1)}ページ`, d: delta(t.sessions, p.sessions), accent: 'b' },
+  { label: '表示回数', value: nf.format(t.pageviews), sub: 'ページビュー', d: delta(t.pageviews, p.pageviews), accent: 'c' },
+  { label: 'エンゲージ率', value: pct1(ex.engagementRate), sub: `平均滞在 ${dur(ex.avgSessionDuration)}`, d: { kind: 'none' }, accent: 'd' },
+];
+
+// アクション（HPからのCV導線）
+const actionStyle = {
+  line: { color: '#06C755', glow: 'rgba(6,199,85,.45)' },
+  instagram: { color: '#E1306C', glow: 'rgba(225,48,108,.45)' },
+  tel: { color: '#38bdf8', glow: 'rgba(56,189,248,.45)' },
+  map: { color: '#2dd4bf', glow: 'rgba(45,212,191,.45)' },
+};
+const actions = ga4.actions?.items ?? [];
+const actionTotal = ga4.actions?.total ?? 0;
+// 全アクションの対セッション率（重複到達を単純合算した参考値）
+const overallRate = Math.min(1, actions.reduce((s, a) => s + a.rate, 0));
+
+// リング(円弧)のSVGパス用
+const R = 26, C = 2 * Math.PI * R;
+const ringDash = (rate) => `${Math.max(0, Math.min(1, rate)) * C} ${C}`;
+
+// 日別推移
+const daily = ga4.daily.map((d) => ({ ...d, label: `${d.date.slice(4, 6)}/${d.date.slice(6, 8)}` }));
+const W = 820, H = 240, PAD = { l: 34, r: 14, t: 18, b: 30 };
+const innerW = W - PAD.l - PAD.r, innerH = H - PAD.t - PAD.b;
+const maxV = Math.max(1, ...daily.map((d) => d.sessions));
+const stepX = daily.length > 1 ? innerW / (daily.length - 1) : 0;
+const px = (i) => PAD.l + (daily.length > 1 ? i * stepX : innerW / 2);
+const py = (v) => PAD.t + innerH - (v / maxV) * innerH;
+const pts = daily.map((d, i) => `${px(i)},${py(d.sessions)}`);
+const areaPath = daily.length ? `M ${PAD.l},${PAD.t + innerH} L ${pts.join(' L ')} L ${px(daily.length - 1)},${PAD.t + innerH} Z` : '';
+const linePath = daily.length ? `M ${pts.join(' L ')}` : '';
+const yTicks = [0, Math.ceil(maxV / 2), maxV];
+
+const chTotal = Math.max(1, ga4.channels.reduce((a, c) => a + c.sessions, 0));
+const dvTotal = Math.max(1, ga4.devices.reduce((a, c) => a + c.sessions, 0));
+const deviceLabel = { desktop: 'PC', mobile: 'モバイル', tablet: 'タブレット' };
+
+const updated = new Date(ga4.generatedAt).toLocaleString('ja-JP', {
+  timeZone: 'Asia/Tokyo', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+});
+
+const ICONS = {
+  line: '<path d="M12 3C6.5 3 2 6.6 2 11.1c0 4 3.6 7.4 8.5 8 .3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.6s5.9-3.5 8-6c1.5-1.6 2.2-3.3 2.2-5C22.4 6.6 17.9 3 12 3Z"/>',
+  instagram: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/>',
+  tel: '<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L19 12l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/>',
+  map: '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+};
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#070b16" />
+    <title>しっぽり亭 アクセス管理ダッシュボード</title>
+    <style is:global>
+      :root {
+        --bg: #070b16; --txt: #eef2ff; --muted: #8b93ad;
+        --glass: rgba(255,255,255,.035); --glass2: rgba(255,255,255,.06);
+        --line: rgba(255,255,255,.09);
+        --g1: #6366f1; --g2: #22d3ee; --g3: #a855f7;
+        --up: #34d399; --down: #fb7185;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0; color: var(--txt);
+        font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+        line-height: 1.5; -webkit-font-smoothing: antialiased; letter-spacing: .01em;
+        background:
+          radial-gradient(900px 500px at 12% -8%, rgba(99,102,241,.18), transparent 60%),
+          radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.12), transparent 55%),
+          radial-gradient(700px 600px at 80% 110%, rgba(168,85,247,.12), transparent 60%),
+          var(--bg);
+        min-height: 100vh;
+      }
+      .wrap { max-width: 1140px; margin: 0 auto; padding: 30px 22px 70px; }
+
+      /* ヘッダー */
+      .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 26px; }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .brand .mark { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow: 0 6px 22px rgba(99,102,241,.5); }
+      .brand .mark svg { width: 21px; height: 21px; stroke: #fff; fill: none; stroke-width: 2; }
+      .brand h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: .02em; }
+      .brand .crumb { font-size: 11.5px; color: var(--muted); }
+      .pill { font-size: 12px; color: #cdd5ee; background: var(--glass2); border: 1px solid var(--line);
+        border-radius: 999px; padding: 5px 12px; backdrop-filter: blur(8px); }
+      .pill .live { color: var(--up); font-weight: 700; }
+      .meta { margin-left: auto; font-size: 11.5px; color: var(--muted); text-align: right; line-height: 1.7; }
+      .dotpulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--up);
+        margin-right: 6px; box-shadow: 0 0 0 0 rgba(52,211,153,.7); animation: pulse 2s infinite; vertical-align: middle; }
+      @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.6);} 70%{ box-shadow: 0 0 0 7px rgba(52,211,153,0);} 100%{ box-shadow:0 0 0 0 rgba(52,211,153,0);} }
+
+      .card { background: var(--glass); border: 1px solid var(--line); border-radius: 18px;
+        backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+      .pad { padding: 18px 20px; }
+      .grid { display: grid; gap: 16px; }
+      .kpis { grid-template-columns: repeat(4, 1fr); }
+      .acts { grid-template-columns: repeat(4, 1fr); }
+      .panels { grid-template-columns: 1.7fr 1fr; }
+      @media (max-width: 860px) { .kpis, .acts { grid-template-columns: repeat(2, 1fr); } .panels { grid-template-columns: 1fr; } }
+      @media (max-width: 460px) { .kpis, .acts { grid-template-columns: 1fr; } }
+
+      .sec-title { font-size: 12.5px; font-weight: 700; color: #cdd5ee; letter-spacing: .06em;
+        text-transform: uppercase; margin: 30px 2px 14px; display: flex; align-items: center; gap: 9px; }
+      .sec-title::before { content: ''; width: 14px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--g1), var(--g2)); }
+
+      /* KPI */
+      .kpi { position: relative; overflow: hidden; }
+      .kpi .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+      .kpi.a .rail { background: linear-gradient(var(--g1), var(--g2)); }
+      .kpi.b .rail { background: linear-gradient(var(--g2), #34d399); }
+      .kpi.c .rail { background: linear-gradient(var(--g3), var(--g1)); }
+      .kpi.d .rail { background: linear-gradient(#f59e0b, var(--g3)); }
+      .kpi .label { font-size: 12px; color: var(--muted); }
+      .kpi .value { font-size: 34px; font-weight: 800; margin: 7px 0 3px; letter-spacing: -.01em; font-variant-numeric: tabular-nums;
+        background: linear-gradient(180deg, #fff, #c7cefc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .kpi .sub { font-size: 11.5px; color: var(--muted); }
+      .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-top: 10px; }
+      .chip.up { color: var(--up); background: rgba(52,211,153,.13); }
+      .chip.down { color: var(--down); background: rgba(251,113,133,.13); }
+      .chip.new { color: #a5b4fc; background: rgba(99,102,241,.16); }
+      .chip.none { color: var(--muted); background: var(--glass2); }
+
+      /* アクション */
+      .act { display: flex; align-items: center; gap: 14px; }
+      .act .ring { position: relative; width: 64px; height: 64px; flex: 0 0 auto; }
+      .act .ring svg { transform: rotate(-90deg); }
+      .act .ring .ico { position: absolute; inset: 0; display: grid; place-items: center; }
+      .act .ring .ico svg { width: 22px; height: 22px; fill: none; stroke-width: 1.9; }
+      .act .meta-a { min-width: 0; }
+      .act .alabel { font-size: 12.5px; color: var(--muted); }
+      .act .acount { font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+      .act .arate { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+      .act .arate b { color: #e6ebff; font-weight: 700; }
+
+      .summary { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+      .summary .big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .summary .lbl { font-size: 12px; color: var(--muted); }
+
+      h2.h { font-size: 14px; margin: 0 0 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+      h2.h .d { width: 7px; height: 7px; border-radius: 50%; background: linear-gradient(135deg, var(--g1), var(--g2)); }
+
+      svg text { fill: var(--muted); font-size: 11px; }
+      .bar-row { display: grid; grid-template-columns: 92px 1fr 46px; align-items: center; gap: 11px; margin: 11px 0; font-size: 13px; }
+      .bar-track { background: rgba(255,255,255,.06); border-radius: 7px; height: 12px; overflow: hidden; }
+      .bar-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--g1), var(--g2)); }
+      .bar-row .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; font-size: 11.5px; letter-spacing: .04em; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .muted { color: var(--muted); }
+      .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+      .note { margin-top: 26px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div class="brand">
+          <span class="mark"><svg width="21" height="21" viewBox="0 0 24 24" set:html={ICONS.map}></svg></span>
+          <div>
+            <h1>アクセス管理ダッシュボード</h1>
+            <div class="crumb">しっぽり亭 — shipporitei.jp</div>
+          </div>
+        </div>
+        <span class="pill">直近28日間</span>
+        <span class="pill"><span class="live">●</span> 自動更新</span>
+        <div class="meta">
+          <div><span class="dotpulse"></span>最終更新 {updated}</div>
+          <div>GA4 プロパティ {ga4.propertyId}</div>
+        </div>
+      </header>
+
+      <!-- KPI -->
+      <div class="grid kpis">
+        {kpis.map((k) => (
+          <div class={`card pad kpi ${k.accent}`}>
+            <span class="rail"></span>
+            <div class="label">{k.label}</div>
+            <div class="value">{k.value}</div>
+            <div class="sub">{k.sub}</div>
+            {k.d.kind === 'new' && <span class="chip new">新規計測</span>}
+            {k.d.kind === 'up' && <span class="chip up">▲ {k.d.label}</span>}
+            {k.d.kind === 'down' && <span class="chip down">▼ {k.d.label}</span>}
+            {k.d.kind === 'none' && <span class="chip none">参考値</span>}
+          </div>
+        ))}
+      </div>
+
+      <!-- アクション（HPからのコンバージョン） -->
+      <div class="sec-title">HPからのアクション（コンバージョン）</div>
+      <div class="grid acts">
+        {actions.map((a) => {
+          const st = actionStyle[a.key] || { color: 'var(--g2)', glow: 'rgba(34,211,238,.4)' };
+          return (
+            <div class="card pad act">
+              <div class="ring">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r={R} fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5" />
+                  <circle cx="32" cy="32" r={R} fill="none" stroke={st.color} stroke-width="5" stroke-linecap="round"
+                    stroke-dasharray={ringDash(a.rate)} style={`filter: drop-shadow(0 0 5px ${st.glow});`} />
+                </svg>
+                <span class="ico" style={`color:${st.color}`}><svg width="22" height="22" viewBox="0 0 24 24" stroke="currentColor" set:html={ICONS[a.key]}></svg></span>
+              </div>
+              <div class="meta-a">
+                <div class="alabel">{a.label}</div>
+                <div class="acount" style={`color:${st.color}`}>{nf.format(a.count)}</div>
+                <div class="arate">CVR <b>{pct0(a.rate)}</b> <span class="muted">/ 対セッション</span></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <!-- 推移 + 流入 -->
+      <div class="sec-title">トラフィック</div>
+      <div class="grid panels">
+        <div class="card pad">
+          <h2 class="h"><span class="d"></span>日別セッション推移</h2>
+          {daily.length === 0 ? <div class="empty">まだデータがありません。</div> : (
+            <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="日別セッション推移">
+              <defs>
+                <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#6366f1" stop-opacity="0.45" />
+                  <stop offset="100%" stop-color="#22d3ee" stop-opacity="0.02" />
+                </linearGradient>
+                <linearGradient id="stroke" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#6366f1" /><stop offset="100%" stop-color="#22d3ee" />
+                </linearGradient>
+              </defs>
+              {yTicks.map((v) => (
+                <g>
+                  <line x1={PAD.l} x2={W - PAD.r} y1={py(v)} y2={py(v)} stroke="rgba(255,255,255,.07)" stroke-width="1" />
+                  <text x={PAD.l - 8} y={py(v) + 3} text-anchor="end">{v}</text>
+                </g>
+              ))}
+              {areaPath && <path d={areaPath} fill="url(#area)" />}
+              {linePath && <path d={linePath} fill="none" stroke="url(#stroke)" stroke-width="3" stroke-linejoin="round" style="filter: drop-shadow(0 2px 8px rgba(99,102,241,.5));" />}
+              {daily.map((d, i) => <circle cx={px(i)} cy={py(d.sessions)} r="4" fill="#0b1020" stroke="#22d3ee" stroke-width="2.5" />)}
+              {daily.map((d, i) => <text x={px(i)} y={H - 9} text-anchor="middle">{d.label}</text>)}
+            </svg>
+          )}
+        </div>
+
+        <div class="card pad">
+          <h2 class="h"><span class="d"></span>流入チャネル</h2>
+          {ga4.channels.length === 0 ? <div class="empty">データなし</div> : ga4.channels.map((c) => (
+            <div class="bar-row">
+              <span>{c.name}</span>
+              <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((c.sessions / chTotal) * 100)}%`}></span></span>
+              <span class="n">{nf.format(c.sessions)}</span>
+            </div>
+          ))}
+          <h2 class="h" style="margin-top:22px;"><span class="d"></span>デバイス</h2>
+          {ga4.devices.map((d) => (
+            <div class="bar-row">
+              <span>{deviceLabel[d.name] || d.name}</span>
+              <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((d.sessions / dvTotal) * 100)}%`}></span></span>
+              <span class="n">{nf.format(d.sessions)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- 人気ページ -->
+      <div class="sec-title">コンテンツ</div>
+      <div class="card pad">
+        <h2 class="h"><span class="d"></span>よく見られているページ</h2>
+        {ga4.topPages.length === 0 ? <div class="empty">データなし</div> : (
+          <table>
+            <thead><tr><th>ページ</th><th class="num">表示回数</th></tr></thead>
+            <tbody>
+              {ga4.topPages.map((pg) => (
+                <tr>
+                  <td><div>{pg.title || '(タイトルなし)'}</div><div class="muted" style="font-size:11px;">{pg.path}</div></td>
+                  <td class="num">{nf.format(pg.views)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <p class="note">
+        データ出所: Google アナリティクス 4（プロパティ {ga4.propertyId} / shipporitei.jp）。期間は直近28日間（昨日まで）、前期間比は28〜56日前との比較。
+        アクションはHP上のボタン（公式LINE・Instagram・電話・地図）のクリックを計測。CVR=そのアクションに至ったセッションの割合。
+        計測開始直後は数値が小さい場合があります。データは1時間ごとに自動更新。
+      </p>
+    </div>
+  </body>
+</html>
