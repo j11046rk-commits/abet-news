@@ -123,6 +123,19 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - 週次レポート(Part 2/別repo)用の**数値プロパティID**はGA4管理→プロパティ設定で確認（サービスアカウント鍵とあわせて `shippori-report/GA4-SETUP.md` の手順で設定）。
 - **週次レポート連携**：HPのインサイト（訪問数・流入元・人気ページ等）は、別リポジトリ **`~/Abet/products/shippori-report`**（しっぽり亭の週次売上レポート→LINE）に取り込む実装を追加済み。GA4 Data APIを使用。詳細・必要な認証（GA4プロパティID／GCPサービスアカウント鍵）はそちらのREADME/コード参照。
 
+## アクセス管理ダッシュボード（/dashboard・2026-06-26 このセッションで実装）
+店主向けのアクセス解析ダッシュボード。**本番 https://shipporitei.jp/dashboard**（noindex＋サイトマップ除外＝検索に出ない）。GA4プロパティID **543139933**。
+
+- **ページ**：`src/pages/dashboard.astro`（Base.astroは使わない自己完結ページ。ダーク/グラデのIT系デザイン）。表示内容＝KPI（ユーザー/セッション/表示回数/エンゲージ率）、**HPからのアクション（公式LINE/Instagram/電話/地図のクリック数とCVR%）**、日別セッション推移、流入チャネル、デバイス。※「人気ページ」欄は店主指示で削除。ブランドロゴは `/images/logo-mark.png`。
+  - スタイルは `<style is:global>` 必須。Astroのスコープ付きCSSは `set:html` で挿入したSVGに当たらず崩れるため（教訓）。挿入SVGには明示的に width/height を付ける。
+- **アクション計測**：`Base.astro` のクリックハンドラが発火するイベント `line_click`/`instagram_click`/`tel_click`/`map_click` を集計（fetchスクリプトのイベント名はこれと一致必須）。データが貯まるのは**公開後の実クリックから**。
+- **データ**：`data/ga4.json`。`scripts/fetch-ga4.mjs`（依存ゼロ。`GA4_PROPERTY_ID`＋`GA4_SA_KEY`(鍵JSON文字列) or ローカルは `~/.config/shippori-report/ga4.env`）が生成。直近28日・前期間比つき。
+- **自動更新**：`.github/workflows/refresh-ga4.yml` が**毎時**GA4取得→`data/ga4.json`をコミット→`pages-preview.yml`が再ビルド/デプロイ。要シークレット `GA4_PROPERTY_ID`/`GA4_SA_KEY`。
+- **パスワードロック（重要）**：`scripts/encrypt-dashboard.mjs` が**ビルド後に** `dist/dashboard/index.html` をAES-256-GCMで暗号化し、合言葉ゲートに置換（Web Crypto／依存ゼロ）。`package.json` の `build` が `astro build && node scripts/encrypt-dashboard.mjs`。
+  - 合言葉＝GitHubシークレット **`DASHBOARD_PASSWORD`**（`pages-preview.yml` の build に env で渡す）。**変更したい時はこのシークレットを編集して再ビルド**（`gh workflow run pages-preview.yml`）。
+  - 未設定だと暗号化を**スキップ**（無防備のまま公開）するので本番では必須。生データはHTMLに残らない（暗号文のみ）。
+  - 挙動：初回は合言葉入力→正解でブラウザに記憶（localStorage `shippori_dash_pw`）→次回以降は**自動ログイン**。`?logout` で記憶解除。毎時の再ビルドでsaltは変わるが記憶するのは合言葉なので再入力は不要。
+
 ## TODO（本人作業／次セッション候補）
 - [x] **宴会人数の矛盾を解消**（2026-06-25・店主確定＝36名で統一。貸切/宴会最大人数/最大収容人数/ヒーローバッジ一致確認済み）
 - [x] **アクセスのホテル導線・喫煙表示・地図ピンを店主確定**（2026-06-25：ホテル導線は地図実測へ／喫煙は「全席喫煙可」のみ・20歳未満不可は非表示／ピン座標OK）
