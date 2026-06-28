@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-28T02:02:58.136Z",
+  "generatedAt": "2026-06-28T06:50:11.306Z",
   "propertyId": "543139933",
   "range": {
     "start": "28daysAgo",
@@ -16,7 +16,7 @@
     "pageviews": 0
   },
   "extra": {
-    "engagementRate": 0.1590909090909091,
+    "engagementRate": 0.22727272727272727,
     "avgSessionDuration": 47.905232863636364,
     "newUsers": 43,
     "viewsPerSession": 1.1136363636363635
