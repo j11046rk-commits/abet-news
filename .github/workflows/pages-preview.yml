@@ -12,6 +12,8 @@ on:
       - 'site/**'
       - '.github/workflows/pages-preview.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'   # 毎時：最新GA4を取得してビルド/デプロイ（ダッシュボードの自動更新）
 
 permissions:
   contents: read
@@ -39,6 +41,11 @@ jobs:
         with:
           enablement: true
       - run: npm ci
+      - name: Fetch latest GA4 data (ビルド時に最新化)
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
+        run: node scripts/fetch-ga4.mjs || echo "GA4取得に失敗。コミット済みデータでビルドを継続。"
       - name: Build (sub-path for Pages)
         env:
           SITE_URL: ${{ steps.pages.outputs.origin }}

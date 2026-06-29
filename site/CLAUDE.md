@@ -130,7 +130,8 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
   - スタイルは `<style is:global>` 必須。Astroのスコープ付きCSSは `set:html` で挿入したSVGに当たらず崩れるため（教訓）。挿入SVGには明示的に width/height を付ける。
 - **アクション計測**：`Base.astro` のクリックハンドラが発火するイベント `line_click`/`instagram_click`/`tel_click`/`map_click` を集計（fetchスクリプトのイベント名はこれと一致必須）。データが貯まるのは**公開後の実クリックから**。
 - **データ**：`data/ga4.json`。`scripts/fetch-ga4.mjs`（依存ゼロ。`GA4_PROPERTY_ID`＋`GA4_SA_KEY`(鍵JSON文字列) or ローカルは `~/.config/shippori-report/ga4.env`）が生成。直近28日・前期間比つき。
-- **自動更新**：`.github/workflows/refresh-ga4.yml` が**毎時**GA4取得→`data/ga4.json`をコミット→`pages-preview.yml`が再ビルド/デプロイ。要シークレット `GA4_PROPERTY_ID`/`GA4_SA_KEY`。
+- **自動更新**：`pages-preview.yml` が **毎時(cron)＋site push時** に、ビルド前 `scripts/fetch-ga4.mjs` で最新GA4を取得→ビルド/デプロイ。要シークレット `GA4_PROPERTY_ID`/`GA4_SA_KEY`。`data/ga4.json` は取得失敗時のフォールバック用スナップショット。
+  - ⚠️ 旧 `refresh-ga4.yml`（botがga4.jsonをコミットする方式）は **廃止（2026-06-29）**。理由＝`GITHUB_TOKEN` によるbotコミットは他ワークフローをトリガーしない仕様のため `pages-preview` が起動せず、データは更新されてもデプロイされず表示が固まっていた。教訓：自動更新は「デプロイ自体をスケジュール実行＋ビルド時にデータ取得」にする。
 - **パスワードロック（重要）**：`scripts/encrypt-dashboard.mjs` が**ビルド後に** `dist/dashboard/index.html` をAES-256-GCMで暗号化し、合言葉ゲートに置換（Web Crypto／依存ゼロ）。`package.json` の `build` が `astro build && node scripts/encrypt-dashboard.mjs`。
   - 合言葉＝GitHubシークレット **`DASHBOARD_PASSWORD`**（`pages-preview.yml` の build に env で渡す）。**変更したい時はこのシークレットを編集して再ビルド**（`gh workflow run pages-preview.yml`）。
   - 未設定だと暗号化を**スキップ**（無防備のまま公開）するので本番では必須。生データはHTMLに残らない（暗号文のみ）。
