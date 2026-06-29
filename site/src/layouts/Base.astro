@@ -53,6 +53,11 @@ const { title = seo.title, description = seo.description } = Astro.props;
 // Googleアナリティクス(GA4)。site.json の 解析.gaMeasurementId が設定されている時だけ計測タグを入れる。
 // 念のためGA4測定IDの許容文字(英数字とハイフン)以外を除去（インラインscriptへの混入を防ぐ多層防御）。
 const gaId = (site.解析?.gaMeasurementId || '').trim().replace(/[^A-Za-z0-9-]/g, '');
+
+// Google Search Console 所有権確認（HTMLタグ方式）。
+// site.json の seo.googleSiteVerification にトークンが入っている時だけ <meta> を出力。
+// 許容文字（英数・ハイフン・アンダースコア）以外は除去（インライン混入防止）。
+const gscVerify = (seo.googleSiteVerification || '').trim().replace(/[^A-Za-z0-9_-]/g, '');
 ---
 <!doctype html>
 <html lang="ja">
@@ -62,6 +67,7 @@ const gaId = (site.解析?.gaMeasurementId || '').trim().replace(/[^A-Za-z0-9-]/
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="keywords" content={seo.keywords} />
+    {gscVerify && <meta name="google-site-verification" content={gscVerify} />}
     <link rel="canonical" href={canonical} />
     <meta name="theme-color" content="#111726" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />

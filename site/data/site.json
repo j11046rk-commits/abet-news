@@ -182,7 +182,9 @@
     "description": "新居浜のおばんざい居酒屋「しっぽり亭」。サッポロ黒ラベル(生)に名物だし巻き、おひとり様のカウンター飲みから最大36名の宴会まで。掘りごたつ個室・宴会コース・飲み放題、インボイス領収書/請求書対応。火曜定休。ご予約は公式LINE・Instagram・お電話で（0897-47-4494）。",
     "keywords": "新居浜 おばんざい, 新居浜 居酒屋, おばんざい居酒屋, 新居浜 カウンター, 新居浜 一人飲み, 新居浜 宴会, 新居浜 個室, サッポロ黒ラベル 生, だし巻き, しっぽり亭, 飲み放題, 歓送迎会",
     "ogImage": "/images/ogp.png",
-    "_ogImage注意": "公式ロゴ（徳利マスコット＋しっぽり亭）を濃紺地の1200x630で設定済み（2026-06-25）。元データは OneDrive『■合同会社しっぽり/写真素材/image.png』。差し替える場合は1200x630のJPG/PNGを /images/ に置いてパス変更。"
+    "_ogImage注意": "公式ロゴ（徳利マスコット＋しっぽり亭）を濃紺地の1200x630で設定済み（2026-06-25）。元データは OneDrive『■合同会社しっぽり/写真素材/image.png』。差し替える場合は1200x630のJPG/PNGを /images/ に置いてパス変更。",
+    "googleSiteVerification": "",
+    "_googleSiteVerification注意": "Google Search Console の所有権確認（HTMLタグ方式）用トークン。Search Consoleで『URLプレフィックス https://shipporitei.jp』を追加→確認方法『HTMLタグ』→表示される <meta name=\"google-site-verification\" content=\"○○○\"> の content の値（○○○）だけをここに貼る。空なら出力されない。※GA4(G-EYK1K6LV85)が入っているので『Googleアナリティクス』方式ならこの欄なしでも確認可能。"
   },
 
   "解析": {
