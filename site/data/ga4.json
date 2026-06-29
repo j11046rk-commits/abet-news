@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-06-29T02:43:30.696Z",
+  "generatedAt": "2026-06-29T07:18:13.015Z",
   "propertyId": "543139933",
   "range": {
     "start": "28daysAgo",
     "end": "yesterday"
   },
   "totals": {
-    "sessions": 47,
-    "users": 45,
-    "pageviews": 52
+    "sessions": 48,
+    "users": 46,
+    "pageviews": 53
   },
   "prev": {
     "sessions": 0,
@@ -16,22 +16,22 @@
     "pageviews": 0
   },
   "extra": {
-    "engagementRate": 0.2127659574468085,
-    "avgSessionDuration": 45.02244753191489,
-    "newUsers": 46,
-    "viewsPerSession": 1.1063829787234043
+    "engagementRate": 0.20833333333333334,
+    "avgSessionDuration": 44.084479875,
+    "newUsers": 47,
+    "viewsPerSession": 1.1041666666666667
   },
   "topPages": [
     {
       "path": "/",
       "title": "しっぽり亭｜新居浜のおばんざい居酒屋・カウンター飲み・宴会",
-      "views": 52
+      "views": 53
     }
   ],
   "channels": [
     {
       "name": "Direct",
-      "sessions": 38
+      "sessions": 39
     },
     {
       "name": "Organic Search",
@@ -45,7 +45,7 @@
   "devices": [
     {
       "name": "desktop",
-      "sessions": 32
+      "sessions": 33
     },
     {
       "name": "mobile",
@@ -73,9 +73,9 @@
     },
     {
       "date": "20260628",
-      "sessions": 3,
-      "users": 3,
-      "pageviews": 3
+      "sessions": 4,
+      "users": 4,
+      "pageviews": 4
     }
   ],
   "actions": {
