@@ -70,6 +70,26 @@ src/
 - [ ] **審査**（§7）：カテゴリ=ファイナンス/ユーティリティ、17+、位置づけ文、キーワード。
 - [ ] スワイプ削除（現状は削除ボタン→確認）を gesture-handler の Swipeable へ。
 
+## TestFlightで実機確認する（Mac不要・EAS Build）
+
+Apple Developer登録済みなら、Expoのクラウドビルドで実機に配れる。
+
+```bash
+npm install -g eas-cli          # 初回だけ
+cd shojiki-poker
+eas login                       # Expoアカウント（無料・未作成なら作る）
+eas init                        # プロジェクト作成（app.json に projectId 追記）
+eas build --platform ios --profile production   # クラウドでビルド（〜15分）
+eas submit --platform ios --profile production  # App Store Connectへアップロード
+```
+
+- `eas submit` 実行中に Apple ID / App Store Connect のログインを聞かれる → 登録済みのアカウントでOK。
+- アップロード後、App Store Connect → TestFlight にビルドが出る（Apple処理に10〜30分）。
+- 自分を「内部テスター」に追加すると、iPhoneの **TestFlightアプリ** でインストールして確認できる。
+- この段階では広告はテスト広告が出る／課金はまだ動かない（キー未設定・アプリは落ちない）。本番前に §6 のキーを差し込む。
+
+> ちょっと試すだけなら Expo Go（`npx expo start`）が最速。TestFlightは「本物のアプリとして配って確認する」用。
+
 ## 既知の簡略化
 
 - シェアカード背景はフェルトのグラデ（生成画像が入ったら `ShareCard.tsx` を `ImageBackground` 化）。
