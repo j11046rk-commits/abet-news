@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "正直ポーカー",
+    "slug": "shojiki-poker",
+    "scheme": "shojikipoker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A2E24",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0A2E24"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.shojikipoker.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryAddUsageDescription": "成績カード画像を写真に保存するために使用します。",
+        "SKAdNetworkItems": [{ "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }]
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.shojikipoker.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/icon.png",
+        "backgroundColor": "#0A2E24"
+      }
+    },
+    "plugins": [
+      [
+        "react-native-google-mobile-ads",
+        {
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713"
+        }
+      ],
+      "expo-media-library"
+    ],
+    "extra": {
+      "adBannerUnitIdIOS": "ca-app-pub-3940256099942544/2934735716",
+      "adBannerUnitIdAndroid": "ca-app-pub-3940256099942544/6300978111",
+      "revenueCatApiKeyIOS": "REVENUECAT_IOS_KEY_PLACEHOLDER",
+      "revenueCatApiKeyAndroid": "REVENUECAT_ANDROID_KEY_PLACEHOLDER",
+      "revenueCatEntitlementId": "pro"
+    }
+  }
+}
