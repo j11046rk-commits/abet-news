@@ -37,18 +37,18 @@
       [
         "react-native-google-mobile-ads",
         {
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "iosAppId": "ca-app-pub-7280451314394486~8103457500",
           "androidAppId": "ca-app-pub-3940256099942544~3347511713"
         }
       ],
       "expo-media-library"
     ],
     "extra": {
-      "adBannerUnitIdIOS": "ca-app-pub-3940256099942544/2934735716",
+      "adBannerUnitIdIOS": "ca-app-pub-7280451314394486/6790375831",
       "adBannerUnitIdAndroid": "ca-app-pub-3940256099942544/6300978111",
-      "revenueCatApiKeyIOS": "REVENUECAT_IOS_KEY_PLACEHOLDER",
+      "revenueCatApiKeyIOS": "appl_yJbNctKFLusQXypwzAxnHTevWJJ",
       "revenueCatApiKeyAndroid": "REVENUECAT_ANDROID_KEY_PLACEHOLDER",
-      "revenueCatEntitlementId": "pro"
+      "revenueCatEntitlementId": "Shojiki-poker Pro"
     }
   }
 }
