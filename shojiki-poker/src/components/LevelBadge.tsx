@@ -1,26 +1,26 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Crown, Flame, TrendingUp, Dice5 } from 'lucide-react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import type { Level } from '../logic/levels';
 import { colors } from '../theme/colors';
 import { fonts, radius, space } from '../theme/typography';
 
 /**
- * LVバッジ。生成エンブレム画像が用意できるまではベクター（lucide）で代替。
- * tone で色とアイコンを切替（crush=ゴールド, win=グリーン, luck=ミュート, fix=チップレッド）。
+ * LVバッジ。tone に対応した生成エンブレム画像（円形・透過PNG）を表示。
+ * crush=黒金ダイヤ章 / win=金章 / luck=銀章 / fix=銅章。枠色は tone のブランドカラー。
  */
-const TONE: Record<Level['tone'], { color: string; Icon: typeof Crown }> = {
-  crush: { color: colors.gold, Icon: Crown },
-  win: { color: colors.green, Icon: TrendingUp },
-  luck: { color: colors.muted, Icon: Dice5 },
-  fix: { color: colors.chipRed, Icon: Flame },
+const TONE: Record<Level['tone'], { color: string; emblem: number }> = {
+  crush: { color: colors.gold, emblem: require('../assets/level-crush.png') },
+  win: { color: colors.green, emblem: require('../assets/level-win.png') },
+  luck: { color: colors.muted, emblem: require('../assets/level-luck.png') },
+  fix: { color: colors.chipRed, emblem: require('../assets/level-fix.png') },
 };
 
 export function LevelBadge({ level, compact }: { level: Level; compact?: boolean }) {
-  const { color, Icon } = TONE[level.tone];
+  const { color, emblem } = TONE[level.tone];
+  const size = compact ? 18 : 22;
   return (
     <View style={[styles.wrap, { borderColor: color }]}>
-      <Icon size={compact ? 14 : 16} color={color} />
+      <Image source={emblem} style={{ width: size, height: size }} resizeMode="contain" />
       <Text style={[styles.label, { color }, compact && { fontSize: 12 }]}>{level.label}</Text>
     </View>
   );

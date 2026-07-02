@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Dimensions, ImageBackground, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { colors } from '../theme/colors';
@@ -8,11 +7,11 @@ import { fonts, space } from '../theme/typography';
 
 const { width } = Dimensions.get('window');
 
-// 生成画像（Onboarding-1..3）が用意でき次第、各スライドのグラデをImageBackgroundに差し替え。
+// 各スライドの背景は生成画像。文字はアプリ側で実テキスト重ね（画像に文字は焼かない）。
 const SLIDES = [
-  { copy: 'その負け、ほんまに運か？', colors: [colors.feltLight, colors.feltDark] as const },
-  { copy: '収支を入れるだけ。実力が、数字で出る。', colors: ['#123f31', colors.feltDark] as const },
-  { copy: '結果は、1枚で晒せ。', colors: ['#153f2c', colors.feltDark] as const },
+  { copy: 'その負け、ほんまに運か？', bg: require('../assets/onboarding-1.png') },
+  { copy: '収支を入れるだけ。実力が、数字で出る。', bg: require('../assets/onboarding-2.png') },
+  { copy: '結果は、1枚で晒せ。', bg: require('../assets/onboarding-3.png') },
 ];
 
 export function OnboardingScreen({ onDone }: { onDone: () => void }) {
@@ -44,7 +43,8 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         scrollEventThrottle={16}
       >
         {SLIDES.map((s, i) => (
-          <LinearGradient key={i} colors={s.colors} style={[styles.slide, { width }]}>
+          <ImageBackground key={i} source={s.bg} style={[styles.slide, { width }]} resizeMode="cover">
+            <View style={styles.scrim} pointerEvents="none" />
             <View style={[styles.slideInner, { paddingTop: insets.top + 80 }]}>
               {i === 0 ? (
                 <View style={styles.brand}>
@@ -54,7 +54,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
               ) : null}
               <Text style={styles.copy}>{s.copy}</Text>
             </View>
-          </LinearGradient>
+          </ImageBackground>
         ))}
       </ScrollView>
 
@@ -73,6 +73,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.feltDark },
   slide: { flex: 1 },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.34)' },
   slideInner: { flex: 1, paddingHorizontal: space.xl, gap: space.xl },
   brand: { gap: 2 },
   brandJp: { fontFamily: fonts.serif, fontSize: 26, fontWeight: '700', color: colors.bone },

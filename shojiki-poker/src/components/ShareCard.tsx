@@ -1,6 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import type { Level } from '../logic/levels';
@@ -30,7 +29,13 @@ export const ShareCard = React.forwardRef<View, { data: ShareData }>(({ data }, 
   const grandColor = data.grandPositive ? colors.green : colors.chipRed;
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
-      <LinearGradient colors={[colors.feltLight, colors.feltDark]} style={StyleSheet.absoluteFill} />
+      <ImageBackground
+        source={require('../assets/share-bg.png')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      {/* 可読性確保のダークスクリム（四隅のチップ上でも文字が沈まないように） */}
+      <View style={styles.scrim} pointerEvents="none" />
 
       {/* ブランドロックアップ */}
       <View style={styles.brand}>
@@ -82,7 +87,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 22,
     justifyContent: 'space-between',
+    backgroundColor: colors.feltDark,
   },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
   brand: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   brandJp: { fontFamily: fonts.serif, fontSize: 20, fontWeight: '700', color: colors.bone },
   brandEn: { fontFamily: fonts.mono, fontSize: 11, color: colors.gold, letterSpacing: 1 },
