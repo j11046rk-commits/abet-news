@@ -85,7 +85,8 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
   };
 
   const capture = async (): Promise<string> =>
-    captureRef(cardRef, { format: 'png', quality: 1, width: 1080, height: 1080 });
+    // JPEGで書き出してファイルサイズを大幅圧縮（PNGだと写真調背景で数MB〜になる）。
+    captureRef(cardRef, { format: 'jpg', quality: 0.9, width: 1080, height: 1080 });
 
   const onShare = async () => {
     try {
@@ -95,7 +96,7 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
         Alert.alert('共有不可', 'この端末では共有シートを開けなかった。');
         return;
       }
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '成績カードをシェア' });
+      await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: '成績カードをシェア' });
     } catch {
       Alert.alert('エラー', '画像の生成に失敗した。もう一度試してくれ。');
     } finally {
@@ -129,11 +130,11 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
         <Text style={[styles.headValue, { color: profitColor(grand) }]}>{yen(grand, true)}</Text>
         <View style={styles.breakdown}>
           <Text style={styles.breakItem}>
-            💵 キャッシュ{' '}
+            キャッシュ{' '}
             <Text style={{ color: profitColor(cash.totalProfit) }}>{yen(cash.totalProfit, true)}</Text>
           </Text>
           <Text style={styles.breakItem}>
-            🏆 トーナメント{' '}
+            トーナメント{' '}
             <Text style={{ color: profitColor(mtt.mttProfit) }}>{yen(mtt.mttProfit, true)}</Text>
           </Text>
         </View>

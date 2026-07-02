@@ -9,7 +9,6 @@ import { DataProvider } from './src/context/DataContext';
 import { ProProvider } from './src/context/ProContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { AdBanner } from './src/ads/BannerAd';
 import { store } from './src/storage/store';
 import { colors } from './src/theme/colors';
 
@@ -38,7 +37,7 @@ export default function App() {
     if (onboarded === null) return;
     const t = setTimeout(() => {
       SplashScreen.hideAsync().catch(() => {});
-    }, 1200);
+    }, 1800);
     return () => clearTimeout(t);
   }, [onboarded]);
 
@@ -60,7 +59,6 @@ export default function App() {
                 <NavigationContainer theme={navTheme}>
                   <RootNavigator />
                 </NavigationContainer>
-                <AdBanner />
               </View>
             ) : (
               <OnboardingScreen onDone={finishOnboarding} />

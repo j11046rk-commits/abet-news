@@ -34,10 +34,10 @@ export function pct(value: number, signed = false): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-/** 上位◯% 表記（平均着順用・整数丸め）。 */
+/** 上位◯% 表記（平均着順用・小数1桁）。 */
 export function topPct(value: number): string {
   if (!Number.isFinite(value)) return '—';
-  return `上位${Math.round(value)}%`;
+  return `上位${value.toFixed(1)}%`;
 }
 
 /** 期間ラベル "6/1〜7/1" 形式。空なら "—"。 */
