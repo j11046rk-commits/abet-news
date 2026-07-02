@@ -13,14 +13,20 @@
       "resizeMode": "cover",
       "backgroundColor": "#0A2E24"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.shojikipoker.app",
       "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryAddUsageDescription": "成績カード画像を写真に保存するために使用します。",
-        "SKAdNetworkItems": [{ "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }]
+        "SKAdNetworkItems": [
+          {
+            "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork"
+          }
+        ]
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -31,7 +37,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/icon.png",
         "backgroundColor": "#0A2E24"
-      }
+      },
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "plugins": [
       [
@@ -48,7 +58,11 @@
       "adBannerUnitIdAndroid": "ca-app-pub-3940256099942544/6300978111",
       "revenueCatApiKeyIOS": "appl_yJbNctKFLusQXypwzAxnHTevWJJ",
       "revenueCatApiKeyAndroid": "REVENUECAT_ANDROID_KEY_PLACEHOLDER",
-      "revenueCatEntitlementId": "Shojiki-poker Pro"
-    }
+      "revenueCatEntitlementId": "Shojiki-poker Pro",
+      "eas": {
+        "projectId": "b95920dd-4454-4c12-b68c-f7dc962e99ce"
+      }
+    },
+    "owner": "abet_koga"
   }
 }
