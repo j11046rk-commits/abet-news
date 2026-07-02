@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../components/Screen';
+import { Banner } from '../components/Banner';
 import { Hero } from '../components/Hero';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
@@ -57,7 +58,8 @@ export function CashScreen() {
   };
 
   return (
-    <Screen>
+    <Screen bg={require('../assets/bg-cash.png')}>
+      <Banner source={require('../assets/banner-cash.png')} />
       <Hero
         unitLabel="累計"
         value={bb100Text(cash.bb100)}
