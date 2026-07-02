@@ -24,8 +24,8 @@ function sessionBb100(bb: number, hours: number, hph: number, profit: number): n
 
 export function CashScreen() {
   const { cash, cashSessions, addCash, removeCash } = useData();
-  const [bb, setBb] = useState('');
-  const [hours, setHours] = useState('');
+  const [bb, setBb] = useState('300');
+  const [hours, setHours] = useState('6');
   const [players, setPlayers] = useState(6);
   const [win, setWin] = useState(true);
   const [amount, setAmount] = useState('');
@@ -50,8 +50,8 @@ export function CashScreen() {
       hph: handsPerHour(players),
       profit,
     });
-    setBb('');
-    setHours('');
+    setBb('300');
+    setHours('6');
     setAmount('');
     setWin(true);
   };
@@ -59,8 +59,9 @@ export function CashScreen() {
   return (
     <Screen>
       <Hero
-        unitLabel="累計 bb/100"
+        unitLabel="累計"
         value={bb100Text(cash.bb100)}
+        valueSuffix="bb/100"
         level={level}
         subs={[
           { label: '時給', value: yen(cash.hourly, true), tint: profitColor(cash.hourly) },
@@ -68,13 +69,14 @@ export function CashScreen() {
           { label: '推定ハンド', value: Math.round(cash.totalHands).toLocaleString('ja-JP') },
         ]}
         warning={warning}
+        note="bb/100＝100ハンドあたり平均何BB勝っているかを示す実力指標（高いほど強い）。推定ハンド数はプレイ時間×人数から算出した概算です。"
       />
 
       <Card style={{ gap: space.md }}>
         <Text style={styles.cardTitle}>キャッシュの結果を記録</Text>
         <View style={styles.row}>
-          <Field label="レート (1BB / 円)" value={bb} onChangeText={setBb} placeholder="1000" suffix="円" />
-          <Field label="プレイ時間" value={hours} onChangeText={setHours} placeholder="4" suffix="h" />
+          <Field label="レート (1BB / 円)" value={bb} onChangeText={setBb} placeholder="300" suffix="円" />
+          <Field label="プレイ時間" value={hours} onChangeText={setHours} placeholder="6" suffix="h" />
         </View>
         <Stepper label={`人数（推定 ${handsPerHour(players)} hands/h）`} value={players} onChange={setPlayers} suffix="人" />
         <WinLossAmount label="収支" win={win} amount={amount} onChangeWin={setWin} onChangeAmount={setAmount} />

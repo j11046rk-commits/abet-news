@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
@@ -7,6 +7,7 @@ import { Screen } from '../components/Screen';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { RecordRow } from '../components/RecordRow';
+import { Calendar } from '../components/Calendar';
 import { LockedNotice } from '../components/LockedNotice';
 import { ShareCard, type ShareData } from '../components/ShareCard';
 import { useData } from '../context/DataContext';
@@ -23,6 +24,8 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
   const { isPro } = usePro();
   const cardRef = useRef<View>(null);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const items: TimelineItem[] = [
@@ -34,6 +37,38 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
 
   const now = Date.now();
   const { visible, lockedCount } = partitionByGate(timeline, isPro, now);
+
+  // カレンダーで選択された日の記録（可視分から）。
+  const selectedItems = useMemo(() => {
+    if (selectedDay == null) return [];
+    const s = new Date(selectedDay);
+    return visible.filter((it) => {
+      const d = new Date(it.date);
+      return d.getFullYear() === s.getFullYear() && d.getMonth() === s.getMonth() && d.getDate() === s.getDate();
+    });
+  }, [visible, selectedDay]);
+
+  const renderRow = (it: TimelineItem) =>
+    it.kind === 'cash' ? (
+      <RecordRow
+        key={`c-${it.data.id}`}
+        icon="💵"
+        title={formatDateJP(it.date)}
+        detail={`${it.data.hours}h · ${it.data.players}人`}
+        rightPrimary={yen(it.data.profit, true)}
+        rightPrimaryColor={profitColor(it.data.profit)}
+      />
+    ) : (
+      <RecordRow
+        key={`m-${it.data.id}`}
+        icon="🏆"
+        title={formatDateJP(it.date)}
+        detail={`${it.data.field}人中 ${it.data.finish}位`}
+        rightPrimary={yen(it.data.cash - it.data.buyin * (1 + it.data.rebuys), true)}
+        rightPrimaryColor={profitColor(it.data.cash - it.data.buyin * (1 + it.data.rebuys))}
+        rightSecondary={it.data.cash > 0 ? yen(it.data.cash) : 'ノーマネー'}
+      />
+    );
 
   const allDates = timeline.map((t) => t.date);
   const shareData: ShareData = {
@@ -113,36 +148,46 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
         </View>
       </View>
 
-      {/* ③ 全記録一覧（キャッシュ＆トーナメント混在） */}
+      {/* ③ 全記録（リスト / カレンダー切替） */}
       <View>
-        <Text style={styles.sectionTitle}>全記録</Text>
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>全記録</Text>
+          <View style={styles.seg}>
+            <Pressable
+              style={[styles.segBtn, view === 'list' && styles.segBtnOn]}
+              onPress={() => setView('list')}
+            >
+              <Text style={[styles.segText, view === 'list' && styles.segTextOn]}>リスト</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.segBtn, view === 'calendar' && styles.segBtnOn]}
+              onPress={() => setView('calendar')}
+            >
+              <Text style={[styles.segText, view === 'calendar' && styles.segTextOn]}>カレンダー</Text>
+            </Pressable>
+          </View>
+        </View>
+
         {timeline.length === 0 ? (
           <Text style={styles.empty}>まだ記録なし。晒せる数字を作ろう。</Text>
+        ) : view === 'list' ? (
+          <Card style={{ paddingVertical: 0 }}>{visible.map(renderRow)}</Card>
         ) : (
-          <Card style={{ paddingVertical: 0 }}>
-            {visible.map((it) =>
-              it.kind === 'cash' ? (
-                <RecordRow
-                  key={`c-${it.data.id}`}
-                  icon="💵"
-                  title={formatDateJP(it.date)}
-                  detail={`${it.data.hours}h · ${it.data.players}人`}
-                  rightPrimary={yen(it.data.profit, true)}
-                  rightPrimaryColor={profitColor(it.data.profit)}
-                />
-              ) : (
-                <RecordRow
-                  key={`m-${it.data.id}`}
-                  icon="🏆"
-                  title={formatDateJP(it.date)}
-                  detail={`${it.data.field}人中 ${it.data.finish}位`}
-                  rightPrimary={yen(it.data.cash - it.data.buyin * (1 + it.data.rebuys), true)}
-                  rightPrimaryColor={profitColor(it.data.cash - it.data.buyin * (1 + it.data.rebuys))}
-                  rightSecondary={it.data.cash > 0 ? yen(it.data.cash) : 'ノーマネー'}
-                />
-              ),
+          <>
+            <Card>
+              <Calendar items={visible} selectedDay={selectedDay} onSelectDay={setSelectedDay} />
+            </Card>
+            {selectedDay == null ? (
+              <Text style={styles.hint}>記録のある日（色ドット）をタップすると内訳が出る。</Text>
+            ) : selectedItems.length === 0 ? (
+              <Text style={styles.hint}>{formatDateJP(selectedDay)} は記録なし。</Text>
+            ) : (
+              <>
+                <Text style={styles.dayHead}>{formatDateJP(selectedDay)} の記録</Text>
+                <Card style={{ paddingVertical: 0 }}>{selectedItems.map(renderRow)}</Card>
+              </>
             )}
-          </Card>
+          </>
         )}
         <LockedNotice count={lockedCount} onUnlock={() => navigation.navigate('Paywall')} />
       </View>
@@ -160,7 +205,15 @@ const styles = StyleSheet.create({
   breakdown: { flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, marginTop: space.xs },
   breakItem: { fontFamily: fonts.mono, fontSize: 13, color: colors.bone },
   shareBtns: { flexDirection: 'row', gap: space.md, width: '100%' },
-  sectionTitle: { fontFamily: fonts.serif, fontSize: 16, color: colors.bone, marginBottom: space.sm },
+  sectionTitle: { fontFamily: fonts.serif, fontSize: 16, color: colors.bone },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm },
+  seg: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 999, padding: 2 },
+  segBtn: { paddingHorizontal: space.md, paddingVertical: 4, borderRadius: 999 },
+  segBtnOn: { backgroundColor: colors.gold },
+  segText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
+  segTextOn: { color: colors.ink, fontWeight: '700' },
+  hint: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted, textAlign: 'center', marginTop: space.sm },
+  dayHead: { fontFamily: fonts.serif, fontSize: 14, color: colors.bone, marginTop: space.md, marginBottom: space.sm },
   empty: { fontFamily: fonts.sans, fontSize: 13, color: colors.muted },
   note: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, textAlign: 'center' },
 });

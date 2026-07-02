@@ -15,22 +15,29 @@ export type SubStat = { label: string; value: string; tint?: string };
 export function Hero({
   unitLabel,
   value,
+  valueSuffix,
   level,
   subs,
   warning,
   extraLine,
+  note,
 }: {
   unitLabel: string; // "累計 bb/100" など
   value: string; // 主役数字
+  valueSuffix?: string; // 主役数字の後ろに小さく付ける単位（"bb/100" 等）
   level: Level;
   subs: SubStat[];
   warning?: string | null;
   extraLine?: string | null; // 「最高賞金／現在ノーマネー◯連続」など
+  note?: string | null; // 指標の意味など控えめな注釈（最下部）
 }) {
   return (
     <LinearGradient colors={[colors.feltLight, colors.feltDark]} style={styles.wrap}>
       <Text style={styles.unit}>{unitLabel}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <View style={styles.valueRow}>
+        <Text style={styles.value}>{value}</Text>
+        {valueSuffix ? <Text style={styles.valueSuffix}>{valueSuffix}</Text> : null}
+      </View>
       <View style={styles.badgeRow}>
         <LevelBadge level={level} />
       </View>
@@ -52,6 +59,8 @@ export function Hero({
           <Text style={styles.warnText}>{warning}</Text>
         </View>
       ) : null}
+
+      {note ? <Text style={styles.note}>{note}</Text> : null}
     </LinearGradient>
   );
 }
@@ -59,7 +68,9 @@ export function Hero({
 const styles = StyleSheet.create({
   wrap: { borderRadius: radius.lg, padding: space.xl, gap: space.sm },
   unit: { ...type.label, color: colors.muted, letterSpacing: 1 },
+  valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs, flexWrap: 'wrap' },
   value: { fontFamily: fonts.mono, fontSize: 52, fontWeight: '700', color: colors.gold },
+  valueSuffix: { fontFamily: fonts.mono, fontSize: 18, fontWeight: '700', color: colors.gold, opacity: 0.75 },
   badgeRow: { flexDirection: 'row' },
   line: { fontFamily: fonts.serif, fontSize: 16, fontStyle: 'italic', color: colors.bone },
   extra: { fontFamily: fonts.mono, fontSize: 13, color: colors.muted, marginTop: space.xs },
@@ -84,4 +95,5 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(194,96,63,0.4)',
   },
   warnText: { fontFamily: fonts.sans, fontSize: 12, color: colors.chipRed, lineHeight: 17 },
+  note: { fontFamily: fonts.sans, fontSize: 11, color: colors.muted, lineHeight: 16, marginTop: space.sm },
 });
