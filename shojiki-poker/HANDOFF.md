@@ -85,7 +85,18 @@ npx expo start      # Expo GoでQR読み取り→実機プレビュー（課金/
 
 ## 5. 残タスク（本番化・元HANDOFF §9の9〜11, §7, §8）
 
-### A. 生成画像の差し込み（最優先・見た目が本物になる）
+> 進捗（2026-07-02）: **A/B/C 完了 → TestFlightアップロード済み（Build 8 / v1.0.0）**。
+> - A: 生成画像10枚を `src/assets/` に配置しUIを画像化（LV章は白背景を円形マスクで透過PNG化）。
+> - C: AdMob iOS（アプリID `...486~8103457500` / バナー `...486/6790375831`）、RevenueCat iOS
+>   公開キー `appl_yJbNctKFLusQXypwzAxnHTevWJJ`、entitlement識別子は実値 `Shojiki-poker Pro` を app.json に。
+> - B: Expoプロジェクト `@abet_koga/shojiki-poker`(projectId `b95920dd-...`) 作成、EAS Build（`eas.json` の
+>   production を `ios.image: latest` に＝iOS26 SDK要件対応）→ `eas submit` でApp Store Connectへ。
+>   ASC App ID `6786593446`。Apple個人アカウント Team `MJ9L32DU2V`。
+> - **残: 実課金**（App Store Connectで¥300/¥2,000サブスク作成→RevenueCat取込→entitlement紐付け→
+>   オファリング。**有料App契約(Paid Apps Agreement/口座・税)締結が前提**）。現状は課金オフでもアプリは落ちない。
+> - 秘匿情報（EXPO_TOKEN・ASC APIキー `.p8`）はリポジトリ非格納。app.json内は公開クライアントキーのみ。
+
+### A. 生成画像の差し込み（✅完了）
 ユーザーがChatGPTで生成した画像を **OneDriveの「正直ポーカー」フォルダ** に保存済み。
 → Macなら `shojiki-poker/src/assets/` に置く。スマホなら github.com からそのフォルダにUpload。
 差し込み先（コード側の対応）:
@@ -95,7 +106,7 @@ npx expo start      # Expo GoでQR読み取り→実機プレビュー（課金/
 - **LVエンブレム**: `components/LevelBadge.tsx` の lucideアイコンを、tone/labelに対応した画像に
 - 鉄則: 画像に文字は焼かない。名前/数字はアプリ側で実テキスト重ね（§8）。
 
-### B. EAS Build → TestFlight（実機配布・Mac不要だがコマンド入口は要る）
+### B. EAS Build → TestFlight（✅完了・Build 8をアップロード済み）
 ```bash
 npm install -g eas-cli
 eas login                                   # Expoアカウント
@@ -108,7 +119,7 @@ eas submit --platform ios --profile production
 - **App Store Connect API キー**（App Store Connect → Users and Access → Integrations → 生成。`.p8`＋Key ID＋Issuer ID）。役割 App Manager。※使用後Revoke可。
 - Apple Developer登録は済み（ユーザー談・Buddy+のとき）。
 
-### C. 本番キーの差し込み（Bの前後で）
+### C. 本番キーの差し込み（✅キー差し込み完了 / 実課金は商品作成待ち）
 - AdMob: `app.json > extra.adBannerUnitIdIOS/Android` と `plugins > react-native-google-mobile-ads` の iosAppId を本番へ（現状はGoogle公式テストID）。
 - RevenueCat: `app.json > extra.revenueCatApiKeyIOS/Android` を本番キーに。entitlement `pro`、月額¥300/年額¥2,000のオファリング作成。→ `ProContext` が自動でRevenueCatを真実として扱う。
 - CIに置くなら secret経由で `app.json` に注入。
