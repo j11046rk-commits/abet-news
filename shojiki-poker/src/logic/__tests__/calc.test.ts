@@ -94,10 +94,10 @@ test('level thresholds (cash)', () => {
 });
 
 test('level thresholds (mtt)', () => {
-  assert.equal(mttLevel(30).label, '強豪');
-  assert.equal(mttLevel(10).label, 'しっかりプラス');
-  assert.equal(mttLevel(0).label, '薄利');
-  assert.equal(mttLevel(-1).label, 'マイナス');
+  assert.equal(mttLevel(30).label, '鉄強プレイヤー');
+  assert.equal(mttLevel(10).label, '勝ち組');
+  assert.equal(mttLevel(0).label, '肩次第');
+  assert.equal(mttLevel(-1).label, 'お魚さん');
 });
 
 test('sample warnings appear below thresholds', () => {
