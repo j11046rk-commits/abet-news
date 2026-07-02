@@ -51,7 +51,7 @@ export const ShareCard = React.forwardRef<View, { data: ShareData }>(({ data }, 
 
       {/* KPIグリッド */}
       <View style={styles.grid}>
-        <Kpi label="bb/100" value={data.bb100} sub={data.cashLevel.label} />
+        <Kpi label="BB/100" value={data.bb100} sub={data.cashLevel.label} />
         <Kpi label="ROI" value={data.roi} sub={data.mttLevel.label} />
         <Kpi label="インマネ率" value={data.itm} />
         <Kpi label="平均着順" value={data.avgTop} />

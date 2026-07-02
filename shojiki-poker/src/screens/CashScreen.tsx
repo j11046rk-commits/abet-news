@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../components/Screen';
-import { Banner } from '../components/Banner';
 import { Hero } from '../components/Hero';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
@@ -59,11 +58,10 @@ export function CashScreen() {
 
   return (
     <Screen bg={require('../assets/bg-cash.png')}>
-      <Banner source={require('../assets/banner-cash.png')} />
       <Hero
         unitLabel="累計"
         value={bb100Text(cash.bb100)}
-        valueSuffix="bb/100"
+        valueSuffix="BB/100ハンド"
         level={level}
         subs={[
           { label: '時給', value: yen(cash.hourly, true), tint: profitColor(cash.hourly) },
@@ -71,7 +69,7 @@ export function CashScreen() {
           { label: '推定ハンド', value: Math.round(cash.totalHands).toLocaleString('ja-JP') },
         ]}
         warning={warning}
-        note="bb/100＝100ハンドあたり平均何BB勝っているかを示す実力指標（高いほど強い）。推定ハンド数はプレイ時間×人数から算出した概算です。"
+        note="BB/100ハンド＝100ハンドあたり平均何BB勝っているかを示す実力指標（高いほど強い）。推定ハンド数はプレイ時間×人数から算出した概算です。"
       />
 
       <Card style={{ gap: space.md }}>
@@ -98,7 +96,7 @@ export function CashScreen() {
                 detail={`${s.hours}h · ${s.players}人 · ${yen(s.bb)}`}
                 rightPrimary={yen(s.profit, true)}
                 rightPrimaryColor={profitColor(s.profit)}
-                rightSecondary={`${bb100Text(sessionBb100(s.bb, s.hours, s.hph, s.profit))} bb/100`}
+                rightSecondary={`${bb100Text(sessionBb100(s.bb, s.hours, s.hph, s.profit))} BB/100`}
                 onDelete={() => removeCash(s.id)}
               />
             ))}

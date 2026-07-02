@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../components/Screen';
-import { Banner } from '../components/Banner';
 import { Hero } from '../components/Hero';
 import { Card } from '../components/Card';
 import { Field } from '../components/Field';
@@ -62,7 +61,6 @@ export function TournamentScreen() {
 
   return (
     <Screen bg={require('../assets/bg-tournament.png')}>
-      <Banner source={require('../assets/banner-tournament.png')} />
       <Hero
         unitLabel="累計 ROI"
         value={pct(mtt.roi)}
@@ -74,6 +72,7 @@ export function TournamentScreen() {
           { label: '累計収支', value: yen(mtt.mttProfit, true), tint: profitColor(mtt.mttProfit) },
         ]}
         warning={warning}
+        note="ROI＝投資した参加費に対して何％回収できたか（(回収−投資)÷投資×100）。プラスなら勝ち越し。インマネ率＝入賞（賞金獲得）できた割合。"
       />
 
       <Card style={{ gap: space.md }}>

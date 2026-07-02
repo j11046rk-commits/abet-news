@@ -4,7 +4,6 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { Screen } from '../components/Screen';
-import { Banner } from '../components/Banner';
 import { Card } from '../components/Card';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { RecordRow } from '../components/RecordRow';
@@ -124,8 +123,6 @@ export function ResultsScreen({ navigation }: { navigation: { navigate: (s: stri
 
   return (
     <Screen bg={require('../assets/bg-results.png')}>
-      <Banner source={require('../assets/banner-results.png')} />
-
       {/* ① 実収支トータル */}
       <Card style={{ gap: space.xs }}>
         <Text style={styles.headLabel}>実収支トータル</Text>
