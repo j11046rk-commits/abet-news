@@ -86,18 +86,18 @@ test('grandTotal combines cash + mtt', () => {
 });
 
 test('level thresholds (cash)', () => {
-  assert.equal(cashLevel(8).label, 'LV.クラッシャー');
-  assert.equal(cashLevel(5).label, 'LV.勝ち組');
-  assert.equal(cashLevel(0).label, 'LV.まだ運の範囲');
-  assert.equal(cashLevel(-1).label, 'LV.要修正');
-  assert.equal(cashLevel(NaN).label, 'LV.未計測');
+  assert.equal(cashLevel(8).label, '鉄強プレイヤー');
+  assert.equal(cashLevel(5).label, '勝ち組');
+  assert.equal(cashLevel(0).label, '肩次第');
+  assert.equal(cashLevel(-1).label, 'お魚さん');
+  assert.equal(cashLevel(NaN).label, '未計測');
 });
 
 test('level thresholds (mtt)', () => {
-  assert.equal(mttLevel(30).label, 'LV.強豪');
-  assert.equal(mttLevel(10).label, 'LV.しっかりプラス');
-  assert.equal(mttLevel(0).label, 'LV.薄利');
-  assert.equal(mttLevel(-1).label, 'LV.マイナス');
+  assert.equal(mttLevel(30).label, '強豪');
+  assert.equal(mttLevel(10).label, 'しっかりプラス');
+  assert.equal(mttLevel(0).label, '薄利');
+  assert.equal(mttLevel(-1).label, 'マイナス');
 });
 
 test('sample warnings appear below thresholds', () => {
