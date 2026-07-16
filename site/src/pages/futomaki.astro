@@ -119,8 +119,20 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         border:1px solid var(--line); background: var(--surface2); font-weight:700; font-size:13.5px; color:var(--txt); }
       .chip[aria-pressed="true"] { border-color: transparent; color:#fff; }
 
-      .flyer img { width:100%; border-radius:12px; display:block; }
-      .flyer .cap { font-size:11px; color:var(--muted); text-align:center; margin-top:8px; }
+      /* 予約の編集（自分の分のみ） */
+      .resv .act2 { display:flex; gap:2px; flex:none; }
+      .resv .edit { flex:none; border:0; background:none; color:var(--muted); font-size:14px; cursor:pointer; padding:4px 6px; }
+      .resv .edit:active { color:var(--g2); }
+      .resv.editing { flex-wrap:wrap; }
+      .ewrap { flex:1 1 100%; display:flex; flex-direction:column; gap:8px; padding:4px 0 2px; }
+      .einp { width:100%; background:var(--surface2); border:1px solid var(--line); border-radius:10px; color:#fff; font-size:14.5px; padding:9px 11px; outline:none; }
+      .einp:focus { border-color:var(--g2); }
+      .erow { display:flex; align-items:center; gap:8px; }
+      .stepper.mini button { width:36px; height:36px; font-size:16px; }
+      .stepper.mini .qv { min-width:44px; font-size:15px; }
+      .eyen { font-size:12px; color:var(--muted); flex:1; text-align:center; font-variant-numeric:tabular-nums; }
+      .esave { border:0; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:800; color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--g1),var(--g2)); }
+      .ecancel { border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13.5px; font-weight:700; color:var(--muted); background:var(--surface2); cursor:pointer; }
 
       /* ===== 下部固定: 予約入力 ===== */
       .dock { position: fixed; left:0; right:0; bottom:0; z-index:20; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
@@ -206,15 +218,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           <div class="sec">自分はどれ？</div>
           <div class="card"><div class="who" id="who"></div></div>
 
-          <div class="sec">商品チラシ</div>
-          <div class="card flyer">
-            <a href={`${import.meta.env.BASE_URL}images/futomaki-chirashi.jpg`} target="_blank" rel="noopener noreferrer">
-              <img src={`${import.meta.env.BASE_URL}images/futomaki-chirashi.jpg`} alt="しっぽり亭特製 うなぎの太巻き 数量限定・完全予約制7/24まで・受け取り7/26 14-17時・税込2,500円" loading="lazy" />
-            </a>
-            <div class="cap">タップで拡大。お客様への説明用にどうぞ。</div>
-          </div>
-
-          <p class="note">全員の画面にリアルタイム同期（約2.5秒）。予約の取り消しは一覧の ✕ から（自分の分のみ）。データ: Supabase。</p>
+          <p class="note">全員の画面にリアルタイム同期（約2.5秒）。予約の修正は ✎、取り消しは ✕ から（自分の分のみ）。データ: Supabase。</p>
         </>
       )}
     </div>
@@ -233,6 +237,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         let me = null;
         let qtyInput = 1;
         let showAll = false;
+        let editingId = null;   // 編集中の予約id（null=非編集）
+        let editQty = 1;
 
         try { me = localStorage.getItem('futomaki_me'); } catch(e){}
         if (me && !byName[me]) me = null;
@@ -258,6 +264,14 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         async function delResv(id){
           const r = await fetch(REST + 'futomaki_reservations?id=eq.' + id, { method:'DELETE', headers:{...H,'Prefer':'return=minimal'} });
           if (!r.ok) throw new Error(await r.text());
+        }
+        async function updResv(id, customer, qty){
+          const r = await fetch(REST + 'futomaki_reservations?id=eq.' + id, {
+            method:'PATCH', headers:{...H,'Content-Type':'application/json','Prefer':'return=representation'},
+            body: JSON.stringify({ customer, qty })
+          });
+          if (!r.ok) throw new Error(await r.text());
+          return (await r.json())[0];
         }
 
         // ---- 集計 ----
@@ -342,6 +356,41 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           shown.forEach(r => {
             const p = byName[r.player] || { color:'#888' };
             const el = document.createElement('div');
+            // 編集モード（自分の行のみ）
+            if (r.player===me && editingId===r.id) {
+              el.className = 'resv editing';
+              el.innerHTML =
+                '<span class="dot" style="background:'+p.color+'"></span>' +
+                '<div class="ewrap">' +
+                  '<input class="einp" id="editName" maxlength="30" autocomplete="off" />' +
+                  '<div class="erow">' +
+                    '<div class="stepper mini"><button id="eminus" type="button">−</button><div class="qv"><span id="eqv">'+editQty+'</span> <small>本</small></div><button id="eplus" type="button">＋</button></div>' +
+                    '<span class="eyen" id="eyen">¥'+fmt(editQty*PRICE)+'</span>' +
+                    '<button class="esave" id="esave" type="button">保存</button>' +
+                    '<button class="ecancel" id="ecancel" type="button">やめる</button>' +
+                  '</div>' +
+                '</div>';
+              list.appendChild(el);
+              const ni = el.querySelector('#editName');
+              ni.value = r.customer;
+              const setEQ = q => { editQty = Math.min(99, Math.max(1, q)); el.querySelector('#eqv').textContent = editQty; el.querySelector('#eyen').textContent = '¥'+fmt(editQty*PRICE); };
+              el.querySelector('#eminus').onclick = () => setEQ(editQty-1);
+              el.querySelector('#eplus').onclick = () => setEQ(editQty+1);
+              el.querySelector('#ecancel').onclick = () => { editingId = null; renderList(); };
+              el.querySelector('#esave').onclick = async () => {
+                const name = ni.value.trim();
+                if (!name) { toast('お名前を入れてください'); ni.focus(); return; }
+                try {
+                  const rec = await updResv(r.id, name, editQty);
+                  rows = rows.map(x => x.id===r.id ? rec : x);
+                  editingId = null;
+                  prevTotals = totals();
+                  renderAll();
+                  toast('✏️ 修正しました');
+                } catch(e) { toast('⚠️ 修正に失敗。もう一度お試しを'); }
+              };
+              return;
+            }
             el.className = 'resv';
             el.innerHTML =
               '<span class="dot" style="background:'+p.color+'"></span>' +
@@ -349,7 +398,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               '<span class="by">'+esc(r.player)+'</span>' +
               '<span class="q">'+fmt(r.qty)+'本</span>' +
               '<span class="yen2">¥'+fmt(r.qty*PRICE)+'</span>' +
-              (r.player===me ? '<button class="del" title="取り消し" data-id="'+r.id+'">✕</button>' : '');
+              (r.player===me ? '<span class="act2"><button class="edit" title="修正" data-eid="'+r.id+'">✎</button><button class="del" title="取り消し" data-id="'+r.id+'">✕</button></span>' : '');
             list.appendChild(el);
           });
           if (desc.length > 8) {
@@ -358,6 +407,12 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             m.querySelector('button').onclick = () => { showAll = !showAll; renderList(); };
             list.appendChild(m);
           }
+          list.querySelectorAll('.edit').forEach(b => b.onclick = () => {
+            const row = rows.find(x => x.id === +b.dataset.eid);
+            if (!row) return;
+            editingId = row.id; editQty = row.qty;
+            renderList();
+          });
           list.querySelectorAll('.del').forEach(b => b.onclick = async () => {
             const id = +b.dataset.id;
             const row = rows.find(x=>x.id===id);
@@ -484,7 +539,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               });
             }
             prevTotals = t;
-            renderAll();
+            if (editingId === null) renderAll();
+            else { renderHero(); renderBoard(); renderChart(); } // 編集中は一覧を再描画しない（入力内容を守る）
             firstLoad = false;
           } catch(e) {}
         }
