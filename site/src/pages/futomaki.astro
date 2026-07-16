@@ -36,6 +36,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         --g1: #6366f1; --g2: #22d3ee;
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      /* 連打対策: ダブルタップズーム無効＋テキスト選択防止 */
+      button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
       body {
         margin: 0; color: var(--txt); padding-bottom: 132px;
         font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
@@ -113,6 +115,16 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .more button { background:none; border:0; color:var(--g2); font-size:12.5px; font-weight:700; cursor:pointer; }
 
       svg text { fill: var(--muted); font-size: 10.5px; }
+
+      /* 売上シェア（ドーナツ） */
+      .share { display:flex; align-items:center; gap:18px; }
+      .share svg { flex:none; }
+      .slg { flex:1; min-width:0; }
+      .slg .li { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; }
+      .slg .dot2 { width:10px; height:10px; border-radius:3px; flex:none; }
+      .slg .nm2 { font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .slg .yn { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; flex:none; }
+      .slg .pct { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; flex:none; }
 
       .who { display:flex; flex-wrap:wrap; gap:8px; }
       .chip { flex:1 1 auto; min-width: 68px; text-align:center; padding:10px 8px; border-radius:12px; cursor:pointer;
@@ -197,6 +209,10 @@ const nf0 = new Intl.NumberFormat('ja-JP');
 
           <!-- ② 各人の売上ランキング -->
           <div class="card mb" id="board"><div class="empty">読み込み中…</div></div>
+
+          <!-- ②' 売上シェア（円グラフ） -->
+          <div class="sec">売上シェア</div>
+          <div class="card mb"><div class="share" id="share"><div class="empty">読み込み中…</div></div></div>
 
           <!-- ③ カウントダウン -->
           <div class="card stat mb">
@@ -346,6 +362,36 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             board.appendChild(row);
           });
         }
+        function renderShare(){
+          const t = totals();
+          const qty = PLAYERS.reduce((s,p)=>s+t[p.name],0);
+          const el = $('#share');
+          const R2 = 44, C2 = 2*Math.PI*R2, SW = 18;
+          let svg = '<svg width="132" height="132" viewBox="0 0 110 110" role="img" aria-label="売上シェア">';
+          svg += '<circle cx="55" cy="55" r="'+R2+'" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="'+SW+'"/>';
+          if (qty > 0) {
+            let off = 0;
+            PLAYERS.forEach(p => {
+              const frac = t[p.name]/qty;
+              if (frac <= 0) return;
+              const len = frac*C2;
+              const seg = Math.max(.5, len-2); // セグメント間に2pxの隙間
+              svg += '<circle cx="55" cy="55" r="'+R2+'" fill="none" stroke="'+p.color+'" stroke-width="'+SW+'" stroke-dasharray="'+seg+' '+(C2-seg)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 55 55)"/>';
+              off += len;
+            });
+          }
+          const yen = qty*PRICE;
+          const yenLabel = yen >= 10000 ? (Math.round(yen/1000)/10)+'万' : fmt(yen);
+          svg += '<text x="55" y="51" text-anchor="middle" style="font-size:10px">合計</text>';
+          svg += '<text x="55" y="66" text-anchor="middle" style="font-size:13px;font-weight:800" fill="#eef2ff">¥'+yenLabel+'</text></svg>';
+          let lg = '<div class="slg">';
+          [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]).forEach(p => {
+            const pc = qty > 0 ? Math.round(t[p.name]/qty*100) : 0;
+            lg += '<div class="li"><span class="dot2" style="background:'+p.color+'"></span><span class="nm2">'+p.name+'</span><span class="yn">¥'+fmt(t[p.name]*PRICE)+'</span><span class="pct">'+pc+'%</span></div>';
+          });
+          lg += '</div>';
+          el.innerHTML = svg + lg;
+        }
         function renderList(){
           const list = $('#resvList');
           $('#resvCnt').textContent = rows.length ? '（' + rows.length + '件）' : '';
@@ -376,6 +422,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               const setEQ = q => { editQty = Math.min(99, Math.max(1, q)); el.querySelector('#eqv').textContent = editQty; el.querySelector('#eyen').textContent = '¥'+fmt(editQty*PRICE); };
               el.querySelector('#eminus').onclick = () => setEQ(editQty-1);
               el.querySelector('#eplus').onclick = () => setEQ(editQty+1);
+              ['#eminus','#eplus'].forEach(s => el.querySelector(s).addEventListener('pointerdown', e => e.preventDefault()));
               el.querySelector('#ecancel').onclick = () => { editingId = null; renderList(); };
               el.querySelector('#esave').onclick = async () => {
                 const name = ni.value.trim();
@@ -494,13 +541,15 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           const setQ = q => { qtyInput = Math.min(99, Math.max(1, q)); qv.textContent = qtyInput; amount.textContent = '¥' + fmt(qtyInput*PRICE); };
           $('#qminus').onclick = () => setQ(qtyInput-1);
           $('#qplus').onclick = () => setQ(qtyInput+1);
+          // タップでフォーカスを奪わない → キーボードが閉じずボタン位置がズレない（連打対応）
+          ['qminus','qplus'].forEach(id => $('#'+id).addEventListener('pointerdown', e => e.preventDefault()));
           $('#addBtn').onclick = submit;
           // Enterで登録（ただし日本語IMEの変換確定Enterでは発火させない）
           $('#custName').addEventListener('keydown', e => {
             if (e.key==='Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); }
           });
         }
-        function renderAll(bumpName){ renderHero(); renderBoard(bumpName); renderList(); renderChart(); }
+        function renderAll(bumpName){ renderHero(); renderBoard(bumpName); renderShare(); renderList(); renderChart(); }
 
         async function submit(){
           const inp = $('#custName');
@@ -540,7 +589,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             }
             prevTotals = t;
             if (editingId === null) renderAll();
-            else { renderHero(); renderBoard(); renderChart(); } // 編集中は一覧を再描画しない（入力内容を守る）
+            else { renderHero(); renderBoard(); renderShare(); renderChart(); } // 編集中は一覧を再描画しない（入力内容を守る）
             firstLoad = false;
           } catch(e) {}
         }
