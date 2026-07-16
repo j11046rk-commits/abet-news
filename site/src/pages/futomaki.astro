@@ -1,0 +1,397 @@
+---
+// うなぎ太巻き 予約数バトル（4者対戦・リアルタイム共有）
+// バックエンド: Supabase（REST + 2.5秒ポーリング）。接続情報は site.json の futomaki。
+// 管理/イベント用ページのため noindex＋サイトマップ除外（astro.config.mjs）。
+import site from '../../data/site.json';
+const cfg = site.futomaki || {};
+const SB_URL = (cfg.supabaseUrl || '').trim().replace(/\/$/, '');
+const SB_KEY = (cfg.supabaseAnonKey || '').trim();
+const GOAL = Number(cfg.goal || 200);
+const EVENT_DATE = cfg.eventDate || '2026-07-26';
+const PLAYERS = [
+  { name: '古賀', color: '#3987e5', initial: '古' },
+  { name: '山本', color: '#d55181', initial: '山' },
+  { name: '岡', color: '#c98500', initial: '岡' },
+  { name: 'しっぽり亭店販', color: '#199e70', initial: '店' },
+];
+const configured = !!(SB_URL && SB_KEY);
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#070b16" />
+    <title>うなぎ太巻き 予約数バトル｜しっぽり亭</title>
+    <style is:global>
+      :root {
+        --bg: #070b16; --surface: #101828; --surface2: #0c1322; --line: rgba(255,255,255,.09);
+        --txt: #eef2ff; --muted: #8b93ad; --gold: #ffcf5b;
+        --g1: #6366f1; --g2: #22d3ee;
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body {
+        margin: 0; color: var(--txt); padding-bottom: 96px;
+        font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+        line-height: 1.5; -webkit-font-smoothing: antialiased;
+        background:
+          radial-gradient(900px 500px at 10% -8%, rgba(99,102,241,.18), transparent 60%),
+          radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.12), transparent 55%),
+          radial-gradient(700px 600px at 80% 110%, rgba(255,207,91,.10), transparent 60%),
+          var(--bg);
+        min-height: 100vh; overflow-x: hidden;
+      }
+      .wrap { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px;
+        backdrop-filter: blur(12px); }
+      .mb { margin-bottom: 14px; }
+
+      header.top { text-align: center; margin: 6px 0 16px; }
+      header.top .emoji { font-size: 34px; line-height: 1; }
+      header.top h1 { font-size: 22px; margin: 6px 0 2px; font-weight: 800; letter-spacing: .01em; }
+      header.top .sub { font-size: 12.5px; color: var(--muted); }
+      .livedot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#34d399;
+        margin-right:5px; box-shadow:0 0 0 0 rgba(52,211,153,.7); animation:pulse 2s infinite; vertical-align:middle; }
+      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.6);} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
+
+      /* カウントダウン + 目標 */
+      .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 460px){ .hero { grid-template-columns: 1fr; } }
+      .stat .lbl { font-size: 11.5px; color: var(--muted); letter-spacing:.04em; }
+      .stat .big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
+      .stat .big small { font-size: 14px; font-weight: 700; color: var(--muted); }
+      .cd { display:flex; gap:6px; margin-top:6px; }
+      .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:9px; padding:6px 0; text-align:center; flex:1; }
+      .cd .n { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .cd .u { font-size:10px; color:var(--muted); }
+      .pbar { height: 12px; border-radius: 8px; background: var(--surface2); overflow: hidden; margin-top: 10px; }
+      .pbar > span { display:block; height:100%; border-radius:8px; background: linear-gradient(90deg, var(--g1), var(--g2)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+      .goaltxt { font-size:11.5px; color:var(--muted); margin-top:6px; }
+
+      .sec { font-size: 12px; font-weight: 700; color:#cdd5ee; letter-spacing:.06em; margin: 22px 4px 12px; text-transform: uppercase;
+        display:flex; align-items:center; gap:8px; }
+      .sec::before { content:''; width:14px; height:2px; border-radius:2px; background: linear-gradient(90deg,var(--g1),var(--g2)); }
+
+      /* 順位バー */
+      .row { display:grid; grid-template-columns: 26px 40px 1fr auto; align-items:center; gap:10px; padding:10px 6px;
+        border-radius:12px; transition: background .2s; }
+      .row.me { background: rgba(255,255,255,.05); }
+      .rank { font-size:15px; font-weight:800; color:var(--muted); text-align:center; }
+      .rank.first { color: var(--gold); }
+      .avatar { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; }
+      .pname { font-weight:700; font-size:15px; display:flex; align-items:center; gap:6px; }
+      .pname .crown { font-size:15px; }
+      .pbar2 { height:14px; border-radius:8px; background: var(--surface2); overflow:hidden; margin-top:6px; }
+      .pbar2 > span { display:block; height:100%; border-radius:8px; transition: width .7s cubic-bezier(.2,.8,.2,1); }
+      .pcount { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; min-width:56px; text-align:right; }
+      .pcount small { font-size:12px; color:var(--muted); font-weight:700; }
+      .bump { animation: bump .5s ease; }
+      @keyframes bump { 0%{transform:scale(1);} 35%{transform:scale(1.28);} 100%{transform:scale(1);} }
+
+      /* 推移グラフ */
+      svg text { fill: var(--muted); font-size: 10.5px; }
+
+      /* 自分セレクタ */
+      .who { display:flex; flex-wrap:wrap; gap:8px; }
+      .chip { flex:1 1 auto; min-width: 68px; text-align:center; padding:10px 8px; border-radius:12px; cursor:pointer;
+        border:1px solid var(--line); background: var(--surface2); font-weight:700; font-size:13.5px; color:var(--txt); }
+      .chip[aria-pressed="true"] { border-color: transparent; color:#fff; }
+
+      /* 下部固定バー（自分の操作） */
+      .dock { position: fixed; left:0; right:0; bottom:0; z-index:20; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+        background: rgba(10,14,24,.86); backdrop-filter: blur(14px); border-top:1px solid var(--line); }
+      .dock .inner { max-width:680px; margin:0 auto; display:flex; align-items:center; gap:10px; }
+      .dock .who-mini { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+      .dock .who-mini .nm { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .dock .who-mini .c { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .btns { display:flex; gap:7px; }
+      .btn { border:0; border-radius:12px; padding:12px 0; min-width:52px; font-size:15px; font-weight:800; color:#fff; cursor:pointer;
+        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow:0 6px 16px rgba(99,102,241,.4); }
+      .btn.minus { background: var(--surface2); box-shadow:none; border:1px solid var(--line); min-width:46px; }
+      .btn:active { transform: translateY(1px) scale(.97); }
+      .btn.big { flex:1; font-size:17px; }
+      .dock .prompt { flex:1; text-align:center; color:var(--muted); font-size:13px; }
+      .setline { display:flex; gap:8px; margin-top:9px; }
+      .setline input { flex:1; background: var(--surface2); border:1px solid var(--line); border-radius:10px; color:#fff; font-size:15px; padding:9px 12px; outline:none; }
+      .setline input:focus { border-color: var(--g2); }
+      .setline button { background: var(--surface2); border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:0 14px; font-weight:700; }
+
+      /* トースト */
+      #toasts { position: fixed; top: 12px; left:0; right:0; z-index:30; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
+      .toast { background: rgba(16,24,40,.95); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
+        box-shadow:0 8px 24px rgba(0,0,0,.4); animation: tin .3s ease, tout .3s ease 1.9s forwards; }
+      @keyframes tin { from{opacity:0; transform:translateY(-8px);} to{opacity:1;} }
+      @keyframes tout { to{opacity:0; transform:translateY(-8px);} }
+
+      .conf { position: fixed; z-index: 40; top: -12px; width: 9px; height: 14px; border-radius: 2px; pointer-events:none; }
+      .note { margin-top: 22px; font-size: 11px; color: var(--muted); border-top:1px solid var(--line); padding-top: 12px; text-align:center; }
+      .empty { color:var(--muted); font-size:13px; padding:6px 2px; text-align:center; }
+      .setup { text-align:center; padding: 30px 18px; }
+      .setup h2 { font-size:16px; margin:0 0 8px; }
+      .setup p { font-size:13px; color:var(--muted); }
+      .setup code { background: var(--surface2); padding:2px 6px; border-radius:6px; }
+    </style>
+  </head>
+  <body>
+    <div id="toasts"></div>
+    <div class="wrap">
+      <header class="top">
+        <div class="emoji">🍣🔥</div>
+        <h1>うなぎ太巻き 予約数バトル</h1>
+        <div class="sub"><span class="livedot"></span>7/26(日) しっぽり亭 店頭販売 ／ 予約数リアルタイム対戦</div>
+      </header>
+
+      {!configured ? (
+        <div class="card setup">
+          <h2>⚙️ セットアップ待ち</h2>
+          <p>Supabaseの接続情報が未設定です。<code>site.json</code> の <code>futomaki.supabaseUrl</code> と <code>supabaseAnonKey</code> を設定すると起動します。</p>
+        </div>
+      ) : (
+        <>
+          <div class="hero mb">
+            <div class="card stat">
+              <div class="lbl">販売開始まで</div>
+              <div class="cd" id="cd">
+                <div><div class="n" data-cd="d">--</div><div class="u">日</div></div>
+                <div><div class="n" data-cd="h">--</div><div class="u">時</div></div>
+                <div><div class="n" data-cd="m">--</div><div class="u">分</div></div>
+                <div><div class="n" data-cd="s">--</div><div class="u">秒</div></div>
+              </div>
+            </div>
+            <div class="card stat">
+              <div class="lbl">合計予約数</div>
+              <div class="big"><span id="total">0</span> <small>本</small></div>
+              <div class="pbar"><span id="pfill" style="width:0%"></span></div>
+              <div class="goaltxt" id="goaltxt">目標 {GOAL} 本</div>
+            </div>
+          </div>
+
+          <div class="sec">ランキング</div>
+          <div class="card" id="board"><div class="empty">読み込み中…</div></div>
+
+          <div class="sec">予約数の推移</div>
+          <div class="card"><svg id="chart" viewBox="0 0 640 220" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="予約数の推移"></svg></div>
+
+          <div class="sec">自分はどれ？</div>
+          <div class="card"><div class="who" id="who"></div></div>
+
+          <p class="note">数値は全員の画面にリアルタイム同期（約2.5秒）。誰でも自分の数を更新できます。データ: Supabase。</p>
+        </>
+      )}
+    </div>
+
+    {configured && (
+      <div class="dock" id="dock" style="display:none">
+        <div class="inner" id="dockInner"></div>
+      </div>
+    )}
+
+    {configured && (
+      <script define:vars={{ SB_URL, SB_KEY, GOAL, EVENT_DATE, PLAYERS }}>
+        const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
+        const REST = SB_URL + '/rest/v1/';
+        const byName = Object.fromEntries(PLAYERS.map(p => [p.name, p]));
+        let counts = Object.fromEntries(PLAYERS.map(p => [p.name, 0]));
+        let prev = { ...counts };
+        let me = null;
+        let history = [];
+        let firstLoad = true;
+
+        try { me = localStorage.getItem('futomaki_me'); } catch(e){}
+        if (me && !byName[me]) me = null;
+
+        const $ = s => document.querySelector(s);
+        const fmt = n => new Intl.NumberFormat('ja-JP').format(n);
+
+        // ---- API ----
+        async function get(path){ const r = await fetch(REST + path, { headers: H }); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+        async function pushCount(name, count){
+          await fetch(REST + 'futomaki_orders?name=eq.' + encodeURIComponent(name), {
+            method:'PATCH', headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
+            body: JSON.stringify({ count, updated_at: new Date().toISOString() })
+          });
+          fetch(REST + 'futomaki_history', {
+            method:'POST', headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
+            body: JSON.stringify({ name, count })
+          }).catch(()=>{});
+        }
+
+        // ---- 効果音 ----
+        let actx = null;
+        function beep(freq){
+          try {
+            actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+            const o = actx.createOscillator(), g = actx.createGain();
+            o.type='triangle'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination);
+            g.gain.setValueAtTime(.0001, actx.currentTime);
+            g.gain.exponentialRampToValueAtTime(.25, actx.currentTime+.01);
+            g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+.25);
+            o.start(); o.stop(actx.currentTime+.26);
+          } catch(e){}
+        }
+        // ---- 紙吹雪 ----
+        function confetti(color){
+          const cols = [color, '#ffcf5b', '#22d3ee', '#fff'];
+          for (let i=0;i<26;i++){
+            const d = document.createElement('div');
+            d.className = 'conf';
+            d.style.background = cols[i % cols.length];
+            d.style.left = (10 + Math.random()*80) + 'vw';
+            const dx = (Math.random()*2-1)*30, dur = 900 + Math.random()*700;
+            d.style.transform = 'rotate(' + (Math.random()*360) + 'deg)';
+            document.body.appendChild(d);
+            d.animate([
+              { top:'-12px', opacity:1 },
+              { top:'100vh', opacity:1, offset:.9 },
+              { top:'100vh', opacity:0 }
+            ], { duration: dur, easing:'cubic-bezier(.3,.7,.4,1)' });
+            d.getAnimations().forEach(a => a.onfinish = () => d.remove());
+            d.style.marginLeft = dx + 'px';
+          }
+        }
+        function toast(msg){
+          const t = document.createElement('div'); t.className='toast'; t.innerHTML = msg;
+          $('#toasts').appendChild(t); setTimeout(()=>t.remove(), 2300);
+        }
+
+        // ---- レンダリング ----
+        function renderProgress(){
+          const total = PLAYERS.reduce((s,p)=>s+(counts[p.name]||0), 0);
+          $('#total').textContent = fmt(total);
+          const pct = Math.min(100, GOAL ? total/GOAL*100 : 0);
+          $('#pfill').style.width = pct + '%';
+          const remain = Math.max(0, GOAL - total);
+          $('#goaltxt').textContent = remain > 0 ? ('目標 ' + fmt(GOAL) + ' 本 ／ あと ' + fmt(remain) + ' 本！') : ('🎉 目標達成！ ' + fmt(total) + ' / ' + fmt(GOAL) + ' 本');
+        }
+        function renderBoard(bumpName){
+          const sorted = [...PLAYERS].sort((a,b)=>(counts[b.name]||0)-(counts[a.name]||0));
+          const max = Math.max(1, ...PLAYERS.map(p=>counts[p.name]||0));
+          const board = $('#board'); board.innerHTML = '';
+          sorted.forEach((p, i) => {
+            const c = counts[p.name]||0;
+            const row = document.createElement('div');
+            row.className = 'row' + (p.name===me ? ' me' : '');
+            const w = Math.max(c>0 ? 6 : 0, c/max*100);
+            row.innerHTML =
+              '<div class="rank ' + (i===0&&c>0?'first':'') + '">' + (i+1) + '</div>' +
+              '<div class="avatar" style="background:'+p.color+'">'+p.initial+'</div>' +
+              '<div><div class="pname">'+p.name+(i===0&&c>0?' <span class="crown">👑</span>':'')+'</div>' +
+                '<div class="pbar2"><span style="width:'+w+'%;background:'+p.color+'"></span></div></div>' +
+              '<div class="pcount' + (p.name===bumpName?' bump':'') + '" style="color:'+p.color+'">'+fmt(c)+'<small> 本</small></div>';
+            board.appendChild(row);
+          });
+        }
+        function renderChart(){
+          const svg = $('#chart'); const W=640,Hh=220, pad={l:30,r:54,t:14,b:22};
+          const iw=W-pad.l-pad.r, ih=Hh-pad.t-pad.b;
+          const series = {}; PLAYERS.forEach(p=>series[p.name]=[]);
+          history.forEach(h => { if(series[h.name]) series[h.name].push(h); });
+          const allPts = history.length;
+          const maxC = Math.max(1, ...PLAYERS.map(p=>counts[p.name]||0));
+          const times = history.map(h=>+new Date(h.at));
+          const tmin = times.length?Math.min(...times):0, tmax = times.length?Math.max(...times):1;
+          const tx = t => pad.l + (tmax>tmin ? (t-tmin)/(tmax-tmin)*iw : iw);
+          const ty = v => pad.t + ih - (v/maxC)*ih;
+          let out = '';
+          [0, Math.ceil(maxC/2), maxC].forEach(v => {
+            out += '<line x1="'+pad.l+'" x2="'+(W-pad.r)+'" y1="'+ty(v)+'" y2="'+ty(v)+'" stroke="rgba(255,255,255,.06)"/>' +
+                   '<text x="'+(pad.l-6)+'" y="'+(ty(v)+3)+'" text-anchor="end">'+v+'</text>';
+          });
+          if (allPts < 2) {
+            svg.innerHTML = out + '<text x="'+(W/2)+'" y="'+(Hh/2)+'" text-anchor="middle">更新が増えると推移が表示されます</text>';
+            return;
+          }
+          PLAYERS.forEach(p => {
+            const pts = series[p.name];
+            if (!pts.length) return;
+            // 各時点までの「その人の最新値」で階段状に。まず点列を作る
+            const d = pts.map(h => tx(+new Date(h.at))+','+ty(h.count)).join(' L ');
+            const last = pts[pts.length-1];
+            out += '<path d="M '+d+'" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linejoin="round"/>';
+            out += '<circle cx="'+tx(+new Date(last.at))+'" cy="'+ty(last.count)+'" r="3.5" fill="'+p.color+'"/>';
+            out += '<text x="'+(W-pad.r+5)+'" y="'+(ty(last.count)+3)+'" fill="'+p.color+'" style="font-weight:700">'+p.initial+'</text>';
+          });
+          svg.innerHTML = out;
+        }
+        function renderWho(){
+          const who = $('#who'); who.innerHTML='';
+          PLAYERS.forEach(p => {
+            const b = document.createElement('button');
+            b.className='chip'; b.setAttribute('aria-pressed', String(p.name===me));
+            if (p.name===me) b.style.background = p.color;
+            b.textContent = p.name;
+            b.onclick = () => { me = p.name; try{localStorage.setItem('futomaki_me',me);}catch(e){} renderWho(); renderBoard(); renderDock(); };
+            who.appendChild(b);
+          });
+        }
+        function renderDock(){
+          const dock = $('#dock'), inner = $('#dockInner');
+          dock.style.display = 'block';
+          if (!me) { inner.innerHTML = '<div class="prompt">▲ 「自分はどれ？」で自分を選ぶとここから更新できます</div>'; return; }
+          const p = byName[me], c = counts[me]||0;
+          inner.innerHTML =
+            '<div class="who-mini"><div class="avatar" style="width:34px;height:34px;border-radius:10px;background:'+p.color+'">'+p.initial+'</div>' +
+              '<div style="min-width:0"><div class="nm">'+p.name+'（自分）</div><div class="c" style="color:'+p.color+'">'+fmt(c)+' <span style="font-size:11px;color:var(--muted)">本</span></div></div></div>' +
+            '<div class="btns">' +
+              '<button class="btn minus" data-d="-1">−1</button>' +
+              '<button class="btn big" data-d="1">＋1</button>' +
+              '<button class="btn" data-d="5">＋5</button>' +
+              '<button class="btn" data-d="10">＋10</button>' +
+            '</div>';
+          inner.querySelectorAll('button[data-d]').forEach(b => b.onclick = () => bump(parseInt(b.dataset.d,10)));
+        }
+
+        async function bump(delta){
+          if (!me) return;
+          const nc = Math.max(0, (counts[me]||0) + delta);
+          counts[me] = nc; prev[me] = nc;
+          renderProgress(); renderBoard(me); renderDock();
+          if (delta > 0) { confetti(byName[me].color); beep(delta>=10?880:delta>=5?740:620); }
+          try { await pushCount(me, nc); } catch(e) { toast('⚠️ 同期に失敗。もう一度お試しを'); }
+          history.push({ name: me, count: nc, at: new Date().toISOString() });
+          renderChart();
+        }
+
+        // ---- ポーリング（同期） ----
+        async function sync(){
+          try {
+            const rows = await get('futomaki_orders?select=name,count,updated_at');
+            const next = { ...counts };
+            rows.forEach(r => { if (byName[r.name]) next[r.name] = r.count; });
+            if (!firstLoad) {
+              PLAYERS.forEach(p => {
+                const d = (next[p.name]||0) - (prev[p.name]||0);
+                if (d > 0 && p.name !== me) toast('<span style="color:'+p.color+'">'+p.name+'</span> が +' + d + ' 🔥');
+              });
+            }
+            counts = next; prev = { ...next };
+            renderProgress(); renderBoard(); renderDock();
+            firstLoad = false;
+          } catch(e) {}
+        }
+        async function syncHistory(){
+          try { history = await get('futomaki_history?select=name,count,at&order=at.asc&limit=800'); renderChart(); } catch(e){}
+        }
+
+        // ---- カウントダウン ----
+        const target = new Date(EVENT_DATE + 'T09:00:00+09:00').getTime();
+        function tick(){
+          const diff = target - Date.now();
+          const set = (k,v)=>{ const el=document.querySelector('[data-cd="'+k+'"]'); if(el) el.textContent = String(v).padStart(2,'0'); };
+          if (diff <= 0) { set('d','0'); set('h','00'); set('m','00'); set('s','00'); const lbl=document.querySelector('#cd').parentElement.querySelector('.lbl'); if(lbl) lbl.textContent='🔥 本番当日！'; return; }
+          const s=Math.floor(diff/1000); set('d',Math.floor(s/86400)); set('h',Math.floor(s%86400/3600)); set('m',Math.floor(s%3600/60)); set('s',s%60);
+        }
+
+        // ---- 起動 ----
+        renderWho(); renderDock(); renderChart();
+        tick(); setInterval(tick, 1000);
+        sync(); syncHistory();
+        setInterval(sync, 2500);
+        setInterval(syncHistory, 15000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { sync(); syncHistory(); } });
+      </script>
+    )}
+  </body>
+</html>

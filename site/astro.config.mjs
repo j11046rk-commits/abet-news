@@ -9,8 +9,8 @@ export default defineConfig({
   // 例: GitHub Pages プレビュー → SITE_URL / BASE_PATH を渡す（本番は未設定でOK）。
   site: process.env.SITE_URL || 'https://shipporitei.jp',
   base: process.env.BASE_PATH || '/',
-  // 管理ダッシュボード(/dashboard)はサイトマップに載せない（公開URLを宣伝しない）
-  integrations: [sitemap({ filter: (page) => !page.includes('/dashboard') })],
+  // 管理ダッシュボード(/dashboard)・イベントページ(/futomaki)はサイトマップに載せない
+  integrations: [sitemap({ filter: (page) => !page.includes('/dashboard') && !page.includes('/futomaki') })],
   build: {
     // CSS をインライン化しすぎず、キャッシュしやすい構成に
     assets: 'assets',

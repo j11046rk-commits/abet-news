@@ -197,5 +197,13 @@
     "運営": "合同会社しっぽり",
     "著作権年": "2022",
     "_著作権年注意": "フッターの © の年。空にすると現在の年を自動表示。固定したい場合はここに西暦（例 2022）を入れる。"
+  },
+
+  "futomaki": {
+    "supabaseUrl": "",
+    "supabaseAnonKey": "",
+    "goal": 200,
+    "eventDate": "2026-07-26",
+    "_注意": "うなぎ太巻き予約数バトル(/futomaki)用。Supabaseの Project URL と anon public キーを貼る。goal=合計目標本数、eventDate=販売日(YYYY-MM-DD)。空だとページは設定待ち表示。"
   }
 }
