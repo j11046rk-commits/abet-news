@@ -1,13 +1,16 @@
 ---
-// うなぎ太巻き 予約数バトル（4者対戦・リアルタイム共有）
+// うなぎ太巻き 予約バトル（4者対戦・予約管理 兼 リアルタイム売上共有）
+// 入力: 顧客名＋本数（誰の獲得かを記録）。売上(価格×本数)を最上部に表示。
 // バックエンド: Supabase（REST + 2.5秒ポーリング）。接続情報は site.json の futomaki。
-// 管理/イベント用ページのため noindex＋サイトマップ除外（astro.config.mjs）。
+// イベント用ページのため noindex＋サイトマップ除外（astro.config.mjs）。
 import site from '../../data/site.json';
 const cfg = site.futomaki || {};
 const SB_URL = (cfg.supabaseUrl || '').trim().replace(/\/$/, '');
 const SB_KEY = (cfg.supabaseAnonKey || '').trim();
 const GOAL = Number(cfg.goal || 200);
+const PRICE = Number(cfg.price || 2500);
 const EVENT_DATE = cfg.eventDate || '2026-07-26';
+const DEADLINE_DATE = cfg.deadlineDate || '2026-07-24';
 const PLAYERS = [
   { name: '古賀', color: '#3987e5', initial: '古' },
   { name: '山本', color: '#d55181', initial: '山' },
@@ -15,6 +18,7 @@ const PLAYERS = [
   { name: 'しっぽり亭店販', color: '#199e70', initial: '店' },
 ];
 const configured = !!(SB_URL && SB_KEY);
+const nf0 = new Intl.NumberFormat('ja-JP');
 ---
 
 <!doctype html>
@@ -24,7 +28,7 @@ const configured = !!(SB_URL && SB_KEY);
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="robots" content="noindex,nofollow" />
     <meta name="theme-color" content="#070b16" />
-    <title>うなぎ太巻き 予約数バトル｜しっぽり亭</title>
+    <title>うなぎ太巻き 予約バトル｜しっぽり亭</title>
     <style is:global>
       :root {
         --bg: #070b16; --surface: #101828; --surface2: #0c1322; --line: rgba(255,255,255,.09);
@@ -33,7 +37,7 @@ const configured = !!(SB_URL && SB_KEY);
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       body {
-        margin: 0; color: var(--txt); padding-bottom: 96px;
+        margin: 0; color: var(--txt); padding-bottom: 132px;
         font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
         line-height: 1.5; -webkit-font-smoothing: antialiased;
         background:
@@ -51,80 +55,100 @@ const configured = !!(SB_URL && SB_KEY);
       header.top { text-align: center; margin: 6px 0 16px; }
       header.top .emoji { font-size: 34px; line-height: 1; }
       header.top h1 { font-size: 22px; margin: 6px 0 2px; font-weight: 800; letter-spacing: .01em; }
-      header.top .sub { font-size: 12.5px; color: var(--muted); }
+      header.top .sub { font-size: 12px; color: var(--muted); }
+      header.top .sub b { color: var(--gold); font-weight: 700; }
       .livedot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#34d399;
         margin-right:5px; box-shadow:0 0 0 0 rgba(52,211,153,.7); animation:pulse 2s infinite; vertical-align:middle; }
       @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.6);} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
 
-      /* カウントダウン + 目標 */
-      .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      @media (max-width: 460px){ .hero { grid-template-columns: 1fr; } }
-      .stat .lbl { font-size: 11.5px; color: var(--muted); letter-spacing:.04em; }
-      .stat .big { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; }
-      .stat .big small { font-size: 14px; font-weight: 700; color: var(--muted); }
-      .cd { display:flex; gap:6px; margin-top:6px; }
-      .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:9px; padding:6px 0; text-align:center; flex:1; }
-      .cd .n { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
-      .cd .u { font-size:10px; color:var(--muted); }
-      .pbar { height: 12px; border-radius: 8px; background: var(--surface2); overflow: hidden; margin-top: 10px; }
+      /* ===== 売上ヒーロー（最上部） ===== */
+      .salescard { position: relative; overflow: hidden; text-align: center; padding: 20px 18px 18px;
+        background: linear-gradient(160deg, rgba(99,102,241,.16), rgba(34,211,238,.07) 55%, rgba(255,207,91,.08)), var(--surface); }
+      .salescard .lbl { font-size: 12px; color: var(--muted); letter-spacing:.08em; }
+      .salescard .yen { font-size: 44px; font-weight: 800; letter-spacing:-.01em; margin: 2px 0 0; font-variant-numeric: tabular-nums;
+        background: linear-gradient(180deg, #fff, #ffe9b3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .salescard .qty { font-size: 13px; color: var(--muted); margin-top: 2px; }
+      .salescard .qty b { color: var(--txt); font-size: 15px; font-variant-numeric: tabular-nums; }
+      .pbar { height: 12px; border-radius: 8px; background: var(--surface2); overflow: hidden; margin-top: 12px; }
       .pbar > span { display:block; height:100%; border-radius:8px; background: linear-gradient(90deg, var(--g1), var(--g2)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
       .goaltxt { font-size:11.5px; color:var(--muted); margin-top:6px; }
+
+      /* 各人売上ランキング */
+      .row { display:grid; grid-template-columns: 24px 38px 1fr auto; align-items:center; gap:10px; padding:10px 6px; border-radius:12px; }
+      .row.me { background: rgba(255,255,255,.05); }
+      .rank { font-size:14px; font-weight:800; color:var(--muted); text-align:center; }
+      .rank.first { color: var(--gold); }
+      .avatar { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-weight:800; font-size:15px; color:#fff; flex:none; }
+      .pname { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; }
+      .pbar2 { height:12px; border-radius:8px; background: var(--surface2); overflow:hidden; margin-top:5px; }
+      .pbar2 > span { display:block; height:100%; border-radius:8px; transition: width .7s cubic-bezier(.2,.8,.2,1); }
+      .psales { text-align:right; }
+      .psales .y { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .psales .q { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+      .bump { animation: bump .5s ease; }
+      @keyframes bump { 0%{transform:scale(1);} 35%{transform:scale(1.22);} 100%{transform:scale(1);} }
+
+      .cd { display:flex; gap:6px; margin-top:6px; }
+      .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:9px; padding:6px 0; text-align:center; flex:1; }
+      .cd .n { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .cd .u { font-size:10px; color:var(--muted); }
+      .stat .lbl { font-size:11.5px; color:var(--muted); letter-spacing:.04em; }
 
       .sec { font-size: 12px; font-weight: 700; color:#cdd5ee; letter-spacing:.06em; margin: 22px 4px 12px; text-transform: uppercase;
         display:flex; align-items:center; gap:8px; }
       .sec::before { content:''; width:14px; height:2px; border-radius:2px; background: linear-gradient(90deg,var(--g1),var(--g2)); }
+      .sec .cnt { color: var(--muted); font-weight: 600; }
 
-      /* 順位バー */
-      .row { display:grid; grid-template-columns: 26px 40px 1fr auto; align-items:center; gap:10px; padding:10px 6px;
-        border-radius:12px; transition: background .2s; }
-      .row.me { background: rgba(255,255,255,.05); }
-      .rank { font-size:15px; font-weight:800; color:var(--muted); text-align:center; }
-      .rank.first { color: var(--gold); }
-      .avatar { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-weight:800; font-size:16px; color:#fff; }
-      .pname { font-weight:700; font-size:15px; display:flex; align-items:center; gap:6px; }
-      .pname .crown { font-size:15px; }
-      .pbar2 { height:14px; border-radius:8px; background: var(--surface2); overflow:hidden; margin-top:6px; }
-      .pbar2 > span { display:block; height:100%; border-radius:8px; transition: width .7s cubic-bezier(.2,.8,.2,1); }
-      .pcount { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; min-width:56px; text-align:right; }
-      .pcount small { font-size:12px; color:var(--muted); font-weight:700; }
-      .bump { animation: bump .5s ease; }
-      @keyframes bump { 0%{transform:scale(1);} 35%{transform:scale(1.28);} 100%{transform:scale(1);} }
+      /* 予約一覧 */
+      .resv { display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--line); font-size:13.5px; }
+      .resv:last-child { border-bottom: 0; }
+      .resv .dot { width:10px; height:10px; border-radius:50%; flex:none; }
+      .resv .cust { font-weight:700; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .resv .by { font-size:11px; color:var(--muted); flex:none; }
+      .resv .q { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; flex:none; }
+      .resv .yen2 { font-size:11px; color:var(--muted); flex:none; font-variant-numeric:tabular-nums; }
+      .resv .del { flex:none; border:0; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:4px 6px; }
+      .resv .del:active { color:#fb7185; }
+      .more { text-align:center; padding-top:8px; }
+      .more button { background:none; border:0; color:var(--g2); font-size:12.5px; font-weight:700; cursor:pointer; }
 
-      /* 推移グラフ */
       svg text { fill: var(--muted); font-size: 10.5px; }
 
-      /* 自分セレクタ */
       .who { display:flex; flex-wrap:wrap; gap:8px; }
       .chip { flex:1 1 auto; min-width: 68px; text-align:center; padding:10px 8px; border-radius:12px; cursor:pointer;
         border:1px solid var(--line); background: var(--surface2); font-weight:700; font-size:13.5px; color:var(--txt); }
       .chip[aria-pressed="true"] { border-color: transparent; color:#fff; }
 
-      /* 下部固定バー（自分の操作） */
-      .dock { position: fixed; left:0; right:0; bottom:0; z-index:20; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-        background: rgba(10,14,24,.86); backdrop-filter: blur(14px); border-top:1px solid var(--line); }
-      .dock .inner { max-width:680px; margin:0 auto; display:flex; align-items:center; gap:10px; }
-      .dock .who-mini { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
-      .dock .who-mini .nm { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-      .dock .who-mini .c { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
-      .btns { display:flex; gap:7px; }
-      .btn { border:0; border-radius:12px; padding:12px 0; min-width:52px; font-size:15px; font-weight:800; color:#fff; cursor:pointer;
-        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow:0 6px 16px rgba(99,102,241,.4); }
-      .btn.minus { background: var(--surface2); box-shadow:none; border:1px solid var(--line); min-width:46px; }
-      .btn:active { transform: translateY(1px) scale(.97); }
-      .btn.big { flex:1; font-size:17px; }
-      .dock .prompt { flex:1; text-align:center; color:var(--muted); font-size:13px; }
-      .setline { display:flex; gap:8px; margin-top:9px; }
-      .setline input { flex:1; background: var(--surface2); border:1px solid var(--line); border-radius:10px; color:#fff; font-size:15px; padding:9px 12px; outline:none; }
-      .setline input:focus { border-color: var(--g2); }
-      .setline button { background: var(--surface2); border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:0 14px; font-weight:700; }
+      .flyer img { width:100%; border-radius:12px; display:block; }
+      .flyer .cap { font-size:11px; color:var(--muted); text-align:center; margin-top:8px; }
 
-      /* トースト */
+      /* ===== 下部固定: 予約入力 ===== */
+      .dock { position: fixed; left:0; right:0; bottom:0; z-index:20; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+        background: rgba(10,14,24,.88); backdrop-filter: blur(14px); border-top:1px solid var(--line); }
+      .dock .inner { max-width:680px; margin:0 auto; }
+      .dock .prompt { text-align:center; color:var(--muted); font-size:13px; padding:6px 0; }
+      .dock .l1 { display:flex; align-items:center; gap:8px; }
+      .dock .miniava { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-weight:800; color:#fff; flex:none; }
+      .dock input[type="text"] { flex:1; min-width:0; background: var(--surface2); border:1px solid var(--line); border-radius:11px;
+        color:#fff; font-size:15px; padding:11px 12px; outline:none; }
+      .dock input:focus { border-color: var(--g2); }
+      .dock .l2 { display:flex; align-items:center; gap:8px; margin-top:8px; }
+      .stepper { display:flex; align-items:center; gap:0; border:1px solid var(--line); border-radius:11px; background:var(--surface2); overflow:hidden; }
+      .stepper button { width:44px; height:44px; border:0; background:none; color:var(--txt); font-size:19px; font-weight:800; cursor:pointer; }
+      .stepper button:active { background: rgba(255,255,255,.06); }
+      .stepper .qv { min-width:52px; text-align:center; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .stepper .qv small { font-size:11px; color:var(--muted); font-weight:700; }
+      .dock .amount { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; flex:1; text-align:center; }
+      .btnadd { border:0; border-radius:12px; padding: 12px 20px; font-size:15px; font-weight:800; color:#fff; cursor:pointer;
+        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow:0 6px 16px rgba(99,102,241,.4); }
+      .btnadd:active { transform: translateY(1px) scale(.98); }
+      .btnadd:disabled { opacity:.5; }
+
       #toasts { position: fixed; top: 12px; left:0; right:0; z-index:30; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
       .toast { background: rgba(16,24,40,.95); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
-        box-shadow:0 8px 24px rgba(0,0,0,.4); animation: tin .3s ease, tout .3s ease 1.9s forwards; }
+        box-shadow:0 8px 24px rgba(0,0,0,.4); animation: tin .3s ease, tout .3s ease 2.1s forwards; }
       @keyframes tin { from{opacity:0; transform:translateY(-8px);} to{opacity:1;} }
       @keyframes tout { to{opacity:0; transform:translateY(-8px);} }
-
       .conf { position: fixed; z-index: 40; top: -12px; width: 9px; height: 14px; border-radius: 2px; pointer-events:none; }
       .note { margin-top: 22px; font-size: 11px; color: var(--muted); border-top:1px solid var(--line); padding-top: 12px; text-align:center; }
       .empty { color:var(--muted); font-size:13px; padding:6px 2px; text-align:center; }
@@ -139,8 +163,8 @@ const configured = !!(SB_URL && SB_KEY);
     <div class="wrap">
       <header class="top">
         <div class="emoji">🍣🔥</div>
-        <h1>うなぎ太巻き 予約数バトル</h1>
-        <div class="sub"><span class="livedot"></span>7/26(日) しっぽり亭 店頭販売 ／ 予約数リアルタイム対戦</div>
+        <h1>うなぎ太巻き 予約バトル</h1>
+        <div class="sub"><span class="livedot"></span>土用の丑の日・完全予約制 <b>7/24(金)締切</b> ／ 受け取り <b>7/26(日) 14:00〜17:00</b> ／ 1本 <b>¥{nf0.format(PRICE)}</b></div>
       </header>
 
       {!configured ? (
@@ -150,75 +174,100 @@ const configured = !!(SB_URL && SB_KEY);
         </div>
       ) : (
         <>
-          <div class="hero mb">
-            <div class="card stat">
-              <div class="lbl">販売開始まで</div>
-              <div class="cd" id="cd">
-                <div><div class="n" data-cd="d">--</div><div class="u">日</div></div>
-                <div><div class="n" data-cd="h">--</div><div class="u">時</div></div>
-                <div><div class="n" data-cd="m">--</div><div class="u">分</div></div>
-                <div><div class="n" data-cd="s">--</div><div class="u">秒</div></div>
-              </div>
-            </div>
-            <div class="card stat">
-              <div class="lbl">合計予約数</div>
-              <div class="big"><span id="total">0</span> <small>本</small></div>
-              <div class="pbar"><span id="pfill" style="width:0%"></span></div>
-              <div class="goaltxt" id="goaltxt">目標 {GOAL} 本</div>
+          <!-- ① 売上（最上部） -->
+          <div class="card salescard mb">
+            <div class="lbl">全体の合計売上</div>
+            <div class="yen">¥<span id="totalYen">0</span></div>
+            <div class="qty">合計 <b id="totalQty">0</b> 本 ／ <span id="custCnt">0</span> 件の予約</div>
+            <div class="pbar"><span id="pfill" style="width:0%"></span></div>
+            <div class="goaltxt" id="goaltxt">目標 {GOAL} 本（¥{nf0.format(GOAL * PRICE)}）</div>
+          </div>
+
+          <!-- ② 各人の売上ランキング -->
+          <div class="card mb" id="board"><div class="empty">読み込み中…</div></div>
+
+          <!-- ③ カウントダウン -->
+          <div class="card stat mb">
+            <div class="lbl" id="cdlbl">予約締切（7/24 金）まで</div>
+            <div class="cd" id="cd">
+              <div><div class="n" data-cd="d">--</div><div class="u">日</div></div>
+              <div><div class="n" data-cd="h">--</div><div class="u">時</div></div>
+              <div><div class="n" data-cd="m">--</div><div class="u">分</div></div>
+              <div><div class="n" data-cd="s">--</div><div class="u">秒</div></div>
             </div>
           </div>
 
-          <div class="sec">ランキング</div>
-          <div class="card" id="board"><div class="empty">読み込み中…</div></div>
+          <div class="sec">予約一覧 <span class="cnt" id="resvCnt"></span></div>
+          <div class="card" id="resvList"><div class="empty">まだ予約がありません</div></div>
 
-          <div class="sec">予約数の推移</div>
-          <div class="card"><svg id="chart" viewBox="0 0 640 220" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="予約数の推移"></svg></div>
+          <div class="sec">売上の推移</div>
+          <div class="card"><svg id="chart" viewBox="0 0 640 220" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="売上の推移"></svg></div>
 
           <div class="sec">自分はどれ？</div>
           <div class="card"><div class="who" id="who"></div></div>
 
-          <p class="note">数値は全員の画面にリアルタイム同期（約2.5秒）。誰でも自分の数を更新できます。データ: Supabase。</p>
+          <div class="sec">商品チラシ</div>
+          <div class="card flyer">
+            <a href={`${import.meta.env.BASE_URL}images/futomaki-chirashi.jpg`} target="_blank" rel="noopener noreferrer">
+              <img src={`${import.meta.env.BASE_URL}images/futomaki-chirashi.jpg`} alt="しっぽり亭特製 うなぎの太巻き 数量限定・完全予約制7/24まで・受け取り7/26 14-17時・税込2,500円" loading="lazy" />
+            </a>
+            <div class="cap">タップで拡大。お客様への説明用にどうぞ。</div>
+          </div>
+
+          <p class="note">全員の画面にリアルタイム同期（約2.5秒）。予約の取り消しは一覧の ✕ から（自分の分のみ）。データ: Supabase。</p>
         </>
       )}
     </div>
 
     {configured && (
-      <div class="dock" id="dock" style="display:none">
-        <div class="inner" id="dockInner"></div>
-      </div>
+      <div class="dock" id="dock" style="display:none"><div class="inner" id="dockInner"></div></div>
     )}
 
     {configured && (
-      <script define:vars={{ SB_URL, SB_KEY, GOAL, EVENT_DATE, PLAYERS }}>
+      <script define:vars={{ SB_URL, SB_KEY, GOAL, PRICE, EVENT_DATE, DEADLINE_DATE, PLAYERS }}>
         const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
         const REST = SB_URL + '/rest/v1/';
         const byName = Object.fromEntries(PLAYERS.map(p => [p.name, p]));
-        let counts = Object.fromEntries(PLAYERS.map(p => [p.name, 0]));
-        let prev = { ...counts };
+        let rows = [];            // {id, player, customer, qty, created_at}
+        let prevTotals = null;    // 他者加算トースト用
         let me = null;
-        let history = [];
-        let firstLoad = true;
+        let qtyInput = 1;
+        let showAll = false;
 
         try { me = localStorage.getItem('futomaki_me'); } catch(e){}
         if (me && !byName[me]) me = null;
 
         const $ = s => document.querySelector(s);
         const fmt = n => new Intl.NumberFormat('ja-JP').format(n);
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
         // ---- API ----
-        async function get(path){ const r = await fetch(REST + path, { headers: H }); if(!r.ok) throw new Error(await r.text()); return r.json(); }
-        async function pushCount(name, count){
-          await fetch(REST + 'futomaki_orders?name=eq.' + encodeURIComponent(name), {
-            method:'PATCH', headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-            body: JSON.stringify({ count, updated_at: new Date().toISOString() })
+        async function fetchAll(){
+          const r = await fetch(REST + 'futomaki_reservations?select=id,player,customer,qty,created_at&order=created_at.asc', { headers: H });
+          if (!r.ok) throw new Error(await r.text());
+          return r.json();
+        }
+        async function addResv(customer, qty){
+          const r = await fetch(REST + 'futomaki_reservations', {
+            method:'POST', headers:{...H,'Content-Type':'application/json','Prefer':'return=representation'},
+            body: JSON.stringify({ player: me, customer, qty })
           });
-          fetch(REST + 'futomaki_history', {
-            method:'POST', headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'},
-            body: JSON.stringify({ name, count })
-          }).catch(()=>{});
+          if (!r.ok) throw new Error(await r.text());
+          return (await r.json())[0];
+        }
+        async function delResv(id){
+          const r = await fetch(REST + 'futomaki_reservations?id=eq.' + id, { method:'DELETE', headers:{...H,'Prefer':'return=minimal'} });
+          if (!r.ok) throw new Error(await r.text());
         }
 
-        // ---- 効果音 ----
+        // ---- 集計 ----
+        function totals(){
+          const t = Object.fromEntries(PLAYERS.map(p => [p.name, 0]));
+          rows.forEach(r => { if (t[r.player] != null) t[r.player] += r.qty; });
+          return t;
+        }
+
+        // ---- 演出 ----
         let actx = null;
         function beep(freq){
           try {
@@ -231,87 +280,128 @@ const configured = !!(SB_URL && SB_KEY);
             o.start(); o.stop(actx.currentTime+.26);
           } catch(e){}
         }
-        // ---- 紙吹雪 ----
         function confetti(color){
           const cols = [color, '#ffcf5b', '#22d3ee', '#fff'];
           for (let i=0;i<26;i++){
             const d = document.createElement('div');
-            d.className = 'conf';
-            d.style.background = cols[i % cols.length];
+            d.className='conf'; d.style.background = cols[i%cols.length];
             d.style.left = (10 + Math.random()*80) + 'vw';
-            const dx = (Math.random()*2-1)*30, dur = 900 + Math.random()*700;
+            d.style.marginLeft = ((Math.random()*2-1)*30) + 'px';
             d.style.transform = 'rotate(' + (Math.random()*360) + 'deg)';
             document.body.appendChild(d);
-            d.animate([
-              { top:'-12px', opacity:1 },
-              { top:'100vh', opacity:1, offset:.9 },
-              { top:'100vh', opacity:0 }
-            ], { duration: dur, easing:'cubic-bezier(.3,.7,.4,1)' });
+            d.animate([{top:'-12px',opacity:1},{top:'100vh',opacity:1,offset:.9},{top:'100vh',opacity:0}],
+              { duration: 900+Math.random()*700, easing:'cubic-bezier(.3,.7,.4,1)' });
             d.getAnimations().forEach(a => a.onfinish = () => d.remove());
-            d.style.marginLeft = dx + 'px';
           }
         }
         function toast(msg){
           const t = document.createElement('div'); t.className='toast'; t.innerHTML = msg;
-          $('#toasts').appendChild(t); setTimeout(()=>t.remove(), 2300);
+          $('#toasts').appendChild(t); setTimeout(()=>t.remove(), 2500);
         }
 
         // ---- レンダリング ----
-        function renderProgress(){
-          const total = PLAYERS.reduce((s,p)=>s+(counts[p.name]||0), 0);
-          $('#total').textContent = fmt(total);
-          const pct = Math.min(100, GOAL ? total/GOAL*100 : 0);
+        function renderHero(){
+          const t = totals();
+          const qty = PLAYERS.reduce((s,p)=>s+t[p.name],0);
+          $('#totalYen').textContent = fmt(qty * PRICE);
+          $('#totalQty').textContent = fmt(qty);
+          $('#custCnt').textContent = fmt(rows.length);
+          const pct = Math.min(100, GOAL ? qty/GOAL*100 : 0);
           $('#pfill').style.width = pct + '%';
-          const remain = Math.max(0, GOAL - total);
-          $('#goaltxt').textContent = remain > 0 ? ('目標 ' + fmt(GOAL) + ' 本 ／ あと ' + fmt(remain) + ' 本！') : ('🎉 目標達成！ ' + fmt(total) + ' / ' + fmt(GOAL) + ' 本');
+          const remain = Math.max(0, GOAL - qty);
+          $('#goaltxt').textContent = remain > 0
+            ? ('目標 ' + fmt(GOAL) + ' 本（¥' + fmt(GOAL*PRICE) + '）／ あと ' + fmt(remain) + ' 本！')
+            : ('🎉 目標達成！ ' + fmt(qty) + ' 本 ¥' + fmt(qty*PRICE));
         }
         function renderBoard(bumpName){
-          const sorted = [...PLAYERS].sort((a,b)=>(counts[b.name]||0)-(counts[a.name]||0));
-          const max = Math.max(1, ...PLAYERS.map(p=>counts[p.name]||0));
+          const t = totals();
+          const sorted = [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]);
+          const max = Math.max(1, ...PLAYERS.map(p=>t[p.name]));
           const board = $('#board'); board.innerHTML = '';
-          sorted.forEach((p, i) => {
-            const c = counts[p.name]||0;
-            const row = document.createElement('div');
-            row.className = 'row' + (p.name===me ? ' me' : '');
-            const w = Math.max(c>0 ? 6 : 0, c/max*100);
+          sorted.forEach((p,i)=>{
+            const q = t[p.name], row = document.createElement('div');
+            row.className = 'row' + (p.name===me?' me':'');
+            const w = Math.max(q>0?6:0, q/max*100);
             row.innerHTML =
-              '<div class="rank ' + (i===0&&c>0?'first':'') + '">' + (i+1) + '</div>' +
+              '<div class="rank '+(i===0&&q>0?'first':'')+'">'+(i+1)+'</div>' +
               '<div class="avatar" style="background:'+p.color+'">'+p.initial+'</div>' +
-              '<div><div class="pname">'+p.name+(i===0&&c>0?' <span class="crown">👑</span>':'')+'</div>' +
+              '<div><div class="pname">'+p.name+(i===0&&q>0?' <span>👑</span>':'')+'</div>' +
                 '<div class="pbar2"><span style="width:'+w+'%;background:'+p.color+'"></span></div></div>' +
-              '<div class="pcount' + (p.name===bumpName?' bump':'') + '" style="color:'+p.color+'">'+fmt(c)+'<small> 本</small></div>';
+              '<div class="psales'+(p.name===bumpName?' bump':'')+'"><div class="y" style="color:'+p.color+'">¥'+fmt(q*PRICE)+'</div>' +
+                '<div class="q">'+fmt(q)+' 本</div></div>';
             board.appendChild(row);
           });
         }
-        function renderChart(){
-          const svg = $('#chart'); const W=640,Hh=220, pad={l:30,r:54,t:14,b:22};
-          const iw=W-pad.l-pad.r, ih=Hh-pad.t-pad.b;
-          const series = {}; PLAYERS.forEach(p=>series[p.name]=[]);
-          history.forEach(h => { if(series[h.name]) series[h.name].push(h); });
-          const allPts = history.length;
-          const maxC = Math.max(1, ...PLAYERS.map(p=>counts[p.name]||0));
-          const times = history.map(h=>+new Date(h.at));
-          const tmin = times.length?Math.min(...times):0, tmax = times.length?Math.max(...times):1;
-          const tx = t => pad.l + (tmax>tmin ? (t-tmin)/(tmax-tmin)*iw : iw);
-          const ty = v => pad.t + ih - (v/maxC)*ih;
-          let out = '';
-          [0, Math.ceil(maxC/2), maxC].forEach(v => {
-            out += '<line x1="'+pad.l+'" x2="'+(W-pad.r)+'" y1="'+ty(v)+'" y2="'+ty(v)+'" stroke="rgba(255,255,255,.06)"/>' +
-                   '<text x="'+(pad.l-6)+'" y="'+(ty(v)+3)+'" text-anchor="end">'+v+'</text>';
+        function renderList(){
+          const list = $('#resvList');
+          $('#resvCnt').textContent = rows.length ? '（' + rows.length + '件）' : '';
+          if (!rows.length) { list.innerHTML = '<div class="empty">まだ予約がありません</div>'; return; }
+          const desc = [...rows].reverse();
+          const shown = showAll ? desc : desc.slice(0, 8);
+          list.innerHTML = '';
+          shown.forEach(r => {
+            const p = byName[r.player] || { color:'#888' };
+            const el = document.createElement('div');
+            el.className = 'resv';
+            el.innerHTML =
+              '<span class="dot" style="background:'+p.color+'"></span>' +
+              '<span class="cust">'+esc(r.customer)+'</span>' +
+              '<span class="by">'+esc(r.player)+'</span>' +
+              '<span class="q">'+fmt(r.qty)+'本</span>' +
+              '<span class="yen2">¥'+fmt(r.qty*PRICE)+'</span>' +
+              (r.player===me ? '<button class="del" title="取り消し" data-id="'+r.id+'">✕</button>' : '');
+            list.appendChild(el);
           });
-          if (allPts < 2) {
-            svg.innerHTML = out + '<text x="'+(W/2)+'" y="'+(Hh/2)+'" text-anchor="middle">更新が増えると推移が表示されます</text>';
+          if (desc.length > 8) {
+            const m = document.createElement('div'); m.className='more';
+            m.innerHTML = '<button>' + (showAll ? '閉じる' : 'すべて見る（' + desc.length + '件）') + '</button>';
+            m.querySelector('button').onclick = () => { showAll = !showAll; renderList(); };
+            list.appendChild(m);
+          }
+          list.querySelectorAll('.del').forEach(b => b.onclick = async () => {
+            const id = +b.dataset.id;
+            const row = rows.find(x=>x.id===id);
+            if (!row) return;
+            if (!confirm('「'+row.customer+' '+row.qty+'本」を取り消しますか？')) return;
+            rows = rows.filter(x=>x.id!==id);
+            prevTotals = totals();
+            renderAll();
+            try { await delResv(id); toast('取り消しました'); } catch(e){ toast('⚠️ 取り消しに失敗'); sync(true); }
+          });
+        }
+        function renderChart(){
+          const svg = $('#chart'); const W=640,Hh=220, pad={l:44,r:54,t:14,b:22};
+          const iw=W-pad.l-pad.r, ih=Hh-pad.t-pad.b;
+          if (rows.length < 2) {
+            svg.innerHTML = '<text x="'+(W/2)+'" y="'+(Hh/2)+'" text-anchor="middle">予約が増えると推移が表示されます</text>';
             return;
           }
+          // 累積売上（プレイヤー別・階段状）
+          const cum = {}; PLAYERS.forEach(p=>cum[p.name]=0);
+          const series = {}; PLAYERS.forEach(p=>series[p.name]=[]);
+          const t0 = +new Date(rows[0].created_at), t1 = +new Date(rows[rows.length-1].created_at);
+          rows.forEach(r => {
+            if (cum[r.player]==null) return;
+            cum[r.player] += r.qty * PRICE;
+            series[r.player].push({ t:+new Date(r.created_at), v:cum[r.player] });
+          });
+          const maxV = Math.max(1, ...PLAYERS.map(p=>cum[p.name]));
+          const tx = t => pad.l + (t1>t0 ? (t-t0)/(t1-t0)*iw : iw/2);
+          const ty = v => pad.t + ih - (v/maxV)*ih;
+          let out = '';
+          [0, Math.ceil(maxV/2), maxV].forEach(v => {
+            out += '<line x1="'+pad.l+'" x2="'+(W-pad.r)+'" y1="'+ty(v)+'" y2="'+ty(v)+'" stroke="rgba(255,255,255,.06)"/>' +
+                   '<text x="'+(pad.l-6)+'" y="'+(ty(v)+3)+'" text-anchor="end">'+(v>=10000?(Math.round(v/1000)/10)+'万':fmt(v))+'</text>';
+          });
           PLAYERS.forEach(p => {
-            const pts = series[p.name];
-            if (!pts.length) return;
-            // 各時点までの「その人の最新値」で階段状に。まず点列を作る
-            const d = pts.map(h => tx(+new Date(h.at))+','+ty(h.count)).join(' L ');
-            const last = pts[pts.length-1];
-            out += '<path d="M '+d+'" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linejoin="round"/>';
-            out += '<circle cx="'+tx(+new Date(last.at))+'" cy="'+ty(last.count)+'" r="3.5" fill="'+p.color+'"/>';
-            out += '<text x="'+(W-pad.r+5)+'" y="'+(ty(last.count)+3)+'" fill="'+p.color+'" style="font-weight:700">'+p.initial+'</text>';
+            const pts = series[p.name]; if (!pts.length) return;
+            let d = 'M ' + tx(t0) + ',' + ty(0);
+            let last = 0;
+            pts.forEach(pt => { d += ' L ' + tx(pt.t) + ',' + ty(last) + ' L ' + tx(pt.t) + ',' + ty(pt.v); last = pt.v; });
+            d += ' L ' + tx(t1) + ',' + ty(last);
+            out += '<path d="'+d+'" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linejoin="round"/>';
+            out += '<circle cx="'+tx(pts[pts.length-1].t)+'" cy="'+ty(last)+'" r="3.5" fill="'+p.color+'"/>';
+            out += '<text x="'+(W-pad.r+5)+'" y="'+(ty(last)+3)+'" fill="'+p.color+'" style="font-weight:700">'+ p.initial +'</text>';
           });
           svg.innerHTML = out;
         }
@@ -322,75 +412,102 @@ const configured = !!(SB_URL && SB_KEY);
             b.className='chip'; b.setAttribute('aria-pressed', String(p.name===me));
             if (p.name===me) b.style.background = p.color;
             b.textContent = p.name;
-            b.onclick = () => { me = p.name; try{localStorage.setItem('futomaki_me',me);}catch(e){} renderWho(); renderBoard(); renderDock(); };
+            b.onclick = () => { me = p.name; try{localStorage.setItem('futomaki_me',me);}catch(e){} renderWho(); renderBoard(); renderList(); renderDock(); };
             who.appendChild(b);
           });
         }
         function renderDock(){
           const dock = $('#dock'), inner = $('#dockInner');
           dock.style.display = 'block';
-          if (!me) { inner.innerHTML = '<div class="prompt">▲ 「自分はどれ？」で自分を選ぶとここから更新できます</div>'; return; }
-          const p = byName[me], c = counts[me]||0;
+          if (!me) { inner.innerHTML = '<div class="prompt">▲ 「自分はどれ？」で自分を選ぶと予約を入力できます</div>'; return; }
+          const p = byName[me];
           inner.innerHTML =
-            '<div class="who-mini"><div class="avatar" style="width:34px;height:34px;border-radius:10px;background:'+p.color+'">'+p.initial+'</div>' +
-              '<div style="min-width:0"><div class="nm">'+p.name+'（自分）</div><div class="c" style="color:'+p.color+'">'+fmt(c)+' <span style="font-size:11px;color:var(--muted)">本</span></div></div></div>' +
-            '<div class="btns">' +
-              '<button class="btn minus" data-d="-1">−1</button>' +
-              '<button class="btn big" data-d="1">＋1</button>' +
-              '<button class="btn" data-d="5">＋5</button>' +
-              '<button class="btn" data-d="10">＋10</button>' +
+            '<div class="l1">' +
+              '<div class="miniava" style="background:'+p.color+'">'+p.initial+'</div>' +
+              '<input type="text" id="custName" placeholder="お客様のお名前（例: 田中様）" maxlength="30" autocomplete="off" />' +
+            '</div>' +
+            '<div class="l2">' +
+              '<div class="stepper">' +
+                '<button id="qminus" type="button">−</button>' +
+                '<div class="qv"><span id="qv">'+qtyInput+'</span> <small>本</small></div>' +
+                '<button id="qplus" type="button">＋</button>' +
+              '</div>' +
+              '<div class="amount" id="amount">¥'+fmt(qtyInput*PRICE)+'</div>' +
+              '<button class="btnadd" id="addBtn" type="button">予約を登録</button>' +
             '</div>';
-          inner.querySelectorAll('button[data-d]').forEach(b => b.onclick = () => bump(parseInt(b.dataset.d,10)));
+          const qv = $('#qv'), amount = $('#amount');
+          const setQ = q => { qtyInput = Math.min(99, Math.max(1, q)); qv.textContent = qtyInput; amount.textContent = '¥' + fmt(qtyInput*PRICE); };
+          $('#qminus').onclick = () => setQ(qtyInput-1);
+          $('#qplus').onclick = () => setQ(qtyInput+1);
+          $('#addBtn').onclick = submit;
+          $('#custName').addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); submit(); } });
+        }
+        function renderAll(bumpName){ renderHero(); renderBoard(bumpName); renderList(); renderChart(); }
+
+        async function submit(){
+          const inp = $('#custName');
+          const name = (inp.value||'').trim();
+          if (!name) { toast('お客様のお名前を入れてください'); inp.focus(); return; }
+          const btn = $('#addBtn'); btn.disabled = true;
+          const q = qtyInput;
+          try {
+            const rec = await addResv(name, q);
+            rows.push(rec);
+            prevTotals = totals();
+            renderAll(me);
+            confetti(byName[me].color);
+            beep(q>=5?880:660);
+            toast('🎉 '+esc(name)+' '+q+'本（¥'+fmt(q*PRICE)+'）を登録！');
+            inp.value=''; qtyInput=1;
+            const qv=$('#qv'), am=$('#amount');
+            if (qv) qv.textContent='1';
+            if (am) am.textContent='¥'+fmt(PRICE);
+          } catch(e) { toast('⚠️ 登録に失敗。通信を確認してもう一度'); }
+          btn.disabled = false;
         }
 
-        async function bump(delta){
-          if (!me) return;
-          const nc = Math.max(0, (counts[me]||0) + delta);
-          counts[me] = nc; prev[me] = nc;
-          renderProgress(); renderBoard(me); renderDock();
-          if (delta > 0) { confetti(byName[me].color); beep(delta>=10?880:delta>=5?740:620); }
-          try { await pushCount(me, nc); } catch(e) { toast('⚠️ 同期に失敗。もう一度お試しを'); }
-          history.push({ name: me, count: nc, at: new Date().toISOString() });
-          renderChart();
-        }
-
-        // ---- ポーリング（同期） ----
+        // ---- 同期 ----
+        let firstLoad = true;
         async function sync(){
           try {
-            const rows = await get('futomaki_orders?select=name,count,updated_at');
-            const next = { ...counts };
-            rows.forEach(r => { if (byName[r.name]) next[r.name] = r.count; });
-            if (!firstLoad) {
+            const next = await fetchAll();
+            const before = prevTotals;
+            rows = next;
+            const t = totals();
+            if (!firstLoad && before) {
               PLAYERS.forEach(p => {
-                const d = (next[p.name]||0) - (prev[p.name]||0);
-                if (d > 0 && p.name !== me) toast('<span style="color:'+p.color+'">'+p.name+'</span> が +' + d + ' 🔥');
+                const d = t[p.name]-(before[p.name]||0);
+                if (d>0 && p.name!==me) toast('<span style="color:'+p.color+'">'+p.name+'</span> が +'+d+'本（¥'+fmt(d*PRICE)+'）🔥');
               });
             }
-            counts = next; prev = { ...next };
-            renderProgress(); renderBoard(); renderDock();
+            prevTotals = t;
+            renderAll();
             firstLoad = false;
           } catch(e) {}
         }
-        async function syncHistory(){
-          try { history = await get('futomaki_history?select=name,count,at&order=at.asc&limit=800'); renderChart(); } catch(e){}
-        }
 
-        // ---- カウントダウン ----
-        const target = new Date(EVENT_DATE + 'T09:00:00+09:00').getTime();
+        // ---- カウントダウン（予約締切 → 受け取り開始） ----
+        const deadline = new Date(DEADLINE_DATE + 'T23:59:59+09:00').getTime();
+        const eventStart = new Date(EVENT_DATE + 'T14:00:00+09:00').getTime();
         function tick(){
-          const diff = target - Date.now();
+          const now = Date.now();
+          let target = null, lbl;
+          if (now < deadline) { target = deadline; lbl = '予約締切（7/24 金）まで'; }
+          else if (now < eventStart) { target = eventStart; lbl = '受け取り開始（7/26 日 14:00）まで'; }
+          else { lbl = '🔥 受け取り実施中・ラストスパート！'; }
+          $('#cdlbl').textContent = lbl;
           const set = (k,v)=>{ const el=document.querySelector('[data-cd="'+k+'"]'); if(el) el.textContent = String(v).padStart(2,'0'); };
-          if (diff <= 0) { set('d','0'); set('h','00'); set('m','00'); set('s','00'); const lbl=document.querySelector('#cd').parentElement.querySelector('.lbl'); if(lbl) lbl.textContent='🔥 本番当日！'; return; }
-          const s=Math.floor(diff/1000); set('d',Math.floor(s/86400)); set('h',Math.floor(s%86400/3600)); set('m',Math.floor(s%3600/60)); set('s',s%60);
+          if (!target) { set('d','0'); set('h','00'); set('m','00'); set('s','00'); return; }
+          const s = Math.max(0, Math.floor((target-now)/1000));
+          set('d', Math.floor(s/86400)); set('h', Math.floor(s%86400/3600)); set('m', Math.floor(s%3600/60)); set('s', s%60);
         }
 
         // ---- 起動 ----
-        renderWho(); renderDock(); renderChart();
+        renderWho(); renderDock(); renderAll();
         tick(); setInterval(tick, 1000);
-        sync(); syncHistory();
+        sync();
         setInterval(sync, 2500);
-        setInterval(syncHistory, 15000);
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) { sync(); syncHistory(); } });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
       </script>
     )}
   </body>
