@@ -80,7 +80,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
       .job { position:relative; background:var(--surface); border:1px solid var(--line2); border-radius:12px; padding:12px 13px;
         box-shadow:0 6px 18px rgba(0,0,0,.28); }
-      .job.done { opacity:.62; }
+      .job.done .jhead { opacity:.5; }
       .job.done::after { content:'受渡完了'; position:absolute; top:10px; right:12px; font-family:var(--serif); font-size:11px;
         color:#221a06; background:linear-gradient(180deg,#bfe8cf,#2bb673); padding:2px 9px; border-radius:999px; font-weight:800; }
       .jhead { display:flex; align-items:center; gap:10px; }
@@ -102,8 +102,11 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .stg.on.deli { background:linear-gradient(180deg,#a9cdf6,#2f74c8); border-color:transparent; color:#07203c; }
 
       .allbtn { width:100%; margin-top:8px; border:1px dashed var(--line); background:transparent; color:var(--gold-l);
-        border-radius:9px; padding:8px; font-size:12.5px; font-weight:700; cursor:pointer; }
+        border-radius:9px; padding:9px; font-size:12.5px; font-weight:700; cursor:pointer; position:relative; z-index:1; }
       .allbtn:active { background:rgba(212,175,55,.08); }
+      .allbtn.undo { color:#f3a89e; border-color:rgba(207,62,46,.45); border-style:solid; }
+      .allbtn.undo:active { background:rgba(207,62,46,.10); }
+      .hint { font-size:10.5px; color:var(--muted); text-align:center; margin-top:6px; }
 
       .sec { font-family:var(--serif); font-size:12.5px; font-weight:700; color:#cfc49a; letter-spacing:.16em; margin:20px 4px 4px;
         display:flex; align-items:center; gap:8px; }
@@ -255,13 +258,17 @@ const nf0 = new Intl.NumberFormat('ja-JP');
                 '<div class="jinfo"><div class="jname">'+esc(r.customer)+'</div>' +
                   '<div class="jmeta"><b>'+r.qty+'本</b> ¥'+fmt(r.qty*PRICE)+' ・ 担当 '+esc(r.player)+'</div></div>' +
               '</div>' + stg +
-              (allDone ? '' : '<button class="allbtn" data-all="'+r.id+'">✓ まとめて完了（製造・集金・受渡）</button>');
+              (allDone
+                ? '<button class="allbtn undo" data-reset="'+r.id+'">↩ 間違えた・すべて取り消し</button>'
+                : '<button class="allbtn" data-all="'+r.id+'">✓ まとめて完了（製造・集金・受渡）</button>') +
+              '<div class="hint">点いている項目はもう一度タップで取り消せます</div>';
             list.appendChild(el);
           });
           // ステージ個別トグル
           list.querySelectorAll('.stg').forEach(b => b.onclick = () => toggleStage(+b.dataset.id, b.dataset.col));
-          // まとめて完了
-          list.querySelectorAll('.allbtn').forEach(b => b.onclick = () => completeAll(+b.dataset.all));
+          // まとめて完了 / すべて取り消し
+          list.querySelectorAll('[data-all]').forEach(b => b.onclick = () => completeAll(+b.dataset.all));
+          list.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => resetAll(+b.dataset.reset));
         }
         function renderAll(){ renderSummary(); renderTabs(); renderList(); }
 
@@ -272,6 +279,14 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           renderAll();
           try { await patch(id, { [col]: r[col] }); }
           catch(e){ toast('⚠️ 更新に失敗'); sync(); }
+        }
+        async function resetAll(id){
+          const r = rows.find(x=>x.id===id); if (!r) return;
+          const body = { made_at:null, paid_at:null, delivered_at:null };
+          Object.assign(r, body);
+          renderAll();
+          try { await patch(id, body); toast('↩ '+esc(r.customer)+' を取り消しました'); }
+          catch(e){ toast('⚠️ 取り消しに失敗'); sync(); }
         }
         async function completeAll(id){
           const r = rows.find(x=>x.id===id); if (!r) return;
