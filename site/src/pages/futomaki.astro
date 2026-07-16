@@ -27,13 +27,16 @@ const nf0 = new Intl.NumberFormat('ja-JP');
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="robots" content="noindex,nofollow" />
-    <meta name="theme-color" content="#070b16" />
+    <meta name="theme-color" content="#0a0e1d" />
     <title>うなぎ太巻き 予約バトル｜しっぽり亭</title>
     <style is:global>
       :root {
-        --bg: #070b16; --surface: #101828; --surface2: #0c1322; --line: rgba(255,255,255,.09);
-        --txt: #eef2ff; --muted: #8b93ad; --gold: #ffcf5b;
-        --g1: #6366f1; --g2: #22d3ee;
+        --bg: #0a0e1d; --surface: #10162b; --surface2: #0b101f;
+        --line: rgba(212,175,55,.20); --line2: rgba(255,255,255,.06);
+        --txt: #f2eee3; --muted: #9aa0b5;
+        --gold: #d4af37; --gold-l: #f3e0a5; --gold-d: #a8842b;
+        --shu: #cf3e2e;
+        --serif: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       /* 連打対策: ダブルタップズーム無効＋テキスト選択防止 */
@@ -43,63 +46,80 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
         line-height: 1.5; -webkit-font-smoothing: antialiased;
         background:
-          radial-gradient(900px 500px at 10% -8%, rgba(99,102,241,.18), transparent 60%),
-          radial-gradient(800px 500px at 100% 0%, rgba(34,211,238,.12), transparent 55%),
-          radial-gradient(700px 600px at 80% 110%, rgba(255,207,91,.10), transparent 60%),
-          var(--bg);
+          radial-gradient(1000px 520px at 15% -10%, rgba(212,175,55,.09), transparent 60%),
+          radial-gradient(760px 540px at 100% 8%, rgba(207,62,46,.05), transparent 55%),
+          radial-gradient(900px 700px at 72% 115%, rgba(212,175,55,.07), transparent 60%),
+          linear-gradient(180deg, #0b1021, #090d18);
         min-height: 100vh; overflow-x: hidden;
       }
-      .wrap { max-width: 680px; margin: 0 auto; padding: 20px 16px 40px; }
-      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px;
-        backdrop-filter: blur(12px); }
+      .wrap { max-width: 680px; margin: 0 auto; padding: 22px 16px 40px; }
+      .card { position: relative; background: linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,0) 55%), var(--surface);
+        border: 1px solid var(--line2); border-radius: 14px; padding: 16px 18px;
+        box-shadow: 0 12px 34px rgba(0,0,0,.38); }
+      /* 金の面取りボーダー（上辺から差す光） */
+      .card::before { content:''; position:absolute; inset:0; border-radius:14px; padding:1px; pointer-events:none;
+        background: linear-gradient(165deg, rgba(212,175,55,.45), rgba(212,175,55,.05) 38%, rgba(212,175,55,.14) 90%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude; }
       .mb { margin-bottom: 14px; }
 
-      header.top { text-align: center; margin: 6px 0 16px; }
-      header.top .emoji { font-size: 34px; line-height: 1; }
-      header.top h1 { font-size: 22px; margin: 6px 0 2px; font-weight: 800; letter-spacing: .01em; }
+      header.top { text-align: center; margin: 4px 0 18px; }
+      .badge-shu { display:inline-block; background: linear-gradient(180deg, #d24a37, #b02f22);
+        color:#fff; font-size:10.5px; font-weight:700; letter-spacing:.24em; padding:5px 16px 5px 18px; border-radius:2px;
+        box-shadow: 0 3px 12px rgba(207,62,46,.35); font-family: var(--serif); }
+      header.top h1 { font-family: var(--serif); font-size: 27px; margin: 12px 0 0; font-weight: 700; letter-spacing:.08em;
+        background: linear-gradient(180deg, #f8ecc2, #d4af37 62%, #c39a30); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .orn { width: 150px; height: 1px; margin: 12px auto 10px; position: relative;
+        background: linear-gradient(90deg, transparent, rgba(212,175,55,.8), transparent); }
+      .orn::after { content:'◆'; position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+        color: var(--gold); font-size: 8px; background: transparent; }
       header.top .sub { font-size: 12px; color: var(--muted); }
-      header.top .sub b { color: var(--gold); font-weight: 700; }
-      .livedot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#34d399;
-        margin-right:5px; box-shadow:0 0 0 0 rgba(52,211,153,.7); animation:pulse 2s infinite; vertical-align:middle; }
-      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.6);} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);} }
+      header.top .sub b { color: var(--gold-l); font-weight: 700; }
+      .livedot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--gold);
+        margin-right:5px; box-shadow:0 0 0 0 rgba(212,175,55,.7); animation:pulse 2s infinite; vertical-align:middle; }
+      @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(212,175,55,.55);} 70%{box-shadow:0 0 0 7px rgba(212,175,55,0);} 100%{box-shadow:0 0 0 0 rgba(212,175,55,0);} }
 
       /* ===== 売上ヒーロー（最上部） ===== */
-      .salescard { position: relative; overflow: hidden; text-align: center; padding: 20px 18px 18px;
-        background: linear-gradient(160deg, rgba(99,102,241,.16), rgba(34,211,238,.07) 55%, rgba(255,207,91,.08)), var(--surface); }
-      .salescard .lbl { font-size: 12px; color: var(--muted); letter-spacing:.08em; }
-      .salescard .yen { font-size: 44px; font-weight: 800; letter-spacing:-.01em; margin: 2px 0 0; font-variant-numeric: tabular-nums;
-        background: linear-gradient(180deg, #fff, #ffe9b3); -webkit-background-clip: text; background-clip: text; color: transparent; }
-      .salescard .qty { font-size: 13px; color: var(--muted); margin-top: 2px; }
+      .salescard { overflow: hidden; text-align: center; padding: 22px 18px 18px;
+        background: linear-gradient(170deg, rgba(212,175,55,.10), rgba(212,175,55,.02) 45%, rgba(207,62,46,.05)), var(--surface); }
+      .salescard .lbl { font-family: var(--serif); font-size: 12px; color: #cfc49a; letter-spacing:.3em; }
+      .salescard .yen { font-family: var(--serif); font-size: 46px; font-weight: 700; letter-spacing:.01em; margin: 4px 0 0; font-variant-numeric: tabular-nums;
+        background: linear-gradient(180deg, #faf0cd, #e5c565 55%, #c39a30); -webkit-background-clip: text; background-clip: text; color: transparent;
+        text-shadow: 0 0 24px rgba(212,175,55,.18); }
+      .salescard .qty { font-size: 13px; color: var(--muted); margin-top: 4px; }
       .salescard .qty b { color: var(--txt); font-size: 15px; font-variant-numeric: tabular-nums; }
-      .pbar { height: 12px; border-radius: 8px; background: var(--surface2); overflow: hidden; margin-top: 12px; }
-      .pbar > span { display:block; height:100%; border-radius:8px; background: linear-gradient(90deg, var(--g1), var(--g2)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
-      .goaltxt { font-size:11.5px; color:var(--muted); margin-top:6px; }
+      .pbar { height: 10px; border-radius: 6px; background: var(--surface2); overflow: hidden; margin-top: 14px;
+        border: 1px solid rgba(212,175,55,.14); }
+      .pbar > span { display:block; height:100%; border-radius:6px; background: linear-gradient(90deg, var(--gold-d), var(--gold-l)); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+      .goaltxt { font-size:11.5px; color:var(--muted); margin-top:7px; }
 
       /* 各人売上ランキング */
-      .row { display:grid; grid-template-columns: 24px 38px 1fr auto; align-items:center; gap:10px; padding:10px 6px; border-radius:12px; }
-      .row.me { background: rgba(255,255,255,.05); }
-      .rank { font-size:14px; font-weight:800; color:var(--muted); text-align:center; }
-      .rank.first { color: var(--gold); }
-      .avatar { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-weight:800; font-size:15px; color:#fff; flex:none; }
+      .row { display:grid; grid-template-columns: 26px 38px 1fr auto; align-items:center; gap:10px; padding:10px 6px; border-radius:10px; }
+      .row.me { background: rgba(212,175,55,.06); }
+      .rank { font-family: var(--serif); font-size:15px; font-weight:700; color:var(--muted); text-align:center; }
+      .rank.first { color: var(--gold-l); text-shadow: 0 0 12px rgba(212,175,55,.45); }
+      .avatar { width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-weight:800; font-size:15px; color:#fff; flex:none;
+        font-family: var(--serif); box-shadow: inset 0 -8px 14px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.35); }
       .pname { font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; }
-      .pbar2 { height:12px; border-radius:8px; background: var(--surface2); overflow:hidden; margin-top:5px; }
-      .pbar2 > span { display:block; height:100%; border-radius:8px; transition: width .7s cubic-bezier(.2,.8,.2,1); }
+      .pbar2 { height:11px; border-radius:6px; background: var(--surface2); overflow:hidden; margin-top:6px; border:1px solid rgba(255,255,255,.05); }
+      .pbar2 > span { display:block; height:100%; border-radius:6px; transition: width .7s cubic-bezier(.2,.8,.2,1);
+        box-shadow: inset 0 -4px 6px rgba(0,0,0,.25); }
       .psales { text-align:right; }
-      .psales .y { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .psales .y { font-family: var(--serif); font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; }
       .psales .q { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
       .bump { animation: bump .5s ease; }
       @keyframes bump { 0%{transform:scale(1);} 35%{transform:scale(1.22);} 100%{transform:scale(1);} }
 
-      .cd { display:flex; gap:6px; margin-top:6px; }
-      .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:9px; padding:6px 0; text-align:center; flex:1; }
-      .cd .n { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; }
+      .cd { display:flex; gap:7px; margin-top:8px; }
+      .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:6px; padding:7px 0; text-align:center; flex:1; }
+      .cd .n { font-family: var(--serif); font-size:20px; font-weight:700; color:var(--gold-l); font-variant-numeric:tabular-nums; }
       .cd .u { font-size:10px; color:var(--muted); }
-      .stat .lbl { font-size:11.5px; color:var(--muted); letter-spacing:.04em; }
+      .stat .lbl { font-family: var(--serif); font-size:12px; color:#cfc49a; letter-spacing:.14em; }
 
-      .sec { font-size: 12px; font-weight: 700; color:#cdd5ee; letter-spacing:.06em; margin: 22px 4px 12px; text-transform: uppercase;
-        display:flex; align-items:center; gap:8px; }
-      .sec::before { content:''; width:14px; height:2px; border-radius:2px; background: linear-gradient(90deg,var(--g1),var(--g2)); }
-      .sec .cnt { color: var(--muted); font-weight: 600; }
+      .sec { font-family: var(--serif); font-size: 12.5px; font-weight: 700; color:#cfc49a; letter-spacing:.22em; margin: 24px 4px 12px;
+        display:flex; align-items:center; gap:9px; }
+      .sec::before { content:'◆'; color: var(--gold); font-size: 8px; }
+      .sec .cnt { color: var(--muted); font-weight: 600; letter-spacing:.06em; }
 
       /* 予約一覧 */
       .resv { display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--line); font-size:13.5px; }
@@ -110,9 +130,9 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .resv .q { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; flex:none; }
       .resv .yen2 { font-size:11px; color:var(--muted); flex:none; font-variant-numeric:tabular-nums; }
       .resv .del { flex:none; border:0; background:none; color:var(--muted); font-size:15px; cursor:pointer; padding:4px 6px; }
-      .resv .del:active { color:#fb7185; }
+      .resv .del:active { color:var(--shu); }
       .more { text-align:center; padding-top:8px; }
-      .more button { background:none; border:0; color:var(--g2); font-size:12.5px; font-weight:700; cursor:pointer; }
+      .more button { background:none; border:0; color:var(--gold); font-size:12.5px; font-weight:700; cursor:pointer; }
 
       svg text { fill: var(--muted); font-size: 10.5px; }
 
@@ -127,50 +147,52 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .slg .pct { margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; flex:none; }
 
       .who { display:flex; flex-wrap:wrap; gap:8px; }
-      .chip { flex:1 1 auto; min-width: 68px; text-align:center; padding:10px 8px; border-radius:12px; cursor:pointer;
-        border:1px solid var(--line); background: var(--surface2); font-weight:700; font-size:13.5px; color:var(--txt); }
-      .chip[aria-pressed="true"] { border-color: transparent; color:#fff; }
+      .chip { flex:1 1 auto; min-width: 68px; text-align:center; padding:10px 8px; border-radius:8px; cursor:pointer;
+        border:1px solid var(--line2); background: var(--surface2); font-weight:700; font-size:13.5px; color:var(--txt); }
+      .chip[aria-pressed="true"] { border-color: rgba(255,255,255,.25); color:#fff; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
 
       /* 予約の編集（自分の分のみ） */
       .resv .act2 { display:flex; gap:2px; flex:none; }
       .resv .edit { flex:none; border:0; background:none; color:var(--muted); font-size:14px; cursor:pointer; padding:4px 6px; }
-      .resv .edit:active { color:var(--g2); }
+      .resv .edit:active { color:var(--gold); }
       .resv.editing { flex-wrap:wrap; }
       .ewrap { flex:1 1 100%; display:flex; flex-direction:column; gap:8px; padding:4px 0 2px; }
-      .einp { width:100%; background:var(--surface2); border:1px solid var(--line); border-radius:10px; color:#fff; font-size:14.5px; padding:9px 11px; outline:none; }
-      .einp:focus { border-color:var(--g2); }
+      .einp { width:100%; background:var(--surface2); border:1px solid var(--line2); border-radius:8px; color:var(--txt); font-size:14.5px; padding:9px 11px; outline:none; }
+      .einp:focus { border-color:var(--gold); }
       .erow { display:flex; align-items:center; gap:8px; }
       .stepper.mini button { width:36px; height:36px; font-size:16px; }
       .stepper.mini .qv { min-width:44px; font-size:15px; }
       .eyen { font-size:12px; color:var(--muted); flex:1; text-align:center; font-variant-numeric:tabular-nums; }
-      .esave { border:0; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:800; color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--g1),var(--g2)); }
-      .ecancel { border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13.5px; font-weight:700; color:var(--muted); background:var(--surface2); cursor:pointer; }
+      .esave { border:0; border-radius:8px; padding:9px 16px; font-size:13.5px; font-weight:800; color:#221a06; cursor:pointer;
+        background:linear-gradient(180deg,#f0d894,#c9a53a); box-shadow: 0 4px 12px rgba(212,175,55,.3); }
+      .ecancel { border:1px solid var(--line2); border-radius:8px; padding:9px 12px; font-size:13.5px; font-weight:700; color:var(--muted); background:var(--surface2); cursor:pointer; }
 
       /* ===== 下部固定: 予約入力 ===== */
       .dock { position: fixed; left:0; right:0; bottom:0; z-index:20; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-        background: rgba(10,14,24,.88); backdrop-filter: blur(14px); border-top:1px solid var(--line); }
+        background: rgba(9,13,24,.92); backdrop-filter: blur(14px); border-top:1px solid var(--line); }
       .dock .inner { max-width:680px; margin:0 auto; }
       .dock .prompt { text-align:center; color:var(--muted); font-size:13px; padding:6px 0; }
       .dock .l1 { display:flex; align-items:center; gap:8px; }
-      .dock .miniava { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; font-weight:800; color:#fff; flex:none; }
-      .dock input[type="text"] { flex:1; min-width:0; background: var(--surface2); border:1px solid var(--line); border-radius:11px;
-        color:#fff; font-size:15px; padding:11px 12px; outline:none; }
-      .dock input:focus { border-color: var(--g2); }
+      .dock .miniava { width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-weight:800; color:#fff; flex:none;
+        font-family: var(--serif); box-shadow: inset 0 -6px 10px rgba(0,0,0,.28); }
+      .dock input[type="text"] { flex:1; min-width:0; background: var(--surface2); border:1px solid var(--line2); border-radius:8px;
+        color:var(--txt); font-size:15px; padding:11px 12px; outline:none; }
+      .dock input:focus { border-color: var(--gold); }
       .dock .l2 { display:flex; align-items:center; gap:8px; margin-top:8px; }
-      .stepper { display:flex; align-items:center; gap:0; border:1px solid var(--line); border-radius:11px; background:var(--surface2); overflow:hidden; }
-      .stepper button { width:44px; height:44px; border:0; background:none; color:var(--txt); font-size:19px; font-weight:800; cursor:pointer; }
-      .stepper button:active { background: rgba(255,255,255,.06); }
+      .stepper { display:flex; align-items:center; gap:0; border:1px solid var(--line2); border-radius:8px; background:var(--surface2); overflow:hidden; }
+      .stepper button { width:44px; height:44px; border:0; background:none; color:var(--gold-l); font-size:19px; font-weight:800; cursor:pointer; }
+      .stepper button:active { background: rgba(212,175,55,.10); }
       .stepper .qv { min-width:52px; text-align:center; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; }
       .stepper .qv small { font-size:11px; color:var(--muted); font-weight:700; }
       .dock .amount { font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; flex:1; text-align:center; }
-      .btnadd { border:0; border-radius:12px; padding: 12px 20px; font-size:15px; font-weight:800; color:#fff; cursor:pointer;
-        background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow:0 6px 16px rgba(99,102,241,.4); }
+      .btnadd { border:0; border-radius:8px; padding: 12px 20px; font-size:15px; font-weight:800; color:#221a06; cursor:pointer;
+        background: linear-gradient(180deg, #f3df9b, #cfa93c 70%, #b8922e); box-shadow:0 6px 18px rgba(212,175,55,.32); }
       .btnadd:active { transform: translateY(1px) scale(.98); }
       .btnadd:disabled { opacity:.5; }
 
       #toasts { position: fixed; top: 12px; left:0; right:0; z-index:30; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
-      .toast { background: rgba(16,24,40,.95); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
-        box-shadow:0 8px 24px rgba(0,0,0,.4); animation: tin .3s ease, tout .3s ease 2.1s forwards; }
+      .toast { background: rgba(12,17,32,.96); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
+        box-shadow:0 8px 24px rgba(0,0,0,.45); animation: tin .3s ease, tout .3s ease 2.1s forwards; }
       @keyframes tin { from{opacity:0; transform:translateY(-8px);} to{opacity:1;} }
       @keyframes tout { to{opacity:0; transform:translateY(-8px);} }
       .conf { position: fixed; z-index: 40; top: -12px; width: 9px; height: 14px; border-radius: 2px; pointer-events:none; }
@@ -186,9 +208,10 @@ const nf0 = new Intl.NumberFormat('ja-JP');
     <div id="toasts"></div>
     <div class="wrap">
       <header class="top">
-        <div class="emoji">🍣🔥</div>
+        <div class="badge-shu">土用の丑の日・数量限定</div>
         <h1>うなぎ太巻き 予約バトル</h1>
-        <div class="sub"><span class="livedot"></span>土用の丑の日・完全予約制 <b>7/24(金)締切</b> ／ 受け取り <b>7/26(日) 14:00〜17:00</b> ／ 1本 <b>¥{nf0.format(PRICE)}</b></div>
+        <div class="orn"></div>
+        <div class="sub"><span class="livedot"></span>完全予約制 <b>7/24(金)締切</b> ／ 受け取り <b>7/26(日) 14:00〜17:00</b> ／ 1本 <b>¥{nf0.format(PRICE)}</b></div>
       </header>
 
       {!configured ? (
@@ -319,7 +342,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           } catch(e){}
         }
         function confetti(color){
-          const cols = [color, '#ffcf5b', '#22d3ee', '#fff'];
+          // 金箔が舞うイメージ（プレイヤー色＋金3種＋朱）
+          const cols = [color, '#f3e0a5', '#d4af37', '#fff8e1', '#cf3e2e'];
           for (let i=0;i<26;i++){
             const d = document.createElement('div');
             d.className='conf'; d.style.background = cols[i%cols.length];
@@ -360,8 +384,9 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             const q = t[p.name], row = document.createElement('div');
             row.className = 'row' + (p.name===me?' me':'');
             const w = Math.max(q>0?6:0, q/max*100);
+            const KANJI = ['壱','弐','参','四'];
             row.innerHTML =
-              '<div class="rank '+(i===0&&q>0?'first':'')+'">'+(i+1)+'</div>' +
+              '<div class="rank '+(i===0&&q>0?'first':'')+'">'+(KANJI[i]||i+1)+'</div>' +
               '<div class="avatar" style="background:'+p.color+'">'+p.initial+'</div>' +
               '<div><div class="pname">'+p.name+(i===0&&q>0?' <span>👑</span>':'')+'</div>' +
                 '<div class="pbar2"><span style="width:'+w+'%;background:'+p.color+'"></span></div></div>' +
@@ -391,7 +416,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           const yen = qty*PRICE;
           const yenLabel = yen >= 10000 ? (Math.round(yen/1000)/10)+'万' : fmt(yen);
           svg += '<text x="55" y="51" text-anchor="middle" style="font-size:10px">合計</text>';
-          svg += '<text x="55" y="66" text-anchor="middle" style="font-size:13px;font-weight:800" fill="#eef2ff">¥'+yenLabel+'</text></svg>';
+          svg += '<text x="55" y="66" text-anchor="middle" style="font-size:13px;font-weight:800" fill="#f3e0a5">¥'+yenLabel+'</text></svg>';
           let lg = '<div class="slg">';
           [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]).forEach(p => {
             const pc = qty > 0 ? Math.round(t[p.name]/qty*100) : 0;
