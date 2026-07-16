@@ -602,6 +602,26 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         }
         function renderAll(bumpName, anim){ renderHero(anim); renderBoard(bumpName, anim); renderShare(anim); renderList(); renderChart(anim); }
 
+        // スクロールして各グラフが画面に入った瞬間に入場アニメを再生（出て入り直すと再度）
+        let observerSet = false;
+        function setupScrollAnim(){
+          if (observerSet || !('IntersectionObserver' in window)) return;
+          observerSet = true;
+          const map = [
+            ['.salescard', () => renderHero(true)],
+            ['#board',     () => renderBoard(undefined, true)],
+            ['#share',     () => renderShare(true)],
+            ['#chart',     () => renderChart(true)],
+          ];
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+              if (e.isIntersecting) { if (!e.target.__played) { e.target.__played = true; (e.target.__fn||(()=>{}))(); } }
+              else { e.target.__played = false; } // 画面外に出たら再アーム
+            });
+          }, { threshold: 0.35 });
+          map.forEach(([sel, fn]) => { const el = document.querySelector(sel); if (el) { el.__fn = fn; io.observe(el); } });
+        }
+
         async function submit(){
           const inp = $('#custName');
           const name = (inp.value||'').trim();
@@ -639,10 +659,11 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               });
             }
             prevTotals = t;
-            const anim = firstLoad; // 初回ロード時だけグラフを入場アニメ
-            if (editingId === null) renderAll(undefined, anim);
-            else { renderHero(anim); renderBoard(undefined, anim); renderShare(anim); renderChart(anim); } // 編集中は一覧を再描画しない（入力内容を守る）
+            const wasFirst = firstLoad;
+            if (editingId === null) renderAll();
+            else { renderHero(); renderBoard(); renderShare(); renderChart(); } // 編集中は一覧を再描画しない（入力内容を守る）
             firstLoad = false;
+            if (wasFirst) setupScrollAnim(); // データが揃ってから監視開始
           } catch(e) {}
         }
 
