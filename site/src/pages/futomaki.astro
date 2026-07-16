@@ -362,20 +362,23 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         }
 
         // ---- レンダリング ----
-        function renderHero(){
+        const EASE = 'cubic-bezier(.2,.8,.2,1)';
+        function renderHero(anim){
           const t = totals();
           const qty = PLAYERS.reduce((s,p)=>s+t[p.name],0);
           $('#totalYen').textContent = fmt(qty * PRICE);
           $('#totalQty').textContent = fmt(qty);
           $('#custCnt').textContent = fmt(rows.length);
           const pct = Math.min(100, GOAL ? qty/GOAL*100 : 0);
-          $('#pfill').style.width = pct + '%';
+          const fill = $('#pfill');
+          fill.style.width = pct + '%';
+          if (anim) fill.animate([{width:'0%'},{width:pct+'%'}], {duration:900, easing:EASE});
           const remain = Math.max(0, GOAL - qty);
           $('#goaltxt').textContent = remain > 0
             ? ('目標 ' + fmt(GOAL) + ' 本（¥' + fmt(GOAL*PRICE) + '）／ あと ' + fmt(remain) + ' 本！')
             : ('🎉 目標達成！ ' + fmt(qty) + ' 本 ¥' + fmt(qty*PRICE));
         }
-        function renderBoard(bumpName){
+        function renderBoard(bumpName, anim){
           const t = totals();
           const sorted = [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]);
           const max = Math.max(1, ...PLAYERS.map(p=>t[p.name]));
@@ -394,8 +397,12 @@ const nf0 = new Intl.NumberFormat('ja-JP');
                 '<div class="q">'+fmt(q)+' 本</div></div>';
             board.appendChild(row);
           });
+          if (anim) board.querySelectorAll('.pbar2 > span').forEach((s,i) => {
+            const w = s.style.width;
+            s.animate([{width:'0%'},{width:w}], {duration:850, delay:120+i*90, easing:EASE, fill:'backwards'});
+          });
         }
-        function renderShare(){
+        function renderShare(anim){
           const t = totals();
           const qty = PLAYERS.reduce((s,p)=>s+t[p.name],0);
           const el = $('#share');
@@ -425,6 +432,13 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           });
           lg += '</div>';
           el.innerHTML = svg + lg;
+          if (anim) {
+            const sv = el.querySelector('svg');
+            if (sv) {
+              sv.style.transformOrigin = 'center';
+              sv.animate([{transform:'rotate(-140deg) scale(.6)', opacity:0},{transform:'none', opacity:1}], {duration:850, easing:EASE});
+            }
+          }
         }
         function renderList(){
           const list = $('#resvList');
@@ -504,7 +518,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             try { await delResv(id); toast('取り消しました'); } catch(e){ toast('⚠️ 取り消しに失敗'); sync(true); }
           });
         }
-        function renderChart(){
+        function renderChart(anim){
           const svg = $('#chart'); const W=640,Hh=220, pad={l:44,r:54,t:14,b:22};
           const iw=W-pad.l-pad.r, ih=Hh-pad.t-pad.b;
           if (rows.length < 2) {
@@ -539,6 +553,11 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             out += '<text x="'+(W-pad.r+5)+'" y="'+(ty(last)+3)+'" fill="'+p.color+'" style="font-weight:700">'+ p.initial +'</text>';
           });
           svg.innerHTML = out;
+          if (anim) svg.querySelectorAll('path').forEach(pth => {
+            const len = pth.getTotalLength();
+            pth.style.strokeDasharray = len;
+            pth.animate([{strokeDashoffset:len},{strokeDashoffset:0}], {duration:1200, easing:'ease-out'});
+          });
         }
         function renderWho(){
           const who = $('#who'); who.innerHTML='';
@@ -581,7 +600,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             if (e.key==='Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); }
           });
         }
-        function renderAll(bumpName){ renderHero(); renderBoard(bumpName); renderShare(); renderList(); renderChart(); }
+        function renderAll(bumpName, anim){ renderHero(anim); renderBoard(bumpName, anim); renderShare(anim); renderList(); renderChart(anim); }
 
         async function submit(){
           const inp = $('#custName');
@@ -620,8 +639,9 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               });
             }
             prevTotals = t;
-            if (editingId === null) renderAll();
-            else { renderHero(); renderBoard(); renderShare(); renderChart(); } // 編集中は一覧を再描画しない（入力内容を守る）
+            const anim = firstLoad; // 初回ロード時だけグラフを入場アニメ
+            if (editingId === null) renderAll(undefined, anim);
+            else { renderHero(anim); renderBoard(undefined, anim); renderShare(anim); renderChart(anim); } // 編集中は一覧を再描画しない（入力内容を守る）
             firstLoad = false;
           } catch(e) {}
         }
