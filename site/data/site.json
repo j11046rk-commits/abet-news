@@ -200,8 +200,8 @@
   },
 
   "futomaki": {
-    "supabaseUrl": "",
-    "supabaseAnonKey": "",
+    "supabaseUrl": "https://oadtvanrdxqkkietkohc.supabase.co",
+    "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hZHR2YW5yZHhxa2tpZXRrb2hjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MjEyODYsImV4cCI6MjA5NDQ5NzI4Nn0.in--wN4Th8F_hKKQRTRrJ8lcRCcRXKX8z37u-9GZT74",
     "goal": 200,
     "price": 2500,
     "eventDate": "2026-07-26",
