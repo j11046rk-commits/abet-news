@@ -10,7 +10,7 @@ export default defineConfig({
   site: process.env.SITE_URL || 'https://shipporitei.jp',
   base: process.env.BASE_PATH || '/',
   // 管理ダッシュボード(/dashboard)・イベントページ(/futomaki)はサイトマップに載せない
-  integrations: [sitemap({ filter: (page) => !page.includes('/dashboard') && !page.includes('/futomaki') })],
+  integrations: [sitemap({ filter: (page) => !page.includes('/dashboard') && !page.includes('/futomaki') && !page.includes('/futomaki-kitchen') })],
   build: {
     // CSS をインライン化しすぎず、キャッシュしやすい構成に
     assets: 'assets',

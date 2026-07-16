@@ -248,7 +248,10 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             </div>
           </div>
 
-          <div class="sec">予約一覧 <span class="cnt" id="resvCnt"></span></div>
+          <div class="sec" style="justify-content:space-between;">
+            <span style="display:flex;align-items:center;gap:8px;">予約一覧 <span class="cnt" id="resvCnt"></span></span>
+            <a href={`${import.meta.env.BASE_URL}futomaki-kitchen`} style="color:var(--gold-l);font-size:11px;letter-spacing:.04em;text-decoration:none;font-weight:700;">製造・受渡 管理 ▶</a>
+          </div>
           <div class="card" id="resvList"><div class="empty">まだ予約がありません</div></div>
 
           <div class="sec">売上の推移</div>

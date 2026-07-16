@@ -1,0 +1,303 @@
+---
+// うなぎ太巻き 製造・集金・受渡 管理（当日オペ用）
+// 予約バトルと同じ Supabase の futomaki_reservations を共有。3ステージ(made/paid/delivered)を時刻で管理。
+// イベント用ページのため noindex＋サイトマップ除外（astro.config.mjs）。
+import site from '../../data/site.json';
+const cfg = site.futomaki || {};
+const SB_URL = (cfg.supabaseUrl || '').trim().replace(/\/$/, '');
+const SB_KEY = (cfg.supabaseAnonKey || '').trim();
+const PRICE = Number(cfg.price || 2500);
+const PLAYERS = [
+  { name: '古賀', color: '#3987e5', initial: '古' },
+  { name: '山本', color: '#d55181', initial: '山' },
+  { name: '岡', color: '#c98500', initial: '岡' },
+  { name: 'しっぽり亭店販', color: '#199e70', initial: '店' },
+];
+const configured = !!(SB_URL && SB_KEY);
+const nf0 = new Intl.NumberFormat('ja-JP');
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#0a0e1d" />
+    <title>太巻き 製造・受渡 管理｜しっぽり亭</title>
+    <style is:global>
+      :root {
+        --bg: #0a0e1d; --surface: #10162b; --surface2: #0b101f;
+        --line: rgba(212,175,55,.20); --line2: rgba(255,255,255,.06);
+        --txt: #f2eee3; --muted: #9aa0b5;
+        --gold: #d4af37; --gold-l: #f3e0a5; --amber:#e0a52e; --green:#2bb673; --blue:#4a90e2; --shu:#cf3e2e;
+        --serif: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      button { touch-action: manipulation; -webkit-user-select:none; user-select:none; }
+      body {
+        margin: 0; color: var(--txt); padding-bottom: 32px;
+        font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+        line-height: 1.5; -webkit-font-smoothing: antialiased;
+        background: radial-gradient(1000px 520px at 15% -10%, rgba(212,175,55,.09), transparent 60%),
+          radial-gradient(760px 540px at 100% 8%, rgba(207,62,46,.05), transparent 55%),
+          linear-gradient(180deg, #0b1021, #090d18);
+        min-height: 100vh; overflow-x: hidden;
+      }
+      .wrap { max-width: 680px; margin: 0 auto; padding: 20px 14px 40px; }
+      .card { position: relative; background: var(--surface); border: 1px solid var(--line2); border-radius: 14px; padding: 14px 16px;
+        box-shadow: 0 12px 34px rgba(0,0,0,.38); }
+      .mb { margin-bottom: 12px; }
+
+      header.top { text-align:center; margin: 2px 0 16px; }
+      header.top h1 { font-family: var(--serif); font-size: 22px; margin: 0; font-weight:700; letter-spacing:.06em;
+        background: linear-gradient(180deg,#f8ecc2,#d4af37 62%,#c39a30); -webkit-background-clip:text; background-clip:text; color:transparent; }
+      header.top .sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
+      .back { display:inline-flex; align-items:center; gap:5px; color: var(--gold-l); font-size:12.5px; text-decoration:none; margin-top:8px; }
+
+      /* サマリー */
+      .sum { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+      @media (max-width:460px){ .sum { grid-template-columns:1fr; } }
+      .sc { background: var(--surface2); border:1px solid var(--line2); border-radius:11px; padding:11px 12px; }
+      .sc .l { font-family:var(--serif); font-size:11.5px; color:#cfc49a; letter-spacing:.1em; }
+      .sc .v { font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px; }
+      .sc .v small { font-size:12px; color:var(--muted); font-weight:600; }
+      .sc .sub2 { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+      .mini { height:6px; border-radius:4px; background:rgba(255,255,255,.07); overflow:hidden; margin-top:8px; }
+      .mini > span { display:block; height:100%; border-radius:4px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
+
+      /* 検索＋フィルタ */
+      .search { width:100%; background:var(--surface2); border:1px solid var(--line2); border-radius:10px; color:var(--txt);
+        font-size:15px; padding:11px 13px; outline:none; }
+      .search:focus { border-color: var(--gold); }
+      .tabs { display:flex; gap:6px; overflow-x:auto; padding:2px; margin-top:10px; -webkit-overflow-scrolling:touch; }
+      .tab { flex:none; border:1px solid var(--line2); background:var(--surface2); color:var(--muted); border-radius:999px;
+        padding:7px 13px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+      .tab.on { color:#221a06; background:linear-gradient(180deg,#f0d894,#c9a53a); border-color:transparent; }
+      .tab .b { font-variant-numeric:tabular-nums; }
+
+      /* 予約カード */
+      .list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
+      .job { position:relative; background:var(--surface); border:1px solid var(--line2); border-radius:12px; padding:12px 13px;
+        box-shadow:0 6px 18px rgba(0,0,0,.28); }
+      .job.done { opacity:.62; }
+      .job.done::after { content:'受渡完了'; position:absolute; top:10px; right:12px; font-family:var(--serif); font-size:11px;
+        color:#221a06; background:linear-gradient(180deg,#bfe8cf,#2bb673); padding:2px 9px; border-radius:999px; font-weight:800; }
+      .jhead { display:flex; align-items:center; gap:10px; }
+      .pdot { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; color:#fff; font-weight:800;
+        font-family:var(--serif); font-size:13px; flex:none; box-shadow: inset 0 -6px 10px rgba(0,0,0,.28); }
+      .jinfo { min-width:0; flex:1; }
+      .jname { font-size:16px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .jmeta { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+      .jmeta b { color:var(--gold-l); font-weight:700; }
+
+      .stages { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; margin-top:11px; }
+      .stg { border:1px solid var(--line2); background:var(--surface2); color:var(--muted); border-radius:9px; padding:9px 4px;
+        font-size:13px; font-weight:800; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.1; }
+      .stg .t { font-size:10px; font-weight:600; opacity:.85; font-variant-numeric:tabular-nums; }
+      .stg .t.ph { visibility:hidden; }
+      .stg:active { transform: translateY(1px); }
+      .stg.on.made { background:linear-gradient(180deg,#f0cf87,#d19b26); border-color:transparent; color:#221a06; }
+      .stg.on.paid { background:linear-gradient(180deg,#9be0bb,#1f9e63); border-color:transparent; color:#08231a; }
+      .stg.on.deli { background:linear-gradient(180deg,#a9cdf6,#2f74c8); border-color:transparent; color:#07203c; }
+
+      .allbtn { width:100%; margin-top:8px; border:1px dashed var(--line); background:transparent; color:var(--gold-l);
+        border-radius:9px; padding:8px; font-size:12.5px; font-weight:700; cursor:pointer; }
+      .allbtn:active { background:rgba(212,175,55,.08); }
+
+      .sec { font-family:var(--serif); font-size:12.5px; font-weight:700; color:#cfc49a; letter-spacing:.16em; margin:20px 4px 4px;
+        display:flex; align-items:center; gap:8px; }
+      .sec::before { content:'◆'; color:var(--gold); font-size:8px; }
+      #toasts { position:fixed; top:12px; left:0; right:0; z-index:30; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
+      .toast { background:rgba(12,17,32,.96); border:1px solid var(--line); border-radius:999px; padding:7px 14px; font-size:13px; font-weight:700;
+        box-shadow:0 8px 24px rgba(0,0,0,.45); animation: tin .3s ease, tout .3s ease 1.8s forwards; }
+      @keyframes tin { from{opacity:0;transform:translateY(-8px);} to{opacity:1;} }
+      @keyframes tout { to{opacity:0;transform:translateY(-8px);} }
+      .empty { color:var(--muted); font-size:13px; padding:24px 2px; text-align:center; }
+      .note { margin-top:20px; font-size:11px; color:var(--muted); text-align:center; }
+      .setup { text-align:center; padding:30px 18px; }
+      .setup code { background:var(--surface2); padding:2px 6px; border-radius:6px; }
+    </style>
+  </head>
+  <body>
+    <div id="toasts"></div>
+    <div class="wrap">
+      <header class="top">
+        <h1>製造・集金・受渡 管理</h1>
+        <div class="sub">7/26(日) 店頭・完全予約制 ／ 1本 ¥{nf0.format(PRICE)}</div>
+        <a class="back" href={`${import.meta.env.BASE_URL}futomaki`}>← 予約バトルへ戻る</a>
+      </header>
+
+      {!configured ? (
+        <div class="card setup"><p>Supabaseの接続情報が未設定です（<code>site.json</code> の futomaki）。</p></div>
+      ) : (
+        <>
+          <div class="sum mb">
+            <div class="sc">
+              <div class="l">製造</div>
+              <div class="v"><span id="madeQ">0</span><small> / <span id="totQ">0</span>本</small></div>
+              <div class="mini"><span id="madeBar" style="width:0%;background:linear-gradient(90deg,#c9a53a,#f0d894)"></span></div>
+            </div>
+            <div class="sc">
+              <div class="l">集金</div>
+              <div class="v">¥<span id="paidY">0</span></div>
+              <div class="sub2">未集金 ¥<span id="dueY">0</span> / 総額 ¥<span id="totY">0</span></div>
+              <div class="mini"><span id="paidBar" style="width:0%;background:linear-gradient(90deg,#1f9e63,#9be0bb)"></span></div>
+            </div>
+            <div class="sc">
+              <div class="l">受渡</div>
+              <div class="v"><span id="deliC">0</span><small> / <span id="totC">0</span>件</small></div>
+              <div class="mini"><span id="deliBar" style="width:0%;background:linear-gradient(90deg,#2f74c8,#a9cdf6)"></span></div>
+            </div>
+          </div>
+
+          <input class="search" id="q" type="search" placeholder="🔍 お客様名で検索" autocomplete="off" />
+          <div class="tabs" id="tabs"></div>
+
+          <div class="list" id="list"><div class="empty">読み込み中…</div></div>
+
+          <p class="note">全員の画面にリアルタイム同期（約2.5秒）。各ステージはタップで済/未を切替。データ: Supabase。</p>
+        </>
+      )}
+    </div>
+
+    {configured && (
+      <script define:vars={{ SB_URL, SB_KEY, PRICE, PLAYERS }}>
+        const H = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY };
+        const REST = SB_URL + '/rest/v1/';
+        const byName = Object.fromEntries(PLAYERS.map(p => [p.name, p]));
+        let rows = [];
+        let filter = 'all';
+        let query = '';
+
+        const $ = s => document.querySelector(s);
+        const fmt = n => new Intl.NumberFormat('ja-JP').format(n);
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const hm = iso => { const d = new Date(iso); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+
+        const FILTERS = [
+          { key:'all',   label:'すべて' },
+          { key:'unmade',label:'未製造',  test:r => !r.made_at },
+          { key:'unpaid',label:'未集金',  test:r => !r.paid_at },
+          { key:'undeli',label:'受渡待ち',test:r => !r.delivered_at },
+          { key:'done',  label:'完了',    test:r => !!r.delivered_at },
+        ];
+        const STAGES = [
+          { col:'made_at',      cls:'made', label:'製造' },
+          { col:'paid_at',      cls:'paid', label:'集金' },
+          { col:'delivered_at', cls:'deli', label:'受渡' },
+        ];
+
+        // ---- API ----
+        async function fetchAll(){
+          const r = await fetch(REST + 'futomaki_reservations?select=id,player,customer,qty,created_at,made_at,paid_at,delivered_at&order=created_at.asc', { headers: H });
+          if (!r.ok) throw new Error(await r.text());
+          return r.json();
+        }
+        async function patch(id, body){
+          const r = await fetch(REST + 'futomaki_reservations?id=eq.' + id, {
+            method:'PATCH', headers:{...H,'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(body)
+          });
+          if (!r.ok) throw new Error(await r.text());
+        }
+        function toast(msg){ const t=document.createElement('div'); t.className='toast'; t.innerHTML=msg; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),2000); }
+
+        // ---- 集計 ----
+        function renderSummary(){
+          const totQ = rows.reduce((s,r)=>s+r.qty,0);
+          const madeQ = rows.filter(r=>r.made_at).reduce((s,r)=>s+r.qty,0);
+          const totY = totQ*PRICE;
+          const paidY = rows.filter(r=>r.paid_at).reduce((s,r)=>s+r.qty*PRICE,0);
+          const deliC = rows.filter(r=>r.delivered_at).length;
+          $('#madeQ').textContent = fmt(madeQ); $('#totQ').textContent = fmt(totQ);
+          $('#paidY').textContent = fmt(paidY); $('#dueY').textContent = fmt(totY-paidY); $('#totY').textContent = fmt(totY);
+          $('#deliC').textContent = deliC; $('#totC').textContent = rows.length;
+          $('#madeBar').style.width = (totQ?madeQ/totQ*100:0)+'%';
+          $('#paidBar').style.width = (totY?paidY/totY*100:0)+'%';
+          $('#deliBar').style.width = (rows.length?deliC/rows.length*100:0)+'%';
+        }
+        function renderTabs(){
+          const tabs = $('#tabs'); tabs.innerHTML='';
+          FILTERS.forEach(f => {
+            const n = f.test ? rows.filter(f.test).length : rows.length;
+            const b = document.createElement('button');
+            b.className = 'tab' + (filter===f.key?' on':'');
+            b.innerHTML = f.label + ' <span class="b">' + n + '</span>';
+            b.onclick = () => { filter = f.key; renderTabs(); renderList(); };
+            tabs.appendChild(b);
+          });
+        }
+        function renderList(){
+          const list = $('#list');
+          const f = FILTERS.find(x=>x.key===filter);
+          let items = f && f.test ? rows.filter(f.test) : [...rows];
+          if (query) items = items.filter(r => r.customer.toLowerCase().includes(query));
+          // 未受渡を上に、その中は登録順
+          items.sort((a,b) => (!!a.delivered_at - !!b.delivered_at) || (new Date(a.created_at)-new Date(b.created_at)));
+          if (!items.length) { list.innerHTML = '<div class="empty">該当する予約がありません</div>'; return; }
+          list.innerHTML = '';
+          items.forEach(r => {
+            const p = byName[r.player] || { color:'#888', initial:'?' };
+            const done = !!r.delivered_at;
+            const el = document.createElement('div');
+            el.className = 'job' + (done?' done':'');
+            let stg = '<div class="stages">';
+            STAGES.forEach(s => {
+              const on = !!r[s.col];
+              stg += '<button class="stg '+s.cls+(on?' on':'')+'" data-id="'+r.id+'" data-col="'+s.col+'">'+s.label +
+                '<span class="t'+(on?'':' ph')+'">'+(on?hm(r[s.col]):'--:--')+'</span></button>';
+            });
+            stg += '</div>';
+            const allDone = r.made_at && r.paid_at && r.delivered_at;
+            el.innerHTML =
+              '<div class="jhead">' +
+                '<span class="pdot" style="background:'+p.color+'">'+p.initial+'</span>' +
+                '<div class="jinfo"><div class="jname">'+esc(r.customer)+'</div>' +
+                  '<div class="jmeta"><b>'+r.qty+'本</b> ¥'+fmt(r.qty*PRICE)+' ・ 担当 '+esc(r.player)+'</div></div>' +
+              '</div>' + stg +
+              (allDone ? '' : '<button class="allbtn" data-all="'+r.id+'">✓ まとめて完了（製造・集金・受渡）</button>');
+            list.appendChild(el);
+          });
+          // ステージ個別トグル
+          list.querySelectorAll('.stg').forEach(b => b.onclick = () => toggleStage(+b.dataset.id, b.dataset.col));
+          // まとめて完了
+          list.querySelectorAll('.allbtn').forEach(b => b.onclick = () => completeAll(+b.dataset.all));
+        }
+        function renderAll(){ renderSummary(); renderTabs(); renderList(); }
+
+        async function toggleStage(id, col){
+          const r = rows.find(x=>x.id===id); if (!r) return;
+          const on = !r[col];
+          r[col] = on ? new Date().toISOString() : null;
+          renderAll();
+          try { await patch(id, { [col]: r[col] }); }
+          catch(e){ toast('⚠️ 更新に失敗'); sync(); }
+        }
+        async function completeAll(id){
+          const r = rows.find(x=>x.id===id); if (!r) return;
+          const now = new Date().toISOString();
+          const body = {};
+          if (!r.made_at) body.made_at = now;
+          if (!r.paid_at) body.paid_at = now;
+          if (!r.delivered_at) body.delivered_at = now;
+          Object.assign(r, body);
+          renderAll();
+          try { await patch(id, body); toast('🎉 '+esc(r.customer)+' 完了'); }
+          catch(e){ toast('⚠️ 更新に失敗'); sync(); }
+        }
+
+        // ---- 同期 ----
+        async function sync(){
+          try { rows = await fetchAll(); renderAll(); } catch(e){}
+        }
+
+        // ---- 起動 ----
+        renderTabs();
+        $('#q').addEventListener('input', e => { query = e.target.value.trim().toLowerCase(); renderList(); });
+        sync();
+        setInterval(sync, 2500);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+      </script>
+    )}
+  </body>
+</html>
