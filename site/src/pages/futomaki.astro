@@ -440,7 +440,10 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           $('#qminus').onclick = () => setQ(qtyInput-1);
           $('#qplus').onclick = () => setQ(qtyInput+1);
           $('#addBtn').onclick = submit;
-          $('#custName').addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); submit(); } });
+          // Enterで登録（ただし日本語IMEの変換確定Enterでは発火させない）
+          $('#custName').addEventListener('keydown', e => {
+            if (e.key==='Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submit(); }
+          });
         }
         function renderAll(bumpName){ renderHero(); renderBoard(bumpName); renderList(); renderChart(); }
 
