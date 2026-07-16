@@ -70,11 +70,11 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .search { width:100%; background:var(--surface2); border:1px solid var(--line2); border-radius:10px; color:var(--txt);
         font-size:15px; padding:11px 13px; outline:none; }
       .search:focus { border-color: var(--gold); }
-      .tabs { display:flex; gap:6px; overflow-x:auto; padding:2px; margin-top:10px; -webkit-overflow-scrolling:touch; }
-      .tab { flex:none; border:1px solid var(--line2); background:var(--surface2); color:var(--muted); border-radius:999px;
-        padding:7px 13px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+      .tabs { display:flex; flex-wrap:wrap; gap:6px; padding:2px; margin-top:10px; }
+      .tab { flex:1 1 auto; text-align:center; border:1px solid var(--line2); background:var(--surface2); color:var(--muted); border-radius:999px;
+        padding:8px 8px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
       .tab.on { color:#221a06; background:linear-gradient(180deg,#f0d894,#c9a53a); border-color:transparent; }
-      .tab .b { font-variant-numeric:tabular-nums; }
+      .tab .b { font-variant-numeric:tabular-nums; opacity:.7; margin-left:2px; }
 
       /* 予約カード */
       .list { margin-top:14px; display:flex; flex-direction:column; gap:10px; }
