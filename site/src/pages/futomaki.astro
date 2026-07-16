@@ -260,6 +260,14 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         if (me && !byName[me]) me = null;
 
         const $ = s => document.querySelector(s);
+        // スマホ連打対応タップ: touchstartで既定動作を止めて即実行 →
+        // 入力欄のフォーカスが外れずキーボードが閉じない＆反応も速い。
+        // touchstartをキャンセルするとエミュレートclickは発火しないが、二重発火ガードも念のため。
+        function bindTap(elm, fn){
+          let viaTouch = false;
+          elm.addEventListener('touchstart', e => { e.preventDefault(); viaTouch = true; fn(); }, { passive: false });
+          elm.addEventListener('click', () => { if (viaTouch) { viaTouch = false; return; } fn(); });
+        }
         const fmt = n => new Intl.NumberFormat('ja-JP').format(n);
         const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -420,9 +428,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               const ni = el.querySelector('#editName');
               ni.value = r.customer;
               const setEQ = q => { editQty = Math.min(99, Math.max(1, q)); el.querySelector('#eqv').textContent = editQty; el.querySelector('#eyen').textContent = '¥'+fmt(editQty*PRICE); };
-              el.querySelector('#eminus').onclick = () => setEQ(editQty-1);
-              el.querySelector('#eplus').onclick = () => setEQ(editQty+1);
-              ['#eminus','#eplus'].forEach(s => el.querySelector(s).addEventListener('pointerdown', e => e.preventDefault()));
+              bindTap(el.querySelector('#eminus'), () => setEQ(editQty-1));
+              bindTap(el.querySelector('#eplus'), () => setEQ(editQty+1));
               el.querySelector('#ecancel').onclick = () => { editingId = null; renderList(); };
               el.querySelector('#esave').onclick = async () => {
                 const name = ni.value.trim();
@@ -539,10 +546,9 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             '</div>';
           const qv = $('#qv'), amount = $('#amount');
           const setQ = q => { qtyInput = Math.min(99, Math.max(1, q)); qv.textContent = qtyInput; amount.textContent = '¥' + fmt(qtyInput*PRICE); };
-          $('#qminus').onclick = () => setQ(qtyInput-1);
-          $('#qplus').onclick = () => setQ(qtyInput+1);
-          // タップでフォーカスを奪わない → キーボードが閉じずボタン位置がズレない（連打対応）
-          ['qminus','qplus'].forEach(id => $('#'+id).addEventListener('pointerdown', e => e.preventDefault()));
+          // touchstartで処理してキーボードを閉じさせない（連打対応）
+          bindTap($('#qminus'), () => setQ(qtyInput-1));
+          bindTap($('#qplus'), () => setQ(qtyInput+1));
           $('#addBtn').onclick = submit;
           // Enterで登録（ただし日本語IMEの変換確定Enterでは発火させない）
           $('#custName').addEventListener('keydown', e => {
