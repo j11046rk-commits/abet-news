@@ -544,9 +544,10 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           });
           PLAYERS.forEach(p => {
             const pts = series[p.name]; if (!pts.length) return;
+            // 点と点を斜めの直線で結ぶ（起点0 → 各累積値 → 右端まで水平）
             let d = 'M ' + tx(t0) + ',' + ty(0);
-            let last = 0;
-            pts.forEach(pt => { d += ' L ' + tx(pt.t) + ',' + ty(last) + ' L ' + tx(pt.t) + ',' + ty(pt.v); last = pt.v; });
+            pts.forEach(pt => { d += ' L ' + tx(pt.t) + ',' + ty(pt.v); });
+            const last = pts[pts.length-1].v;
             d += ' L ' + tx(t1) + ',' + ty(last);
             out += '<path d="'+d+'" fill="none" stroke="'+p.color+'" stroke-width="2.5" stroke-linejoin="round"/>';
             out += '<circle cx="'+tx(pts[pts.length-1].t)+'" cy="'+ty(last)+'" r="3.5" fill="'+p.color+'"/>';
