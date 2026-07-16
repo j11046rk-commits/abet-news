@@ -404,7 +404,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           svg += '<circle cx="55" cy="55" r="'+R2+'" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="'+SW+'"/>';
           if (qty > 0) {
             let off = 0;
-            PLAYERS.forEach(p => {
+            // 弧もシェアの高い順に描く（凡例と一致）
+            [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]).forEach(p => {
               const frac = t[p.name]/qty;
               if (frac <= 0) return;
               const len = frac*C2;
