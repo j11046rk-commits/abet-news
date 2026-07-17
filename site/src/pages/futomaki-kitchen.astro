@@ -7,11 +7,12 @@ const cfg = site.futomaki || {};
 const SB_URL = (cfg.supabaseUrl || '').trim().replace(/\/$/, '');
 const SB_KEY = (cfg.supabaseAnonKey || '').trim();
 const PRICE = Number(cfg.price || 2500);
+const B = import.meta.env.BASE_URL;
 const PLAYERS = [
-  { name: '古賀', color: '#3987e5', initial: '古' },
-  { name: '山本', color: '#d55181', initial: '山' },
-  { name: '岡', color: '#c98500', initial: '岡' },
-  { name: 'しっぽり亭店販', color: '#199e70', initial: '店' },
+  { name: '古賀', color: '#3987e5', initial: '古', img: B+'images/avatar-koga.jpg' },
+  { name: '山本', color: '#d55181', initial: '山', img: B+'images/avatar-yamamoto.jpg' },
+  { name: '岡', color: '#c98500', initial: '岡', img: B+'images/avatar-oka.jpg' },
+  { name: 'しっぽり亭店販', color: '#199e70', initial: '店', img: B+'images/avatar-shippori.jpg' },
 ];
 const configured = !!(SB_URL && SB_KEY);
 const nf0 = new Intl.NumberFormat('ja-JP');
@@ -84,8 +85,9 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .job.done::after { content:'受渡完了'; position:absolute; top:10px; right:12px; font-family:var(--serif); font-size:11px;
         color:#221a06; background:linear-gradient(180deg,#bfe8cf,#2bb673); padding:2px 9px; border-radius:999px; font-weight:800; }
       .jhead { display:flex; align-items:center; gap:10px; }
-      .pdot { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; color:#fff; font-weight:800;
-        font-family:var(--serif); font-size:13px; flex:none; box-shadow: inset 0 -6px 10px rgba(0,0,0,.28); }
+      .pdot { width:36px; height:36px; border-radius:8px; overflow:hidden; flex:none; border:2px solid var(--muted);
+        background:var(--surface2); box-shadow: 0 2px 6px rgba(0,0,0,.32); }
+      .pdot img { width:100%; height:100%; object-fit:cover; display:block; }
       .jinfo { min-width:0; flex:1; }
       .jname { font-size:16px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .jmeta { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -254,7 +256,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             const allDone = r.made_at && r.paid_at && r.delivered_at;
             el.innerHTML =
               '<div class="jhead">' +
-                '<span class="pdot" style="background:'+p.color+'">'+p.initial+'</span>' +
+                '<span class="pdot" style="border-color:'+p.color+'"><img src="'+p.img+'" alt="" loading="lazy"></span>' +
                 '<div class="jinfo"><div class="jname">'+esc(r.customer)+'</div>' +
                   '<div class="jmeta"><b>'+r.qty+'本</b> ¥'+fmt(r.qty*PRICE)+' ・ 担当 '+esc(r.player)+'</div></div>' +
               '</div>' + stg +
