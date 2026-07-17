@@ -112,6 +112,18 @@ const nf0 = new Intl.NumberFormat('ja-JP');
       .bump { animation: bump .5s ease; }
       @keyframes bump { 0%{transform:scale(1);} 35%{transform:scale(1.22);} 100%{transform:scale(1);} }
 
+      /* 現在1位を大きく強調 */
+      .row.lead { grid-template-columns: 30px 60px 1fr auto; padding:14px 10px; margin:2px 0 8px;
+        background: linear-gradient(90deg, rgba(212,175,55,.14), rgba(212,175,55,.03) 60%, transparent);
+        border:1px solid rgba(212,175,55,.38); border-radius:13px; box-shadow:0 8px 24px rgba(212,175,55,.12); }
+      .row.lead .rank { font-size:21px; color:var(--gold-l); text-shadow:0 0 12px rgba(212,175,55,.5); }
+      .row.lead .avatar { width:56px; height:56px; border-width:3px; }
+      .row.lead .pname { font-size:18px; }
+      .row.lead .pname span { font-size:19px; }
+      .row.lead .pbar2 { height:15px; margin-top:7px; }
+      .row.lead .psales .y { font-size:28px; }
+      .row.lead .psales .q { font-size:12px; }
+
       .cd { display:flex; gap:7px; margin-top:8px; }
       .cd div { background: var(--surface2); border:1px solid var(--line); border-radius:6px; padding:7px 0; text-align:center; flex:1; }
       .cd .n { font-family: var(--serif); font-size:20px; font-weight:700; color:var(--gold-l); font-variant-numeric:tabular-nums; }
@@ -390,7 +402,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
           const board = $('#board'); board.innerHTML = '';
           sorted.forEach((p,i)=>{
             const q = t[p.name], row = document.createElement('div');
-            row.className = 'row' + (p.name===me?' me':'');
+            row.className = 'row' + (i===0&&q>0?' lead':'') + (p.name===me?' me':'');
             const w = Math.max(q>0?6:0, q/max*100);
             const KANJI = ['壱','弐','参','四'];
             row.innerHTML =
