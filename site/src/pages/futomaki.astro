@@ -397,6 +397,8 @@ const nf0 = new Intl.NumberFormat('ja-JP');
         }
         function renderBoard(bumpName, anim){
           const t = totals();
+          const cnt = Object.fromEntries(PLAYERS.map(p=>[p.name,0]));
+          rows.forEach(r => { if (cnt[r.player]!=null) cnt[r.player]++; });
           const sorted = [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]);
           const max = Math.max(1, ...PLAYERS.map(p=>t[p.name]));
           const board = $('#board'); board.innerHTML = '';
@@ -411,7 +413,7 @@ const nf0 = new Intl.NumberFormat('ja-JP');
               '<div><div class="pname">'+p.name+(i===0&&q>0?' <span>👑</span>':'')+'</div>' +
                 '<div class="pbar2"><span style="width:'+w+'%;background:'+p.color+'"></span></div></div>' +
               '<div class="psales'+(p.name===bumpName?' bump':'')+'"><div class="y" style="color:'+p.color+'">¥'+fmt(q*PRICE)+'</div>' +
-                '<div class="q">'+fmt(q)+' 本</div></div>';
+                '<div class="q">'+fmt(cnt[p.name])+'件 ・ '+fmt(q)+'本</div></div>';
             board.appendChild(row);
           });
           if (anim) board.querySelectorAll('.pbar2 > span').forEach((s,i) => {
