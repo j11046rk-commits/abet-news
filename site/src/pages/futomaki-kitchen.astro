@@ -232,13 +232,18 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             tabs.appendChild(b);
           });
         }
-        function renderList(){
+        let lastListSig = null;
+        function renderList(force){
           const list = $('#list');
           const f = FILTERS.find(x=>x.key===filter);
           let items = f && f.test ? rows.filter(f.test) : [...rows];
           if (query) items = items.filter(r => r.customer.toLowerCase().includes(query));
           // 未受渡を上に、その中は登録順
           items.sort((a,b) => (!!a.delivered_at - !!b.delivered_at) || (new Date(a.created_at)-new Date(b.created_at)));
+          // 表示内容が前回と同じなら作り直さない（画像の点滅防止）
+          const sig = filter+'|'+query+'|'+items.map(r=>r.id+':'+(r.made_at?1:0)+(r.paid_at?1:0)+(r.delivered_at?1:0)+':'+r.customer+':'+r.qty+':'+r.player).join(',');
+          if (!force && sig === lastListSig) return;
+          lastListSig = sig;
           if (!items.length) { list.innerHTML = '<div class="empty">該当する予約がありません</div>'; return; }
           list.innerHTML = '';
           items.forEach(r => {

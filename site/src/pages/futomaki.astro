@@ -395,30 +395,51 @@ const nf0 = new Intl.NumberFormat('ja-JP');
             ? ('目標 ' + fmt(GOAL) + ' 本（¥' + fmt(GOAL*PRICE) + '）／ あと ' + fmt(remain) + ' 本！')
             : ('🎉 目標達成！ ' + fmt(qty) + ' 本 ¥' + fmt(qty*PRICE));
         }
+        // 行を一度だけ生成して使い回す（imgを作り直さない＝点滅しない）。並べ替えは要素移動で行う。
+        const KANJI = ['壱','弐','参','四'];
+        let boardEls = null;
+        function buildBoard(){
+          const board = $('#board'); board.innerHTML = '';
+          boardEls = {};
+          PLAYERS.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.innerHTML =
+              '<div class="rank"></div>' +
+              '<div class="avatar" style="border-color:'+p.color+'"><img src="'+p.img+'" alt=""></div>' +
+              '<div><div class="pname"></div><div class="pbar2"><span style="background:'+p.color+'"></span></div></div>' +
+              '<div class="psales"><div class="y" style="color:'+p.color+'"></div><div class="q"></div></div>';
+            board.appendChild(row);
+            boardEls[p.name] = {
+              row, rank: row.querySelector('.rank'), pname: row.querySelector('.pname'),
+              bar: row.querySelector('.pbar2 > span'), y: row.querySelector('.psales .y'),
+              q: row.querySelector('.psales .q'), psales: row.querySelector('.psales'),
+            };
+          });
+        }
         function renderBoard(bumpName, anim){
+          if (!boardEls) buildBoard();
           const t = totals();
           const cnt = Object.fromEntries(PLAYERS.map(p=>[p.name,0]));
           rows.forEach(r => { if (cnt[r.player]!=null) cnt[r.player]++; });
           const sorted = [...PLAYERS].sort((a,b)=>t[b.name]-t[a.name]);
           const max = Math.max(1, ...PLAYERS.map(p=>t[p.name]));
-          const board = $('#board'); board.innerHTML = '';
-          sorted.forEach((p,i)=>{
-            const q = t[p.name], row = document.createElement('div');
-            row.className = 'row' + (i===0&&q>0?' lead':'') + (p.name===me?' me':'');
-            const w = Math.max(q>0?6:0, q/max*100);
-            const KANJI = ['壱','弐','参','四'];
-            row.innerHTML =
-              '<div class="rank '+(i===0&&q>0?'first':'')+'">'+(KANJI[i]||i+1)+'</div>' +
-              '<div class="avatar" style="border-color:'+p.color+'"><img src="'+p.img+'" alt="" loading="lazy"></div>' +
-              '<div><div class="pname">'+p.name+(i===0&&q>0?' <span>👑</span>':'')+'</div>' +
-                '<div class="pbar2"><span style="width:'+w+'%;background:'+p.color+'"></span></div></div>' +
-              '<div class="psales'+(p.name===bumpName?' bump':'')+'"><div class="y" style="color:'+p.color+'">¥'+fmt(q*PRICE)+'</div>' +
-                '<div class="q">'+fmt(cnt[p.name])+'件 ・ '+fmt(q)+'本</div></div>';
-            board.appendChild(row);
+          const board = $('#board');
+          sorted.forEach((p,i) => {
+            const q = t[p.name], e = boardEls[p.name], lead = i===0 && q>0;
+            e.row.className = 'row' + (lead?' lead':'') + (p.name===me?' me':'');
+            e.rank.className = 'rank' + (lead?' first':'');
+            e.rank.textContent = KANJI[i] || (i+1);
+            e.pname.innerHTML = p.name + (lead?' <span>👑</span>':'');
+            e.bar.style.width = Math.max(q>0?6:0, q/max*100) + '%';
+            e.y.textContent = '¥'+fmt(q*PRICE);
+            e.q.textContent = fmt(cnt[p.name])+'件 ・ '+fmt(q)+'本';
+            if (p.name===bumpName) { e.psales.classList.remove('bump'); void e.psales.offsetWidth; e.psales.classList.add('bump'); }
+            board.appendChild(e.row); // 並べ替え（既存ノードを移動）
           });
-          if (anim) board.querySelectorAll('.pbar2 > span').forEach((s,i) => {
-            const w = s.style.width;
-            s.animate([{width:'0%'},{width:w}], {duration:850, delay:120+i*90, easing:EASE, fill:'backwards'});
+          if (anim) sorted.forEach((p,i) => {
+            const w = boardEls[p.name].bar.style.width;
+            boardEls[p.name].bar.animate([{width:'0%'},{width:w}], {duration:850, delay:120+i*90, easing:EASE, fill:'backwards'});
           });
         }
         function renderShare(anim){
