@@ -1662,3 +1662,121 @@ textarea.field {
   margin-top: 0.5rem;
 }
 
+
+/* ── セッション記録 ─────────────────────────────────────────────────── */
+
+/* 卓が終わった直後に打ち込むのは金額。だから最初に、いちばん大きく。 */
+.sform__rake {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  padding-top: 0.25rem;
+}
+
+.sform__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+}
+
+.sform__preview {
+  margin-top: 0.375rem;
+  color: var(--brass);
+  letter-spacing: 0.02em;
+}
+
+.sform__picked {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0;
+  margin: 0.375rem 0 0.625rem;
+}
+
+.sform__chip {
+  cursor: pointer;
+  background: transparent;
+  font-family: inherit;
+}
+
+.badge-brass.sform__chip:hover {
+  background: var(--brass-wash);
+}
+
+.sform__matches {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  border-left: 1px solid var(--brass-hairline);
+}
+
+.sform__match {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0.625rem 0.75rem;
+  color: var(--paper);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+.sform__match:hover {
+  background: var(--brass-wash);
+}
+
+.sform__match.is-new {
+  color: var(--brass);
+}
+
+.slist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scard {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.scard__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scard__date {
+  font-size: 1.0625rem;
+}
+
+.scard__rake {
+  font-size: 1.0625rem;
+  color: var(--brass);
+}
+
+.scard__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.scard__edit {
+  margin-left: auto;
+}
+
+.scard__players {
+  margin-top: 0.375rem;
+  line-height: 1.7;
+}
+
+.scard__note {
+  margin-top: 0.375rem;
+  font-size: var(--fs-body);
+}
