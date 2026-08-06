@@ -1559,20 +1559,17 @@ textarea.field {
   border-bottom: 1px solid rgb(247 222 172 / 0.28);
 }
 
-/* 氷。注ぎ終わりに合わせて現れる。液体はこの上に重なる。 */
+/*
+ * 氷。最初からグラスに入っている。
+ * 注いでから現れるのは順序が逆で、ふつうは氷を入れた器に注ぐ。
+ * 液体はこの上に重なるので、液面より下に沈んだぶんだけ琥珀に染まる。
+ */
 .whisky__ice {
   position: absolute;
   left: 14%;
   bottom: 2%;
   width: 74%;
-  opacity: 0;
-  animation: wg-ice 900ms ease-out 3300ms 1 forwards;
-}
-
-@keyframes wg-ice {
-  to {
-    opacity: 0.78;
-  }
+  opacity: 0.78;
 }
 
 /*
@@ -1778,11 +1775,6 @@ textarea.field {
 
   .whisky__surface {
     animation: none;
-  }
-
-  .whisky__ice {
-    animation: none;
-    opacity: 0.92;
   }
 
   /* 瓶と注ぎの演出は出さない */
