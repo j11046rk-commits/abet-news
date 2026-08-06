@@ -47,7 +47,7 @@
   --leather-raised: #211b17;
 
   /* タイプスケール — 中間を作らない（DESIGN.md §3）*/
-  --fs-hero: clamp(3.5rem, 14vw, 6rem);
+  --fs-hero: clamp(2.25rem, 11vw, 5.5rem);
   --fs-display: clamp(1.75rem, 6vw, 2.5rem);
   --fs-body: 0.875rem;
   --fs-label: 0.6875rem;
@@ -1493,7 +1493,8 @@ textarea.field {
   letter-spacing: -0.03em;
   color: var(--paper);
   margin: 0.25rem 0 0.5rem;
-  overflow-wrap: anywhere;
+  /* 桁の途中で折り返させない */
+  white-space: nowrap;
 }
 
 .vault__target {
@@ -1511,8 +1512,14 @@ textarea.field {
 .recovery__lead {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 0.625rem;
   font-size: 1rem;
+}
+
+.recovery.is-reached .recovery__lead {
+  display: block;
+  line-height: 1.8;
 }
 
 .recovery__amount {
@@ -1949,4 +1956,43 @@ textarea.field {
 
 tr.is-off {
   opacity: 0.5;
+}
+
+/* ── アクセシビリティ / モバイルの詰め ──────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 下部ナビはタップ領域を 44px 以上に */
+.nav__item {
+  min-height: 3rem;
+}
+
+/* iOS の慣性スクロールとバウンス制御 */
+.cal__scroll,
+.pop__panel {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 横スクロールは起こさない。広い表は自分の中でだけスクロールさせる */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* Windows のハイコントラストモードでも枠線を残す */
+@media (forced-colors: active) {
+  .surface,
+  .btn,
+  .field,
+  .cal__block {
+    border: 1px solid CanvasText;
+  }
 }

@@ -69,3 +69,15 @@
 - [x] 設定（オーナーのみ）：施設名・月次目標額・オーナー人数・レーキルール。タイムゾーンは Asia/Tokyo 固定の表示のみ
 - [ ] 棒（収入・支出）と折れ線（残高）でスケールが別。傾向を見るための図と割り切っている。厳密な読み取りは台帳の表で行う
 - [ ] 固定費の当月計上は owner が「計上する」を押す方式。判定は同月・同 memo（固定費名）の支出行の有無で行うため、固定費名を変えると再計上され得る
+
+## Phase 8（モバイル / アクセシビリティ / デプロイ準備 / HANDOFF）
+
+- [x] `prefers-reduced-motion: reduce` で液面の波が止まり、充填のトランジションも無効になることを実測（Playwright の reducedMotion）
+- [x] キーボードフォーカスリング（真鍮2px）が可視であることを実測
+- [x] 目標到達時の状態を撮影して修正：
+  - 積立額が桁の途中で折り返していた（`overflow-wrap: anywhere`）。`white-space: nowrap` にし、`--fs-hero` の下限を 3.5rem → 2.25rem、vw係数を 14vw → 11vw に下げて375pxでも1行に収まるようにした
+  - 達成メッセージが flex のせいで2カラムに割れていた。達成時だけ block 表示に
+- [x] `robots.txt` と `vercel.json` のヘッダで noindex / nofollow / DENY を明示
+- [ ] **Vercelへのデプロイは未実施**。この環境からVercelアカウントに接続できないため。手順は HANDOFF.md §2④ に記載
+- [ ] **実Supabaseとの往復（ログイン・CRUD・アカウント発行）は未検証**。この環境にSupabaseもDockerも無いため。確認手順は HANDOFF.md §2③ に記載
+- [ ] iOS Safari 実機でのドラッグ選択と `100dvh` の挙動は未確認

@@ -343,6 +343,9 @@ function WeekGrid({
                   }}
                   onPointerEnter={() => onExtend(d, h)}
                   onPointerUp={onEnd}
+                  role="button"
+                  tabIndex={-1}
+                  aria-label={`${d} ${String(h).padStart(2, "0")}:00 から予約`}
                 />
               ))}
 
