@@ -1530,7 +1530,7 @@ textarea.field {
    */
   border-radius: 50% 50% 0 0 / 7px 7px 0 0;
   border-top: 2px solid rgb(247 222 172 / 0.55);
-  transition: height 1900ms cubic-bezier(0.22, 0.68, 0.3, 1) 700ms;
+  transition: height 2100ms cubic-bezier(0.22, 0.68, 0.3, 1) 1560ms;
 }
 
 /* ガラス越しの照り返し。左右の縁だけ、ほんの少し明るくする。 */
@@ -1566,7 +1566,7 @@ textarea.field {
   bottom: 2%;
   width: 74%;
   opacity: 0;
-  animation: wg-ice 900ms ease-out 2300ms 1 forwards;
+  animation: wg-ice 900ms ease-out 3300ms 1 forwards;
 }
 
 @keyframes wg-ice {
@@ -1581,7 +1581,12 @@ textarea.field {
  * ここでは位置だけを合わせ、回転は入退場の揺れに使う。
  *
  * left/top は書き出した瓶の画像の中の注ぎ口の位置（x 3.5% / y 96.8%）から逆算した。
- * 軸は注ぎ口に置く — 実際に注ぐときも口を支点にして瓶を倒し、戻す。
+ * 軸は胴の中ほど — 手で握っているあたりに置く。注ぎ口を軸にすると、
+ * 口がその場に貼り付いたまま瓶だけが回り、手品のような動きになる。
+ * 実際は握った手を軸に瓶が傾き、注ぎ口のほうが弧を描いて降りてくる。
+ *
+ * 傾ける瞬間（rotate 0）には回転が無いので、軸をどこに置いても注ぎ口の位置は
+ * left/top のとおりになる。だから軸を動かしても筋との位置合わせは崩れない。
  *
  * 立て直す角度が +133deg なのは、書き出した画像がすでに「注ぐ姿勢」に回して
  * あるため。この画像の中で瓶の軸（底→注ぎ口）は左下を向いていて、そこから
@@ -1595,8 +1600,9 @@ textarea.field {
   /* 全体に効いている max-width:100% を外す。これがあると
      グラスの幅で頭打ちになり、いくら width を上げても大きくならない。 */
   max-width: none;
-  transform-origin: 3.5% 97%;
-  animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
+  /* 注ぎ口(3.5%, 96.8%)と底を結んだ線の、口から6割ほどの位置＝握るところ */
+  transform-origin: 58% 46%;
+  animation: wg-bottle 5200ms cubic-bezier(0.4, 0.02, 0.3, 1) 1 forwards;
   pointer-events: none;
 }
 
@@ -1609,28 +1615,33 @@ textarea.field {
  */
 @keyframes wg-bottle {
   /* 立ったまま、枠の外の右上から入ってくる */
+  /*
+   * 軸が胴なので、立てても瓶は同じあたりに留まる。持ち上げは
+   * 底がグラスに掛からないぶんだけでよい（軸が注ぎ口だった頃の
+   * -128% は、その場で立てると体が落ちてくるぶんの補正だった）。
+   */
   0% {
-    transform: translate(34%, -175%) rotate(133deg);
+    transform: translate(30%, -104%) rotate(133deg);
     opacity: 0;
   }
-  10% {
-    transform: translate(10%, -128%) rotate(133deg);
+  9% {
+    transform: translate(7%, -46%) rotate(133deg);
     opacity: 1;
   }
-  /* 口をグラスへ運びながら倒す */
-  22%,
-  68% {
+  /* ここから 21% ぶん（約1.1秒）かけてゆっくり倒す。急に倒すと手品に見える。 */
+  30%,
+  66% {
     transform: translate(0, 0) rotate(0deg);
     opacity: 1;
   }
   /* 注ぎ終わり。立てながら持ち上げる。倒れたまま去るのは不自然。 */
-  80% {
-    transform: translate(8%, -128%) rotate(133deg);
+  84% {
+    transform: translate(7%, -46%) rotate(133deg);
     opacity: 1;
   }
   /* 立てたまま、さらに持ち上げて枠の外へ */
   100% {
-    transform: translate(34%, -175%) rotate(133deg);
+    transform: translate(30%, -104%) rotate(133deg);
     opacity: 0;
   }
 }
@@ -1655,7 +1666,7 @@ textarea.field {
   transform-origin: top center;
   transform: scaleY(0);
   opacity: 0;
-  animation: wg-pour 3400ms linear 1 forwards;
+  animation: wg-pour 5200ms linear 1 forwards;
   pointer-events: none;
 }
 
@@ -1724,21 +1735,22 @@ textarea.field {
   }
 }
 
+/* 筋は瓶が傾き切ってから落ち、注ぎ終わりで切れる（瓶の動きと歩調を合わせる）。 */
 @keyframes wg-pour {
   0%,
-  19% {
+  29% {
     opacity: 0;
     transform: scaleY(0);
   }
-  26% {
+  35% {
     opacity: 0.95;
     transform: scaleY(1);
   }
-  68% {
+  66% {
     opacity: 0.95;
     transform: scaleY(1);
   }
-  78%,
+  73%,
   100% {
     opacity: 0;
     transform: scaleY(1);
