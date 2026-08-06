@@ -30,6 +30,8 @@ export type CheckIn = {
   profile_id: string;
   checked_in_at: string;
   checked_out_at: string | null;
+  /** 朝10時の自動締めで閉じた行。本人が押したものと区別する。 */
+  auto_closed: boolean;
 };
 
 export type Reservation = {

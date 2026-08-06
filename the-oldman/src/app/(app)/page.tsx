@@ -126,6 +126,8 @@ export default async function Top() {
                 {c.checked_out_at
                   ? `${durationHours(c.checked_in_at, c.checked_out_at)} h`
                   : "滞在中"}
+                {/* 本人が押したのか、朝10時の自動締めかを区別する */}
+                {c.auto_closed ? <span className="visits__auto">自動</span> : null}
               </span>
             </li>
           ))}
