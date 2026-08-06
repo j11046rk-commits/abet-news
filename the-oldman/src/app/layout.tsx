@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   description: "会員制プライベートクラブの運営ダッシュボード",
   robots: { index: false, follow: false },
   // 真鍮のカジキの刻印。タブとホーム画面のアイコン。
-  icons: { icon: "/images/icon-192.png?v=2", apple: "/images/apple-touch-icon.png?v=2" },
+  icons: { icon: "/images/icon-192.png?v=3", apple: "/images/apple-touch-icon.png?v=3" },
   // iOS は manifest の standalone を読まないので、こちらでも宣言する
   appleWebApp: { capable: true, title: "The Oldmans", statusBarStyle: "black-translucent" },
   // LINE等でURLを共有したときのカード。真っ黒なカードになるのを防ぐ。
