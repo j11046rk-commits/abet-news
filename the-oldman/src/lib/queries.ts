@@ -102,6 +102,24 @@ export async function getSessions(limit = 60): Promise<Session[]> {
   return (data ?? []) as Session[];
 }
 
+/**
+ * 期間にかかった卓。カレンダー用。
+ *
+ * 終了時刻は任意入力なので、入っていない行が普通にある。
+ * その場合は「開始がこの期間に入っていれば拾う」で判断する。
+ * 終了で判断すると、終わりを書き忘れた卓がカレンダーから丸ごと消える。
+ */
+export async function getSessionsBetween(fromIso: string, toIso: string): Promise<Session[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sessions")
+    .select("*")
+    .lt("started_at", toIso)
+    .or(`ended_at.gt.${fromIso},and(ended_at.is.null,started_at.gte.${fromIso})`)
+    .order("started_at");
+  return (data ?? []) as Session[];
+}
+
 export const getSessionStats = cache(async function getSessionStats(): Promise<SessionStats> {
   const supabase = await createClient();
   const { data } = await supabase.from("v_session_stats").select("*").maybeSingle<SessionStats>();

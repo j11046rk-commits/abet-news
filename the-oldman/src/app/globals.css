@@ -3174,3 +3174,129 @@ tr.is-off {
     animation: none;
   }
 }
+
+/* ── カレンダーの卓（実際に立った記録）───────────────────────────────── */
+/*
+ * 予約は「約束」、滞在は「実際にいた」、卓は「実際に金が入った」。
+ * この3つは別物なので形を分ける。卓だけは色の帯ではなく金額そのものを出す
+ * — この施設でカレンダーを遡って見る理由は、たいていその日いくら入ったかだから。
+ */
+.cal__table {
+  position: absolute;
+  right: 1px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0;
+  border: 0;
+  /* 枠は右辺の縦線だけ。予約の帯を塗りつぶさずに、卓の長さだけを示す */
+  border-right: 2px solid var(--brass);
+  background: none;
+  color: var(--brass);
+  cursor: pointer;
+  transition: filter var(--dur) var(--ease);
+}
+
+.cal__table:hover {
+  filter: brightness(1.25);
+}
+
+/* 終了時刻が入っていない卓。長さは仮なので、縦線を破線にして仮であることを示す */
+.cal__table.is-open {
+  border-right-style: dashed;
+}
+
+/* 日をまたいだ後ろ半分。金額を持たないぶん、線だけ細く落とす */
+.cal__table.is-tail {
+  border-right-width: 1px;
+  opacity: 0.6;
+}
+
+/* 数字だけは帯の上でも読めるよう地を敷く */
+.cal__tableamt {
+  padding: 0.1rem 0.2rem;
+  border: 1px solid var(--brass);
+  border-radius: 1px;
+  background: var(--ink);
+  font-size: 0.5625rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+/* 月表示：その日のレーキ合計 */
+.mcal__rake {
+  display: block;
+  margin-top: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brass);
+  font-size: 0.625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cal__legendswatch--table {
+  border: 1px solid var(--brass);
+  background: var(--ink);
+}
+
+.cal__legendswatch--visit {
+  width: 3px;
+  background: var(--smoke);
+  opacity: 0.7;
+}
+
+/* 卓の中身。金額が主役なので大きく出す */
+.tdetail__rake {
+  color: var(--brass);
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+/* 予約の帯に入るレーキ。予約と卓は同じ開催なので、帯を分けずにここに出す */
+.cal__blockrake {
+  margin-top: auto;
+  font-size: 0.5625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 予約の詳細に添えるレーキ */
+.rcard__rake {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--brass-hairline);
+  color: var(--brass);
+}
+
+/*
+ * 前日から続いている側の帯。名前も用途も持たないので、面を薄くして
+ * 「これは続き」だと分かるようにする。枠を消さないのは、消すと深夜まで
+ * 続いた開催が24時で終わったことになるため。
+ */
+.cal__block.is-tail {
+  opacity: 0.45;
+}
+
+/* THIS WEEK：その夜のレーキ。予定より、入った金額のほうを見にくる */
+.wstrip__rake {
+  display: block;
+  margin-top: 1px;
+  color: var(--brass);
+  font-size: 0.5625rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* リストの操作。編集と削除を1組にして、金額の下に畳む */
+.wish__ops {
+  display: inline-flex;
+  gap: 0.375rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}

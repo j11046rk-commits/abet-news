@@ -11,6 +11,7 @@ import {
   getRecentCheckIns,
   getReservationsBetween,
   getSessions,
+  getSessionsBetween,
 } from "@/lib/queries";
 import {
   addDaysJst,
@@ -29,16 +30,25 @@ export default async function Top() {
   const weekStart = fmtDate(startOfWeekJst(nowJst()));
   const weekEnd = fmtDate(addDaysJst(startOfWeekJst(nowJst()), 7));
 
-  const [me, vault, sessions, weekReservations, profiles, openCheckIns, recentCheckIns] =
-    await Promise.all([
-      requireProfile(),
-      getVault(),
-      getSessions(3),
-      getReservationsBetween(jstHourToIso(weekStart, 0), jstHourToIso(weekEnd, 0)),
-      getProfiles(),
-      getOpenCheckIns(),
-      getRecentCheckIns(8),
-    ]);
+  const [
+    me,
+    vault,
+    sessions,
+    weekReservations,
+    weekSessions,
+    profiles,
+    openCheckIns,
+    recentCheckIns,
+  ] = await Promise.all([
+    requireProfile(),
+    getVault(),
+    getSessions(3),
+    getReservationsBetween(jstHourToIso(weekStart, 0), jstHourToIso(weekEnd, 0)),
+    getSessionsBetween(jstHourToIso(weekStart, 0), jstHourToIso(weekEnd, 0)),
+    getProfiles(),
+    getOpenCheckIns(),
+    getRecentCheckIns(8),
+  ]);
 
   const names = Object.fromEntries(profiles.map((p) => [p.id, p.display_name]));
   const reached = vault.shortfall === 0;
@@ -194,7 +204,12 @@ export default async function Top() {
         </Link>
       </div>
 
-      <WeekStrip weekStart={weekStart} reservations={weekReservations} names={names} />
+      <WeekStrip
+        weekStart={weekStart}
+        reservations={weekReservations}
+        sessions={weekSessions}
+        names={names}
+      />
     </>
   );
 }
