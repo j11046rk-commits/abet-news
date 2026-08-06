@@ -1,3 +1,4 @@
+import Reveal from "@/components/Reveal";
 import { yen } from "@/lib/money";
 import type { MonthlySummary } from "@/lib/types";
 
@@ -41,6 +42,7 @@ export default function MonthlyChart({ rows }: { rows: MonthlySummary[] }) {
   const last = data[data.length - 1];
 
   return (
+    <Reveal>
     <figure className="chart">
       <svg viewBox={`0 0 ${W} ${H}`} className="chart__svg" role="img" aria-label="残高の推移">
         {/* 残高がゼロを割る線。負の残高があるときだけ引く */}
@@ -49,7 +51,7 @@ export default function MonthlyChart({ rows }: { rows: MonthlySummary[] }) {
         ) : null}
 
         <path d={area} className="chart__area" />
-        <path d={line} className="chart__line" />
+        <path d={line} className="chart__line" pathLength={1} />
 
         {data.map((d, i) => (
           <g key={d.ym}>
@@ -70,5 +72,6 @@ export default function MonthlyChart({ rows }: { rows: MonthlySummary[] }) {
         </span>
       </figcaption>
     </figure>
+    </Reveal>
   );
 }

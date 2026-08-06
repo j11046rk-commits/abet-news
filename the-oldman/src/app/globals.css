@@ -3486,3 +3486,60 @@ tr.is-off {
 .yr__note {
   margin-top: 0.375rem;
 }
+
+/* ── グラフの登場（台帳）───────────────────────────────────────────── */
+/*
+ * どちらも「見えてから」動く（Reveal が is-in を付ける）。
+ * 緩急は液面と同じベジェ。ページごとに違う呼吸をさせない。
+ * prefers-reduced-motion は上の一括無効化で 0.001ms に潰れる。
+ */
+
+/* 残高の線。左から一筆で引く。pathLength=1 を基準にした割合で動かす */
+.chart__line {
+  stroke-dasharray: 1;
+}
+
+.is-in .chart__line {
+  animation: chart-draw 1400ms cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+
+/* 面と点とゼロ線は、線が引き終わる頃に浮かぶ。線より先に答えを見せない */
+.is-in .chart__area,
+.is-in .chart__dot,
+.is-in .chart__zero {
+  animation: chart-fade 700ms ease-out 700ms both;
+}
+
+@keyframes chart-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 年間の棒。上の月から順に、左から伸びる */
+.yr.is-in .yr__bar {
+  transform-origin: left;
+  animation: yr-grow 700ms cubic-bezier(0.22, 0.68, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes yr-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

@@ -1,3 +1,4 @@
+import Reveal from "@/components/Reveal";
 import { yen } from "@/lib/money";
 import type { MonthlySummary } from "@/lib/types";
 
@@ -31,12 +32,16 @@ export default function YearlyRake({
   if (scale <= 0) return null;
 
   return (
-    <div className="yr">
-      {months.map((m) => {
+    <Reveal className="yr">
+      {months.map((m, i) => {
         const [y, mo] = m.ym.split("-");
         const reached = m.amount >= target;
         return (
-          <div key={m.ym} className={`yr__row${m.ym === currentYm ? " is-now" : ""}`}>
+          <div
+            key={m.ym}
+            className={`yr__row${m.ym === currentYm ? " is-now" : ""}`}
+            style={{ "--i": i } as React.CSSProperties}
+          >
             <span className="yr__ym num">
               {y.slice(2)}.{mo}
             </span>
@@ -55,6 +60,6 @@ export default function YearlyRake({
         );
       })}
       <p className="micro yr__note">縦線は月次目標 {yen(target)}。越えた月は家賃を賄えた月。</p>
-    </div>
+    </Reveal>
   );
 }
