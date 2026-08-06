@@ -44,6 +44,17 @@ export default async function Top() {
 
   return (
     <>
+      {/* 毎月かならず来るのに金額が変わる費目。抜けたまま月をまたぐのがいちばん困る。 */}
+      {vault.missingMetered.length > 0 ? (
+        <p className="notice notice-strong">
+          今月分の {vault.missingMetered.map((c) => c.ja).join("と")} が未記帳です。
+          <Link href="/ledger" className="micro">
+            {" "}
+            台帳へ →
+          </Link>
+        </p>
+      ) : null}
+
       {/* いま施設に誰がいるか。最初に見えるべきはこれ。 */}
       <section className="now">
         <div className="rule now__rule">
@@ -75,9 +86,21 @@ export default async function Top() {
 
       <section className={`recovery${reached ? " is-reached" : ""}`}>
         {reached ? (
-          <p className="recovery__lead">
-            今月の目標に達しました。<span className="dim">超過分は繰越に積まれます。</span>
-          </p>
+          <>
+            <p className="recovery__lead">今月の家賃は賄えました。</p>
+            <ul className="recovery__list">
+              <li>
+                目標 <span className="amount">{yen(vault.target)}</span> に対して{" "}
+                <span className="amount">{yen(vault.saved)}</span>
+              </li>
+              {vault.surplus > 0 ? (
+                <li>
+                  余剰 <span className="recovery__amount amount">{yen(vault.surplus)}</span>{" "}
+                  は施設に供託されます。
+                </li>
+              ) : null}
+            </ul>
+          </>
         ) : (
           <>
             <p className="recovery__lead">

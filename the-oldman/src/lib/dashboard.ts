@@ -1,18 +1,31 @@
 import "server-only";
 import { ceilDiv } from "@/lib/money";
 import {
+  getMeteredPosted,
   getMonthlySummary,
   getSessionStats,
   getSettings,
 } from "@/lib/queries";
 import { daysLeftInMonth, fmtYm, nowJst } from "@/lib/time";
+import { METERED_CATEGORIES } from "@/lib/types";
 
 export type Vault = {
-  /** 今月の積立額 = 当月の収入合計 − 当月の支出合計 */
+  /**
+   * 今月の運営収入（レーキ・ゲストフィー・ドリンク）。出資は含めない。
+   *
+   * 月次目標 ¥100,000 は「家賃＋共益費＋水道光熱でおよそ10万円かかるから、
+   * それをレーキで賄う」という意味の数字。だから比べる相手は稼いだ金であって、
+   * 収支（収入 − 支出）ではない。収支にすると
+   *   - 出資が達成額に混ざって一晩で目標達成に見える
+   *   - 家賃を計上した分だけ達成額が下がり、10万円のために20万円必要になる
+   * という二重の誤りが出る。
+   */
   saved: number;
   target: number;
   /** 不足額。達成していれば 0 */
   shortfall: number;
+  /** 目標を超えたぶん。施設に供託される。 */
+  surplus: number;
   /** 直近90日の平均レーキ。セッションが無ければ null */
   avgRake: number | null;
   /** 不足を埋めるのに必要な開催回数。avgRake が無ければ null */
@@ -27,18 +40,21 @@ export type Vault = {
   facilityName: string;
   /** 残高がゼロを割る予測月（YYYY-MM）。割らない見込みなら null */
   breakEvenMonth: string | null;
+  /** 今月まだ記帳されていないメーター費目（水道代・電気代）。開始月より前なら空。 */
+  missingMetered: { value: string; ja: string }[];
 };
 
 export async function getVault(): Promise<Vault> {
-  const [settings, monthly, stats] = await Promise.all([
+  const ym = fmtYm(nowJst());
+  const [settings, monthly, stats, metered] = await Promise.all([
     getSettings(),
     getMonthlySummary(),
     getSessionStats(),
+    getMeteredPosted(ym),
   ]);
 
-  const ym = fmtYm(nowJst());
   const current = monthly.find((m) => m.ym === ym);
-  const saved = current?.net_yen ?? 0;
+  const saved = current?.operating_income_yen ?? 0;
   const target = settings.monthly_target_yen;
   const shortfall = Math.max(0, target - saved);
 
@@ -47,10 +63,18 @@ export async function getVault(): Promise<Vault> {
 
   const avgRake = stats.avg_rake_90d_yen > 0 ? stats.avg_rake_90d_yen : null;
 
+  // 請求は使った月の翌月に届く。開始月ぶんの請求が来る前から急かしても意味がない。
+  const missingMetered =
+    ym < settings.utilities_alert_from
+      ? []
+      : METERED_CATEGORIES.filter((c) => !metered.has(c.value));
+
   return {
     saved,
     target,
     shortfall,
+    surplus: Math.max(0, saved - target),
+    missingMetered,
     avgRake,
     sessionsNeeded: avgRake && shortfall > 0 ? ceilDiv(shortfall, avgRake) : avgRake ? 0 : null,
     daysLeft: daysLeftInMonth(),

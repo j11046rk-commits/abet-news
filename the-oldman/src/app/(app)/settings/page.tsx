@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import FixedCosts from "./FixedCosts";
 import SettingsForm from "./SettingsForm";
 import { requireOwner } from "@/lib/auth";
-import { getSettings } from "@/lib/queries";
+import { getFixedCosts, getSettings } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "設定 — The Oldman" };
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   await requireOwner();
-  const settings = await getSettings();
+  const [settings, fixedCosts] = await Promise.all([getSettings(), getFixedCosts()]);
 
   return (
     <>
@@ -22,6 +23,8 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsForm settings={settings} />
+
+      <FixedCosts costs={fixedCosts} isOwner />
 
       <div className="rule">
         <span className="label">Timezone</span>

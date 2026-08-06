@@ -56,9 +56,14 @@ export type LedgerEntry = {
   amount_yen: number;
   memo: string | null;
   session_id: string | null;
+  /** 固定費マスタから自動起票された行。台帳側からは直せない。 */
+  fixed_cost_id: string | null;
   created_by: string | null;
   created_at: string;
 };
+
+/** 通帳の1行。entries に残高を載せたもの。 */
+export type PassbookRow = LedgerEntry & { balance_yen: number };
 
 export type FixedCost = {
   id: string;
@@ -66,7 +71,34 @@ export type FixedCost = {
   amount_yen: number;
   billing_day: number;
   is_active: boolean;
+  category: string;
 };
+
+/** 個人が立て替えた費用。settled_at が入れば精算済み。 */
+export type Advance = {
+  id: string;
+  profile_id: string;
+  title: string;
+  amount_yen: number;
+  due_on: string | null;
+  settled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+/** ほしい物リストの1件。image_url は署名URL（サーバで都度発行する）。 */
+export type WishlistItem = {
+  id: string;
+  title: string;
+  amount_yen: number | null;
+  note: string | null;
+  image_path: string | null;
+  bought_at: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+export type WishlistItemView = WishlistItem & { image_url: string | null };
 
 export type Settings = {
   id: boolean;
@@ -74,11 +106,15 @@ export type Settings = {
   monthly_target_yen: number;
   owner_count: number;
   rake_rule: string | null;
+  /** 水道代・電気代の未記帳を警告しはじめる年月（YYYY-MM）。 */
+  utilities_alert_from: string;
 };
 
 export type MonthlySummary = {
   ym: string;
   income_yen: number;
+  /** 出資・追加拠出を除いた収入。月次目標はこれで測る。 */
+  operating_income_yen: number;
   expense_yen: number;
   net_yen: number;
   balance_yen: number;
@@ -137,10 +173,26 @@ export const INCOME_CATEGORIES: { value: string; ja: string }[] = [
 
 export const EXPENSE_CATEGORIES: { value: string; ja: string }[] = [
   { value: "rent", ja: "家賃" },
-  { value: "utilities", ja: "光熱費" },
+  { value: "common_fee", ja: "共益費" },
+  { value: "water", ja: "水道代" },
+  { value: "electricity", ja: "電気代" },
   { value: "supplies", ja: "備品" },
+  { value: "advance_settle", ja: "立替の精算" },
   { value: "other", ja: "その他" },
+  // 旧「光熱費」。過去の行を読むために残してある。新規では選ばせない。
+  { value: "utilities", ja: "光熱費" },
 ];
+
+/** 毎月かならず出るが、金額が変わるので自動起票できない費目。未記帳を警告する。 */
+export const METERED_CATEGORIES: { value: string; ja: string }[] = [
+  { value: "water", ja: "水道代" },
+  { value: "electricity", ja: "電気代" },
+];
+
+/** 新規記帳で選ばせるカテゴリ（廃止済みのものを除く）。 */
+export const EXPENSE_CATEGORIES_ACTIVE = EXPENSE_CATEGORIES.filter(
+  (c) => c.value !== "utilities",
+);
 
 export const categoryJa = (direction: LedgerDirection, value: string) => {
   const list = direction === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
