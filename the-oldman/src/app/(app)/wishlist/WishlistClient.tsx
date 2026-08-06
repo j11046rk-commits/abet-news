@@ -9,6 +9,7 @@ import {
   setWishlistBought,
   updateWishlistItem,
 } from "./actions";
+import Linkify from "@/components/Linkify";
 import { extOf, shrinkImage } from "@/lib/image";
 import { yen } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
@@ -282,7 +283,12 @@ export default function WishlistClient({
 
               <span className="wish__body">
                 <span className="wish__title">{i.title}</span>
-                {i.note ? <span className="micro wish__note">{i.note}</span> : null}
+                {/* 備考にはたいてい商品ページのURLが入る。押したら開けるようにする。 */}
+                {i.note ? (
+                  <span className="micro wish__note">
+                    <Linkify text={i.note} />
+                  </span>
+                ) : null}
                 <span className="micro wish__by">{names[i.created_by] ?? "—"}</span>
               </span>
 

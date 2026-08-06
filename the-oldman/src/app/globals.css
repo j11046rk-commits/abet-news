@@ -2978,6 +2978,27 @@ tr.is-off {
   text-overflow: ellipsis;
 }
 
+/* URL は切りどころが無いので、どこでも折り返してよい */
+.wish__note {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * 文中のURL。
+ * 下線を引くのは、この一箇所だけ「押せる文字」だと分かる必要があるため。
+ * 指で押せるよう、行の高さも少し空ける。
+ */
+.linkified {
+  color: var(--brass);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+.linkified:hover {
+  color: var(--paper);
+}
+
 .wish__right {
   display: flex;
   flex-direction: column;
