@@ -8,22 +8,22 @@ import CheckInButton from "@/components/CheckInButton";
 type Item = { href: string; ja: string; en: string };
 
 const ITEMS: Item[] = [
-  { href: "/", ja: "TOP", en: "TOP" },
+  // TOP は日本語も英語も同じ綴りなので、en を空にして1行だけ出す。
+  { href: "/", ja: "TOP", en: "" },
   { href: "/reservations", ja: "予約", en: "BOOK" },
   { href: "/calendar", ja: "カレンダー", en: "CAL" },
   { href: "/sessions", ja: "セッション", en: "TABLE" },
   { href: "/ledger", ja: "台帳", en: "LEDGER" },
+  { href: "/wishlist", ja: "リスト", en: "WISH" },
 ];
 
 export default function Nav({
   facilityName,
   displayName,
-  isOwner,
   isCheckedIn,
 }: {
   facilityName: string;
   displayName: string;
-  isOwner: boolean;
   isCheckedIn: boolean;
 }) {
   const pathname = usePathname();
@@ -39,7 +39,8 @@ export default function Nav({
 
   /*
    * ホーム画面から起動すると引っ張って更新ができない。
-   * 下部ナビの右端に置く。親指が届く位置のほうが実際に押される。
+   * タブに混ぜると「別の画面へ行くもの」に見えてしまうので、
+   * 施設名の横 — 画面全体に対する操作が集まっている場所 — に置く。
    */
   function refresh() {
     setRefreshing(true);
@@ -61,6 +62,16 @@ export default function Nav({
           <span className="masthead__name">{facilityName}</span>
           <span className="masthead__sub">MATSUYAMA · EST. 2026</span>
         </Link>
+        <button
+          className={`refresh${refreshing ? " is-busy" : ""}`}
+          onClick={refresh}
+          aria-label="表示を更新"
+          title="表示を更新"
+        >
+          <span className="refresh__mark" aria-hidden>
+            &#8635;
+          </span>
+        </button>
         <div className="masthead__right">
           <span className="micro masthead__who">{displayName}</span>
           {/* チェックインはどのタブからでも押せるよう、sticky なマストヘッドに置く */}
@@ -79,19 +90,10 @@ export default function Nav({
             className={`nav__item${active(it.href) ? " is-active" : ""}`}
             aria-current={active(it.href) ? "page" : undefined}
           >
-            <span className="nav__en">{it.en}</span>
-            <span className="nav__ja">{it.ja}</span>
+            {it.en ? <span className="nav__en">{it.en}</span> : null}
+            <span className={`nav__ja${it.en ? "" : " is-solo"}`}>{it.ja}</span>
           </Link>
         ))}
-
-        <button
-          className={`nav__item nav__refresh${refreshing ? " is-busy" : ""}`}
-          onClick={refresh}
-          aria-label="表示を更新"
-        >
-          <span className="nav__en">SYNC</span>
-          <span className="nav__ja">{refreshing ? "更新中" : "更新"}</span>
-        </button>
       </nav>
     </>
   );

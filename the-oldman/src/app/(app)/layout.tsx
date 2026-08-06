@@ -22,7 +22,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Nav
         facilityName={settings?.facility_name ?? "The Oldman"}
         displayName={profile.display_name}
-        isOwner={profile.role === "owner"}
         isCheckedIn={openCheckIn !== null}
       />
       <main className="shell">{children}</main>

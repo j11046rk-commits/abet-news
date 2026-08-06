@@ -45,6 +45,13 @@ export default async function ReservationsPage({
         presetEnd={sp.end ? Number(sp.end) : undefined}
         openForm={sp.new === "1" || Boolean(sp.date)}
       />
+
+      {/* 誰がどれだけ貸切に使ったかは、予約を見に来たついでに確かめるもの。 */}
+      <nav className="backdoor">
+        <Link href="/members" className="micro">
+          メンバー・貸切時間 →
+        </Link>
+      </nav>
     </>
   );
 }

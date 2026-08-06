@@ -1464,28 +1464,64 @@ textarea.field {
   }
 }
 
-.whisky__svg {
+/*
+ * ステージ。瓶は枠の外から入ってくるので、はみ出しを許す。
+ * グラスの写真が基準の大きさで、他はそれに対する割合で置く。
+ */
+.whisky__stage {
+  position: relative;
   flex: none;
   width: 146px;
-  height: 150px;
   overflow: visible;
 }
 
 @media (min-width: 560px) {
-  .whisky__svg {
+  .whisky__stage {
     width: 182px;
-    height: 187px;
   }
+}
+
+.whisky__glass {
+  position: relative;
+  width: 100%;
+  /* glass.webp の縦横比。ここがずれると空洞の座標もずれる。 */
+  aspect-ratio: 640 / 697;
+}
+
+.whisky__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* グラスの内側。液体と氷はこの矩形の中だけに描く。 */
+.whisky__cavity {
+  position: absolute;
+  overflow: hidden;
 }
 
 /* 液面が目標の高さまで上がる。瓶が傾き終わってから動き出す。 */
 .whisky__liquid {
-  transition: transform 1900ms cubic-bezier(0.22, 0.68, 0.3, 1) 700ms;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #c9a05e 0%, #b08d4f 55%, #7d5f2b 100%);
+  transition: height 1900ms cubic-bezier(0.22, 0.68, 0.3, 1) 700ms;
 }
 
 /* 液面のさざなみ。派手にしない。 */
-.whisky__wave {
-  overflow: visible;
+.whisky__surface {
+  position: absolute;
+  top: -3px;
+  left: -25%;
+  width: 150%;
+  height: 6px;
+  background: radial-gradient(60% 100% at 25% 100%, #d8b169 60%, transparent 62%),
+    radial-gradient(60% 100% at 75% 100%, #d8b169 60%, transparent 62%);
+  background-size: 50% 100%;
   animation: wg-drift 5.5s linear infinite;
 }
 
@@ -1494,92 +1530,104 @@ textarea.field {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-40px);
+    transform: translateX(-33.333%);
   }
 }
 
-/* 瓶：右上から傾いて入り、注ぎ終わったら戻る */
-/*
- * 瓶は右上から入り、注ぎ口をグラス側（左下）へ向けて傾ける。
- * 回転は負の向き。正だと注ぎ口が glass と反対（右下）を向いてしまう。
- */
-.whisky__bottle {
-  transform-origin: 168px 100px;
-  animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
-}
-
-@keyframes wg-bottle {
-  0% {
-    transform: translate(72px, -84px) rotate(-6deg);
-    opacity: 0;
-  }
-  14% {
-    transform: translate(18px, -14px) rotate(-96deg);
-    opacity: 1;
-  }
-  22%,
-  70% {
-    transform: translate(6px, 0) rotate(-122deg);
-    opacity: 1;
-  }
-  86% {
-    transform: translate(22px, -22px) rotate(-70deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(72px, -84px) rotate(-6deg);
-    opacity: 0;
-  }
-}
-
-/* 注がれる一本の筋 */
-.whisky__pour {
-  stroke-dasharray: 130;
-  stroke-dashoffset: 130;
-  opacity: 0;
-  animation: wg-pour 3400ms linear 1 forwards;
-}
-
-@keyframes wg-pour {
-  0%,
-  19% {
-    opacity: 0;
-    stroke-dashoffset: 130;
-  }
-  26% {
-    opacity: 0.95;
-    stroke-dashoffset: 0;
-  }
-  68% {
-    opacity: 0.95;
-    stroke-dashoffset: 0;
-  }
-  78%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-/* 氷は注ぎ終わりに合わせて浮かび上がる */
+/* 氷は液体の上に浮く。注ぎ終わりに合わせて現れる。 */
 .whisky__ice {
+  position: absolute;
+  left: 14%;
+  bottom: 2%;
+  width: 74%;
   opacity: 0;
   animation: wg-ice 900ms ease-out 2300ms 1 forwards;
 }
 
 @keyframes wg-ice {
   to {
-    opacity: 1;
+    opacity: 0.92;
   }
 }
 
-/* 目標到達でグラスの縁が静かに点灯する */
-.whisky.is-reached .whisky__svg {
-  filter: none;
+/*
+ * 瓶は右上から入り、注ぎ口をグラス側（左下）へ向けて傾ける。
+ * 画像はすでに注ぐ姿勢に回してあるので、ここでの回転はごく浅い。
+ */
+.whisky__bottle {
+  position: absolute;
+  top: -26%;
+  left: 24%;
+  width: 96%;
+  transform-origin: 30% 24%;
+  animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
+  pointer-events: none;
 }
 
-.whisky.is-reached path[stroke="rgb(176 141 79 / .55)"] {
-  stroke: var(--brass);
+@keyframes wg-bottle {
+  0% {
+    transform: translate(58px, -60px) rotate(26deg);
+    opacity: 0;
+  }
+  14% {
+    transform: translate(12px, -8px) rotate(8deg);
+    opacity: 1;
+  }
+  22%,
+  70% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  86% {
+    transform: translate(16px, -16px) rotate(14deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(58px, -60px) rotate(26deg);
+    opacity: 0;
+  }
+}
+
+/* 注がれる一本の筋。瓶の口からグラスの中へ落ちる。 */
+.whisky__pour {
+  position: absolute;
+  top: 16%;
+  left: 46%;
+  width: 3px;
+  height: 46%;
+  background: linear-gradient(180deg, #c9a05e, #8a6a30);
+  border-radius: 2px;
+  transform-origin: top center;
+  transform: scaleY(0);
+  opacity: 0;
+  animation: wg-pour 3400ms linear 1 forwards;
+  pointer-events: none;
+}
+
+@keyframes wg-pour {
+  0%,
+  19% {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  26% {
+    opacity: 0.95;
+    transform: scaleY(1);
+  }
+  68% {
+    opacity: 0.95;
+    transform: scaleY(1);
+  }
+  78%,
+  100% {
+    opacity: 0;
+    transform: scaleY(1);
+  }
+}
+
+/* 目標到達。グラスの縁が静かに点灯する。 */
+.whisky.is-reached .whisky__photo {
+  filter: brightness(1.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1587,10 +1635,13 @@ textarea.field {
     transition: none;
   }
 
-  .whisky__wave,
+  .whisky__surface {
+    animation: none;
+  }
+
   .whisky__ice {
     animation: none;
-    opacity: 1;
+    opacity: 0.92;
   }
 
   /* 瓶と注ぎの演出は出さない */
@@ -2252,93 +2303,6 @@ tr.is-off {
   color: var(--smoke);
 }
 
-/* ── 家賃（固定費）──────────────────────────────────────────────────── */
-
-.rentform {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem 1rem;
-  align-items: start;
-  margin-top: 1rem;
-}
-
-.rentform .btn {
-  grid-column: span 2;
-  justify-self: start;
-}
-
-@media (min-width: 640px) {
-  .rentform {
-    grid-template-columns: 1fr 1fr auto;
-    align-items: end;
-  }
-
-  .rentform .btn {
-    grid-column: auto;
-  }
-}
-
-.rentview {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.rentview__num {
-  font-size: 1.25rem;
-  color: var(--brass);
-}
-
-/* 台帳の明細 — 狭い画面で表が潰れるので2段の行にする */
-.lrows {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.lrow {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas:
-    "date cat amt"
-    "by   by  ops";
-  align-items: baseline;
-  gap: 0.25rem 0.625rem;
-  padding: 0.625rem 0;
-  border-bottom: 1px solid rgb(176 141 79 / 0.12);
-}
-
-.lrow__date {
-  grid-area: date;
-  color: var(--smoke);
-  font-size: 0.8125rem;
-  white-space: nowrap;
-}
-
-.lrow__cat {
-  grid-area: cat;
-  min-width: 0;
-}
-
-.lrow__amt {
-  grid-area: amt;
-  font-size: 0.9375rem;
-  color: var(--brass);
-  white-space: nowrap;
-}
-
-.lrow__by {
-  grid-area: by;
-}
-
-.lrow__ops {
-  grid-area: ops;
-  display: flex;
-  gap: 0.375rem;
-  justify-content: flex-end;
-}
-
 /* 記録がまだ無いときの一枚。画像が無ければ何も出ない。 */
 .emptyshot {
   border-top: 1px solid var(--brass-hairline);
@@ -2397,15 +2361,462 @@ tr.is-off {
 }
 
 /* 更新 — ホーム画面起動だと引っ張って更新ができないため、ナビの右端に置く */
-.nav__refresh {
+.nav__refresh.is-busy {
+  color: var(--brass);
+}
+
+/* ── 更新ボタン（施設名の横）───────────────────────────────────────── */
+/*
+ * ホーム画面から起動すると引っ張って更新ができない。タブに混ぜると
+ * 「別の画面へ行くもの」に見えるので、画面全体への操作としてここに置く。
+ */
+.refresh {
+  flex: none;
+  margin-left: 0.625rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  color: var(--smoke);
   background: none;
-  border: 0;
-  border-top: 2px solid transparent;
-  border-left: 1px solid var(--brass-hairline);
-  font-family: inherit;
+  border: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
   cursor: pointer;
 }
 
-.nav__refresh.is-busy {
+.refresh:hover {
   color: var(--brass);
+  border-color: var(--brass);
+}
+
+.refresh__mark {
+  font-size: 0.9375rem;
+  line-height: 1;
+}
+
+.refresh.is-busy .refresh__mark {
+  animation: refresh-spin 700ms linear infinite;
+}
+
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh.is-busy .refresh__mark {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+/* ── 通帳 ───────────────────────────────────────────────────────────── */
+
+.pb__nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0.75rem 0 0.5rem;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.pb__arrow {
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--brass);
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+}
+
+.pb__arrow.is-off {
+  color: var(--smoke);
+  opacity: 0.3;
+}
+
+.pb__ym {
+  font-size: 1rem;
+  color: var(--paper);
+  letter-spacing: 0.04em;
+  min-width: 7.5rem;
+  text-align: center;
+}
+
+/* 幅が足りない端末では表だけを横に逃がす。本文は絶対に横スクロールさせない。 */
+.pb__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pb {
+  width: 100%;
+  min-width: 20rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.pb th {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+  color: var(--smoke);
+  font-weight: 400;
+  text-align: left;
+  padding: 0.375rem 0.25rem;
+  border-bottom: 1px solid var(--brass-hairline);
+  white-space: nowrap;
+}
+
+.pb td {
+  padding: 0.4375rem 0.25rem;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+  vertical-align: baseline;
+}
+
+.pb tfoot td {
+  border-top: 1px solid var(--brass-hairline);
+  border-bottom: none;
+  color: var(--paper);
+}
+
+.pb__c-date {
+  width: 2rem;
+  text-align: right;
+  color: var(--smoke);
+  white-space: nowrap;
+}
+
+.pb__c-name {
+  min-width: 5rem;
+  color: var(--paper);
+}
+
+/* 通帳の要は桁が縦に揃うこと。等幅・右揃えを崩さない。 */
+.pb__c-num {
+  width: 4.75rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb th.pb__c-num {
+  text-align: right;
+}
+
+.pb__c-num.is-expense {
+  color: var(--claret-lift);
+}
+
+.pb__carry td {
+  color: var(--smoke);
+}
+
+.pb__by {
+  display: block;
+  font-size: var(--fs-micro);
+  color: var(--smoke);
+  letter-spacing: 0.04em;
+}
+
+/* 記帳の直しは普段は畳んでおく。通帳を読む邪魔をしない。 */
+.lfix {
+  margin-top: 0.75rem;
+}
+
+.lfix summary {
+  cursor: pointer;
+  color: var(--smoke);
+  padding: 0.375rem 0;
+}
+
+.lfix__list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.lfix__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4375rem 0;
+  border-top: 1px solid rgb(176 141 79 / 0.12);
+  font-size: 0.8125rem;
+}
+
+.lfix__date {
+  color: var(--smoke);
+  white-space: nowrap;
+}
+
+.lfix__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lfix__amt {
+  white-space: nowrap;
+}
+
+.lfix__amt.is-expense {
+  color: var(--claret-lift);
+}
+
+/* ── 固定費（設定画面）─────────────────────────────────────────────── */
+
+.fixed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/*
+ * 名前は行を分ける。狭い画面で「名前・金額・日・ボタン」を横一列にすると
+ * 入力欄の既定の最小幅に押されて、ボタンが画面の外へ出てしまう。
+ */
+.fixed__form {
+  display: grid;
+  grid-template-columns: 1fr 4rem auto;
+  grid-template-areas:
+    "name name name"
+    "amt  day  btn";
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+/* グリッドの子は既定で min-width:auto。0 にしないと縮まない。 */
+.fixed__form > * {
+  min-width: 0;
+}
+
+.fixed__form .fixed__name {
+  grid-area: name;
+}
+
+.fixed__form > .field:not(.fixed__day) {
+  grid-area: amt;
+}
+
+.fixed__day {
+  grid-area: day;
+}
+
+.fixed__form > .btn {
+  grid-area: btn;
+}
+
+.fixed__view {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.fixed__name {
+  color: var(--paper);
+  font-size: 0.875rem;
+}
+
+.fixed__num {
+  text-align: right;
+}
+
+.fixed__day {
+  text-align: center;
+}
+
+.fixed__msg {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* ── 立替 ───────────────────────────────────────────────────────────── */
+
+.adv__total {
+  margin-left: auto;
+  color: var(--brass);
+}
+
+.advs {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.adv {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+/* 精算済みは消さずに沈める。返した記録も残しておきたい。 */
+.adv.is-done {
+  opacity: 0.45;
+}
+
+.adv.is-done .adv__title {
+  text-decoration: line-through;
+}
+
+.adv__check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+}
+
+/*
+ * 見た目は隠すが、大きさは残す。幅0の入力にすると指で押せる範囲が
+ * 四角の1remぶんしかなくなり、実際に押しづらい。
+ */
+.adv__check input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.adv__box {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-edge);
+}
+
+.adv__check input:checked + .adv__box {
+  background: var(--brass);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.adv__check input:focus-visible + .adv__box {
+  outline: 1px solid var(--paper);
+  outline-offset: 2px;
+}
+
+.adv__body {
+  min-width: 0;
+}
+
+.adv__title {
+  display: block;
+  color: var(--paper);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adv__meta {
+  display: block;
+  color: var(--smoke);
+}
+
+.adv__over {
+  color: var(--claret-lift);
+}
+
+.adv__amt {
+  white-space: nowrap;
+  color: var(--brass);
+}
+
+/* ── ほしい物リスト ─────────────────────────────────────────────────── */
+
+.wish {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.wish__item {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr auto;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.wish__item.is-done {
+  opacity: 0.45;
+}
+
+.wish__item.is-done .wish__title {
+  text-decoration: line-through;
+}
+
+.wish__thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-edge);
+  border: 1px solid var(--brass-hairline);
+}
+
+.wish__thumb.is-empty {
+  display: block;
+  background: rgb(232 225 211 / 0.04);
+}
+
+.wish__body {
+  min-width: 0;
+}
+
+.wish__title {
+  display: block;
+  color: var(--paper);
+  font-size: 0.9375rem;
+}
+
+.wish__note,
+.wish__by {
+  display: block;
+  color: var(--smoke);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wish__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.375rem;
+}
+
+.wish__amt {
+  color: var(--brass);
+  white-space: nowrap;
+}
+
+.wish__file {
+  padding: 0.5rem;
+}
+
+.wish__preview {
+  display: block;
+  margin-top: 0.5rem;
+  max-width: 100%;
+  max-height: 10rem;
+  border-radius: var(--radius-edge);
+  border: 1px solid var(--brass-hairline);
+}
+
+/* タブが6つ並ぶので、日本語だけの項目は縦位置を合わせる */
+.nav__ja.is-solo {
+  padding-top: 0.5625rem;
 }

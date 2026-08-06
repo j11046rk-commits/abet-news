@@ -1,28 +1,50 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Advances from "./Advances";
 import LedgerClient from "./LedgerClient";
+import Passbook from "./Passbook";
 import MonthlyChart from "@/components/MonthlyChart";
 import { requireProfile } from "@/lib/auth";
 import { getVault } from "@/lib/dashboard";
 import { yen } from "@/lib/money";
-import { getFixedCosts, getLedgerEntries, getMonthlySummary, getProfiles } from "@/lib/queries";
+import {
+  getAdvances,
+  getLedgerMonths,
+  getMonthlySummary,
+  getPassbook,
+  getProfiles,
+} from "@/lib/queries";
 import { fmtYm, nowJst } from "@/lib/time";
 
 export const metadata: Metadata = { title: "台帳 — The Oldman" };
 export const dynamic = "force-dynamic";
 
-export default async function LedgerPage() {
-  const [profile, entries, monthly, fixedCosts, vault, profiles] = await Promise.all([
-    requireProfile(),
-    getLedgerEntries(),
-    getMonthlySummary(),
-    getFixedCosts(),
-    getVault(),
-    getProfiles(),
-  ]);
+export default async function LedgerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ym?: string }>;
+}) {
+  const thisYm = fmtYm(nowJst());
+  const requested = (await searchParams).ym;
+  const ym = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : thisYm;
 
-  const ym = fmtYm(nowJst());
-  const current = monthly.find((m) => m.ym === ym);
+  const [profile, monthly, months, passbook, vault, profiles, advances] =
+    await Promise.all([
+      requireProfile(),
+      getMonthlySummary(),
+      getLedgerMonths(),
+      getPassbook(ym),
+      getVault(),
+      getProfiles(),
+      getAdvances(),
+    ]);
+
+  // 月送りは「記帳のある月」と「今月」のあいだを行き来する。
+  // 記帳が一度も無い月に迷い込んで空の画面が続くのを避ける。
+  const timeline = Array.from(new Set([...months, thisYm, ym])).sort();
+  const at = timeline.indexOf(ym);
+
+  const current = monthly.find((m) => m.ym === thisYm);
   const balance = current?.balance_yen ?? vault.carryover;
 
   return (
@@ -38,11 +60,35 @@ export default async function LedgerPage() {
         </p>
       </section>
 
+      {/* 毎月かならず来るのに金額が変わる費目。抜けたまま月をまたぐのがいちばん困る。 */}
+      {vault.missingMetered.length > 0 ? (
+        <p className="notice notice-strong lsum__warn">
+          今月分の {vault.missingMetered.map((c) => c.ja).join("と")} がまだ記帳されていません。
+        </p>
+      ) : null}
+
       {vault.breakEvenMonth ? (
         <p className="notice notice-strong lsum__warn">
           この収支のままだと {vault.breakEvenMonth.replace("-", "年 ")}月 に残高がゼロを割ります。
         </p>
       ) : null}
+
+      <Passbook
+        ym={ym}
+        opening={passbook.opening}
+        rows={passbook.rows}
+        prevYm={at > 0 ? timeline[at - 1] : null}
+        nextYm={at >= 0 && at < timeline.length - 1 ? timeline[at + 1] : null}
+        names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
+      />
+
+      <LedgerClient rows={passbook.rows} />
+
+      <Advances
+        advances={advances}
+        profiles={profiles.map((p) => ({ id: p.id, name: p.display_name }))}
+        meId={profile.id}
+      />
 
       <div className="rule">
         <span className="label">Monthly</span>
@@ -50,25 +96,14 @@ export default async function LedgerPage() {
 
       <MonthlyChart rows={monthly} />
 
-      <LedgerClient
-        isOwner={profile.role === "owner"}
-        entries={entries}
-        fixedCosts={fixedCosts}
-        currentYm={ym}
-        names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
-      />
-
-      {/* メンバーと設定はタブから外した。使う頻度が低いのでここから入る。 */}
-      <nav className="backdoor">
-        <Link href="/members" className="micro">
-          メンバー・貸切時間 →
-        </Link>
-        {profile.role === "owner" ? (
+      {/* 設定はタブから外した。固定費もここから入る。 */}
+      {profile.role === "owner" ? (
+        <nav className="backdoor">
           <Link href="/settings" className="micro">
-            施設の設定 →
+            施設の設定・固定費 →
           </Link>
-        ) : null}
-      </nav>
+        </nav>
+      ) : null}
     </>
   );
 }
