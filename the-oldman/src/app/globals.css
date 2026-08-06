@@ -1048,6 +1048,7 @@ textarea.field {
 .cal__col {
   position: relative;
   border-left: 1px solid rgb(176 141 79 / 0.12);
+  /* 縦のスクロールはブラウザに任せる。掴みに化けさせない。 */
   touch-action: pan-y;
 }
 
