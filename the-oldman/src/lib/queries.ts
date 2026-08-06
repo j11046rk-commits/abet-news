@@ -25,7 +25,7 @@ export async function getSettings(): Promise<Settings> {
   return (
     data ?? {
       id: true,
-      facility_name: "The Oldman",
+      facility_name: "The Oldmans",
       monthly_target_yen: 100000,
       owner_count: 6,
       rake_rule: null,

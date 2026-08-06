@@ -47,6 +47,15 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
   const cavityH = CAVITY.bottom - CAVITY.top;
   const clip = `polygon(0% 0%, 100% 0%, ${TAPER.right * 100}% 100%, ${TAPER.left * 100}% 100%)`;
 
+  /*
+   * 筋が落ちる先＝満ちたときの液面の高さ（グラス画像に対する割合）。
+   * 満杯に近いと筋がごく短くなって注いでいるように見えないので、
+   * 最低限の長さは残す。
+   */
+  const surfaceY = (CAVITY.top + (1 - ratio) * cavityH) * 100;
+  const POUR_TOP = 3;
+  const pourH = Math.max(26, surfaceY - POUR_TOP);
+
   return (
     <section className={`whisky${reached ? " is-reached" : ""}`} aria-label="今月の積立">
       <div className="whisky__stage">
@@ -54,11 +63,23 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/images/bottle.webp" alt="" className="whisky__bottle" aria-hidden />
 
-        {/* 注がれる筋 */}
-        <span className="whisky__pour" aria-hidden />
+        {/* 注がれる筋。注ぎ口から液面まで届かせる。 */}
+        <span
+          className="whisky__pour"
+          style={{ top: `${POUR_TOP}%`, height: `${pourH}%` }}
+          aria-hidden
+        />
 
         <div className="whisky__glass">
-          {/* 液体。グラスの空洞の中だけを、下から満たしていく */}
+          {/* グラス本体。液体はこの上に半透明で重ねる。 */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/glass.webp" alt="" className="whisky__photo" aria-hidden />
+
+          {/*
+           * 液体。グラス写真の「後ろ」に置くと、厚いカット面の底に隠れて
+           * 溜まっているのが見えない。前面に半透明で重ね、カットガラスが
+           * 琥珀越しに透けるようにする。実際のウイスキーもそう見える。
+           */}
           <div
             className="whisky__cavity"
             style={{
@@ -69,16 +90,16 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
               clipPath: clip,
             }}
           >
+            {/*
+             * 氷は液体の下に置く。こうすると、液面より下に沈んだ部分だけが
+             * 琥珀に染まり、上に出ている部分は透明なまま残る。
+             */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/ice.webp" alt="" className="whisky__ice" aria-hidden />
             <div className="whisky__liquid" style={{ height: `${fill * 100}%` }}>
               <span className="whisky__surface" aria-hidden />
             </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/ice.webp" alt="" className="whisky__ice" aria-hidden />
           </div>
-
-          {/* グラス本体。空洞が透けているので最後に重ねる */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/glass.webp" alt="" className="whisky__photo" aria-hidden />
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import ReservationsClient from "./ReservationsClient";
 import { requireProfile } from "@/lib/auth";
 import { getPastReservations, getProfiles, getUpcomingReservations } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "予約 — The Oldman" };
+export const metadata: Metadata = { title: "予約 — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function ReservationsPage({

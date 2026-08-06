@@ -7,8 +7,9 @@ import { categoryJa, type PassbookRow } from "@/lib/types";
 /**
  * 通帳。銀行の明細と同じ読み方ができることだけを狙っている。
  *
- * ・古い順（通帳は上から下へ時間が流れる）
- * ・月の先頭に前月繰越
+ * ・新しい順（開いてまず見たいのは直近の1行）
+ * ・残高は古い順に積み上げてから並べ替える。表示の向きで数字は変わらない
+ * ・いちばん下に前月繰越、いちばん上に当月計
  * ・入金と出金は別の列。同じ列に符号で混ぜない
  * ・数字は等幅で右揃え。桁が縦に揃わないと通帳にならない
  */
@@ -31,6 +32,8 @@ export default function Passbook({
   const income = rows.filter((r) => r.direction === "income").reduce((s, r) => s + r.amount_yen, 0);
   const expense = rows.filter((r) => r.direction === "expense").reduce((s, r) => s + r.amount_yen, 0);
   const closing = rows.length ? rows[rows.length - 1].balance_yen : opening;
+  // 残高は古い順に積んである。並べ替えるのは見せ方だけ。
+  const shown = [...rows].reverse();
 
   return (
     <>
@@ -70,15 +73,15 @@ export default function Passbook({
             </tr>
           </thead>
           <tbody>
-            <tr className="pb__carry">
-              <td className="pb__c-date">1</td>
-              <td className="pb__c-name">前月繰越</td>
-              <td className="pb__c-num" />
-              <td className="pb__c-num" />
-              <td className="pb__c-num amount">{signed(opening)}</td>
+            <tr className="pb__sum">
+              <td className="pb__c-date" />
+              <td className="pb__c-name">当月計</td>
+              <td className="pb__c-num amount">{income ? yen(income) : ""}</td>
+              <td className="pb__c-num amount is-expense">{expense ? yen(expense) : ""}</td>
+              <td className="pb__c-num amount">{signed(closing)}</td>
             </tr>
 
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id}>
                 <td className="pb__c-date amount">{Number(r.entry_date.slice(8))}</td>
                 <td className="pb__c-name">
@@ -104,12 +107,12 @@ export default function Passbook({
             ))}
           </tbody>
           <tfoot>
-            <tr>
-              <td className="pb__c-date" />
-              <td className="pb__c-name">当月計</td>
-              <td className="pb__c-num amount">{income ? yen(income) : ""}</td>
-              <td className="pb__c-num amount is-expense">{expense ? yen(expense) : ""}</td>
-              <td className="pb__c-num amount">{signed(closing)}</td>
+            <tr className="pb__carry">
+              <td className="pb__c-date">1</td>
+              <td className="pb__c-name">前月繰越</td>
+              <td className="pb__c-num" />
+              <td className="pb__c-num" />
+              <td className="pb__c-num amount">{signed(opening)}</td>
             </tr>
           </tfoot>
         </table>

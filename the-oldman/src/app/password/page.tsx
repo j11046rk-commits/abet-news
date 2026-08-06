@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireProfile } from "@/lib/auth";
 import PasswordForm from "./PasswordForm";
 
-export const metadata: Metadata = { title: "パスワードの変更 — The Oldman" };
+export const metadata: Metadata = { title: "パスワードの変更 — The Oldmans" };
 
 export default async function PasswordPage() {
   const profile = await requireProfile();
@@ -11,7 +11,7 @@ export default async function PasswordPage() {
     <div className="gate">
       <div className="gate__inner">
         <header className="gate__head">
-          <h1 className="gate__title">The Oldman</h1>
+          <h1 className="gate__title">The Oldmans</h1>
           <p className="micro gate__sub">MATSUYAMA · MEMBERS ONLY</p>
         </header>
 
