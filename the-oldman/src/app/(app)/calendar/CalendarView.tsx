@@ -10,7 +10,13 @@ import { addDaysJst, fmt, fmtDate, fmtDateJa, fmtTime, jstHourToIso, nowJst, sta
 import VisitEditor from "@/components/VisitEditor";
 import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib/types";
 
-const ROW = 34; // 1時間の高さ(px)
+/*
+ * 1時間ぶんの高さは割合で持つ。
+ *
+ * 固定pxだと 24時間 × 34px = 816px になり、スマホの画面には収まらないので
+ * 必ず縦スクロールが要る。列の高さを画面に合わせて、そのなかを24等分する。
+ */
+const pct = (hours: number) => `${(hours / 24) * 100}%`;
 
 type Segment = {
   r: Reservation;
@@ -167,7 +173,6 @@ export default function CalendarView({
   isOwner: boolean;
 }) {
   const router = useRouter();
-  const [compact, setCompact] = useState(false); // モバイルは3日表示
   const [legend, setLegend] = useState(false);
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [visit, setVisit] = useState<CheckIn | null>(null);
@@ -175,14 +180,6 @@ export default function CalendarView({
   const [draft, setDraft] = useState<{ date: string; start: number; end: number } | null>(null);
   const dragRef = useRef<{ date: string; from: number; to: number } | null>(null);
   const [drag, setDrag] = useState<{ date: string; from: number; to: number } | null>(null);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 640px)");
-    const apply = () => setCompact(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
 
   const today = fmtDate(nowJst());
 
@@ -198,10 +195,9 @@ export default function CalendarView({
       const first = startOfWeekJst(startOfMonthJst(a));
       return Array.from({ length: 42 }, (_, i) => dayKey(addDaysJst(first, i)));
     }
-    if (compact) return Array.from({ length: 3 }, (_, i) => dayKey(addDaysJst(a, i)));
     const ws = startOfWeekJst(a);
     return Array.from({ length: 7 }, (_, i) => dayKey(addDaysJst(ws, i)));
-  }, [anchor, view, compact]);
+  }, [anchor, view]);
 
   const monthLabel = useMemo(() => {
     const a = parseJstDate(view === "month" ? anchor : days[0] ?? anchor);
@@ -218,7 +214,7 @@ export default function CalendarView({
       d.setUTCMonth(d.getUTCMonth() + dir);
       go(fmtDate(d));
     } else {
-      go(dayKey(addDaysJst(a, dir * (compact ? 3 : 7))));
+      go(dayKey(addDaysJst(a, dir * 7)));
     }
   };
 
@@ -464,14 +460,20 @@ function WeekGrid({
 }) {
   const scroller = useRef<HTMLDivElement>(null);
 
-  // この施設が動くのは夜。開いた瞬間に 16:00 以降が見えている状態にする。
+  /*
+   * ふつうは24時間ぶんが1画面に収まるので、何もしない。
+   * 画面の縦がよほど短くて収まらないときだけ、夜（この施設が動く時間）へ寄せる。
+   */
   useEffect(() => {
-    if (scroller.current) scroller.current.scrollTop = 16 * ROW;
+    const el = scroller.current;
+    if (!el) return;
+    const over = el.scrollHeight - el.clientHeight;
+    if (over > 0) el.scrollTop = Math.min(over, (el.scrollHeight * 16) / 24);
   }, []);
 
   return (
     <div className="cal">
-      <div className="cal__head" style={{ gridTemplateColumns: `2.75rem repeat(${days.length}, 1fr)` }}>
+      <div className="cal__head" style={{ gridTemplateColumns: `var(--cal-gutter) repeat(${days.length}, 1fr)` }}>
         <span />
         {days.map((d) => (
           <div key={d} className={`cal__day${d === today ? " is-today" : ""}`}>
@@ -482,10 +484,10 @@ function WeekGrid({
       </div>
 
       <div className="cal__scroll" ref={scroller}>
-      <div className="cal__body" style={{ gridTemplateColumns: `2.75rem repeat(${days.length}, 1fr)` }}>
+      <div className="cal__body" style={{ gridTemplateColumns: `var(--cal-gutter) repeat(${days.length}, 1fr)` }}>
         <div className="cal__hours">
           {Array.from({ length: 24 }, (_, h) => (
-            <div key={h} className="cal__hour" style={{ height: ROW }}>
+            <div key={h} className="cal__hour">
               <span className="micro">{String(h).padStart(2, "0")}</span>
             </div>
           ))}
@@ -494,12 +496,11 @@ function WeekGrid({
         {days.map((d) => {
           const segs = segmentsForDay(reservations, d);
           return (
-            <div key={d} className={`cal__col${d === today ? " is-today" : ""}`} style={{ height: ROW * 24 }}>
+            <div key={d} className={`cal__col${d === today ? " is-today" : ""}`}>
               {Array.from({ length: 24 }, (_, h) => (
                 <div
                   key={h}
                   className="cal__slot"
-                  style={{ height: ROW }}
                   onPointerDown={() => {
                     // preventDefault は入れない。入れるとブラウザが縦スクロールを
                     // 引き受けられなくなり、スクロールのつもりの指が掴みになる。
@@ -515,7 +516,7 @@ function WeekGrid({
               {drag && drag.date === d ? (
                 <div
                   className="cal__drag"
-                  style={{ top: drag.from * ROW, height: (drag.to - drag.from) * ROW }}
+                  style={{ top: pct(drag.from), height: pct(drag.to - drag.from) }}
                 />
               ) : null}
 
@@ -537,7 +538,7 @@ function WeekGrid({
                 <button
                   key={`v-${v.c.id}-${d}`}
                   className={`cal__visit${v.c.profile_id === meId ? " is-mine" : ""}`}
-                  style={{ top: v.fromHour * ROW, height: Math.max(3, (v.toHour - v.fromHour) * ROW) }}
+                  style={{ top: pct(v.fromHour), height: pct(v.toHour - v.fromHour) }}
                   title={`${names[v.c.profile_id] ?? "メンバー"} ${fmtTime(v.c.checked_in_at)}〜`}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -557,7 +558,7 @@ function WeekGrid({
                   key={`t-${t.s.id}-${d}`}
                   className={`cal__table${t.open ? " is-open" : ""}${t.head ? "" : " is-tail"}`}
                   style={{
-                    top: t.fromHour * ROW + 1,
+                    top: pct(t.fromHour),
                     /*
                      * 終了時刻が入っていない卓は、長さを描かない。
                      * 仮の長さで枠を出すと「20:00から21:00まで」と読めてしまい、
@@ -566,7 +567,7 @@ function WeekGrid({
                      */
                     ...(t.open
                       ? {}
-                      : { height: Math.max(ROW - 2, (t.toHour - t.fromHour) * ROW - 2) }),
+                      : { height: pct(t.toHour - t.fromHour) }),
                   }}
                   title={
                     t.s.ended_at
@@ -612,8 +613,8 @@ function Block({
     <button
       className={`cal__block${seg.r.is_exclusive ? " is-exclusive" : ""}${seg.head ? "" : " is-tail"}`}
       style={{
-        top: seg.fromHour * ROW + 1,
-        height: (seg.toHour - seg.fromHour) * ROW - 2,
+        top: pct(seg.fromHour),
+        height: pct(seg.toHour - seg.fromHour),
         left: `calc(${seg.lane} * ${width})`,
         width,
         // 塗り = 貸切かどうか。相席OKは枠線のみで中は透過（SPEC §3-3b）

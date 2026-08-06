@@ -1019,6 +1019,14 @@ textarea.field {
 
 .cal {
   border-top: 1px solid var(--brass-hairline);
+  /* 7日ぶんの列に幅をまわしたいので、時刻の目盛は狭くする */
+  --cal-gutter: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .cal {
+    --cal-gutter: 2.75rem;
+  }
 }
 
 .cal__head {
@@ -1054,6 +1062,16 @@ textarea.field {
 .cal__body {
   display: grid;
   position: relative;
+  /* 24時間ぶんを1画面に収める。中身は割合で置くので、高さはここだけで決まる */
+  height: 100%;
+}
+
+/* 時刻の目盛も列も、24等分の格子として組む */
+.cal__hours,
+.cal__col {
+  display: grid;
+  grid-template-rows: repeat(24, 1fr);
+  min-height: 0;
 }
 
 .cal__hours {
@@ -1064,6 +1082,7 @@ textarea.field {
   display: flex;
   justify-content: flex-end;
   padding-right: 0.375rem;
+  min-height: 0;
 }
 
 .cal__hour .micro {
@@ -1080,6 +1099,7 @@ textarea.field {
 .cal__slot {
   border-bottom: 1px solid rgb(176 141 79 / 0.07);
   cursor: crosshair;
+  min-height: 0;
 }
 
 .cal__slot:hover {
@@ -1288,15 +1308,24 @@ textarea.field {
 }
 
 /* 週グリッドはスクロール領域に収め、開いた瞬間に夜の時間帯が見えるようにする */
+/*
+ * 24時間ぶんを、スクロールせずに1画面で見せる。
+ *
+ * 高さは「画面の高さ − 上下の固定物」。差し引いているのは
+ * masthead / 月送りの行 / 曜日の見出し / 凡例 / 下部ナビ のぶん。
+ * それでも足りないほど画面が短い端末のために overflow は残す。
+ */
 .cal__scroll {
-  max-height: 60dvh;
+  height: calc(100dvh - 20.5rem);
+  min-height: 17rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 @media (min-width: 768px) {
   .cal__scroll {
-    max-height: 64dvh;
+    height: calc(100dvh - 16rem);
+    min-height: 24rem;
   }
 }
 
