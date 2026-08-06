@@ -391,10 +391,12 @@ export default function CalendarView({
           reservations={reservations}
           visits={visits}
           sessions={sessions}
+          loose={loose}
           meId={meId}
           names={names}
           onPickDay={(d) => go(d, "week")}
           onPick={setDetail}
+          onPickTable={setTable}
         />
       )}
 
@@ -745,10 +747,12 @@ function MonthGrid({
   reservations,
   visits,
   sessions,
+  loose,
   meId,
   names,
   onPickDay,
   onPick,
+  onPickTable,
 }: {
   days: string[];
   anchor: string;
@@ -756,10 +760,13 @@ function MonthGrid({
   reservations: Reservation[];
   visits: CheckIn[];
   sessions: Session[];
+  /** 予約に紐づかない卓。予約と同じくバーとして出す。 */
+  loose: Session[];
   meId: string;
   names: Record<string, string>;
   onPickDay: (d: string) => void;
   onPick: (r: Reservation) => void;
+  onPickTable: (s: Session) => void;
 }) {
   const anchorMonth = anchor.slice(0, 7);
 
@@ -775,31 +782,56 @@ function MonthGrid({
       <div className="mcal__grid">
         {days.map((d) => {
           // 1回の開催は1本だけ。深夜まで続いた予約を翌日にも出すと、2件あったように見える。
-          // 月表示のバーは予約だけ。卓はその日のレーキ合計として下に出す。
-          const segs = segmentsForDay(reservations, [], d).filter(
-            (x): x is Segment & { kind: "reservation"; r: Reservation } =>
-              x.head && x.kind === "reservation",
-          );
+          const bars = [
+            ...segmentsForDay(reservations, [], d)
+              .filter(
+                (x): x is Segment & { kind: "reservation"; r: Reservation } =>
+                  x.head && x.kind === "reservation",
+              )
+              .map((x) => {
+                const m = purposeMeta(x.r.purposes[0]);
+                return {
+                  key: `r-${x.r.id}`,
+                  color: m.color,
+                  filled: x.r.is_exclusive,
+                  title: `${names[x.r.created_by] ?? "メンバー"} ${m.ja}`,
+                  onClick: () => onPick(x.r),
+                };
+              }),
+            // 予約せずに立った卓。ポーカーの色で、塗りはしない（塗りは貸切のしるし）。
+            ...tablesForDay(loose, d)
+              .filter((t) => t.head)
+              .map((t) => ({
+                key: `t-${t.s.id}`,
+                color: purposeMeta("poker").color,
+                filled: false,
+                title: `卓 ${t.s.created_by ? (names[t.s.created_by] ?? "メンバー") : "メンバー"} ${yen(t.s.rake_yen)}`,
+                onClick: () => onPickTable(t.s),
+              })),
+          ];
           const outside = d.slice(0, 7) !== anchorMonth;
           return (
             <div key={d} className={`mcal__cell${outside ? " is-outside" : ""}${d === today ? " is-today" : ""}`}>
               <button className="mcal__daynum num" onClick={() => onPickDay(d)}>
                 {Number(d.slice(8))}
               </button>
+              {/*
+                その日にあったこと。予約も卓も同じバーで出す。
+                予約のある日だけバーが付いていると、記録しかない日が
+                「何も無かった日」に見える。
+                予約と同じ夜の卓は予約のバーに含まれているので、ここには出さない。
+              */}
               <div className="mcal__bars">
-                {segs.slice(0, 4).map((s) => {
-                  const m = purposeMeta(s.r.purposes[0]);
-                  return (
-                    <button
-                      key={`${s.r.id}-${d}`}
-                      className={`mcal__bar${s.r.is_exclusive ? " is-exclusive" : ""}`}
-                      style={{ borderColor: m.color, background: s.r.is_exclusive ? m.color : "transparent" }}
-                      onClick={() => onPick(s.r)}
-                      title={`${names[s.r.created_by] ?? "メンバー"} ${m.ja}`}
-                    />
-                  );
-                })}
-                {segs.length > 4 ? <span className="micro">+{segs.length - 4}</span> : null}
+                {bars.slice(0, 4).map((bar) => (
+                  <button
+                    key={bar.key}
+                    className={`mcal__bar${bar.filled ? " is-exclusive" : ""}`}
+                    style={{ borderColor: bar.color, background: bar.filled ? bar.color : "transparent" }}
+                    onClick={bar.onClick}
+                    title={bar.title}
+                  />
+                ))}
+                {bars.length > 4 ? <span className="micro">+{bars.length - 4}</span> : null}
               </div>
 
               {/*
