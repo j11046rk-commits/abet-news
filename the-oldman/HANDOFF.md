@@ -45,6 +45,37 @@ insert into profiles (id, login_id, display_name, role, investment_yen, must_cha
 values ('<uuid>', 'santiago', 'サンチャゴ', 'owner', 500000, true);
 ```
 
+### ②-b（任意）Claude から Supabase を直接叩けるようにする
+
+既定の環境は **Trusted** ネットワークで、`supabase.com` は許可リストに入っていない。
+そのため Claude のセッションからは Supabase API に一切届かない
+（プロキシが CONNECT に 403 を返す）。
+
+許可するには claude.ai/code のメッセージ欄の上にある**クラウドアイコン**（環境名が
+出ているボタン）→ 環境の**設定アイコン** →「**Network access**」を `Custom` にし、
+「**Allowed domains**」に1行ずつ：
+
+```
+api.supabase.com
+*.supabase.co
+```
+
+「**Also include default list of common package managers**」に必ずチェックを入れる。
+外すと npm も PyPI も届かなくなり、ビルドが通らなくなる。
+
+反映されるのは**新しいセッションから**。設定変更時に環境キャッシュが作り直される。
+
+これを入れると、次のセッションの Claude は
+「アカウント発行 → 実データでの往復確認 → 画面のスクリーンショット」まで
+自分でできるようになる（③がClaude側で完結する）。
+Vercel も任せたい場合は `api.vercel.com` を足す。
+
+**キーの渡し方の注意**：環境変数欄はその環境を使う全員から読めるうえ、
+チャットに貼れば会話履歴に残る。渡すなら `service_role` キーだけにして、
+作業が終わったら Supabase 側で **キーをローテーション**するのが安全。
+Personal Access Token はアカウント全体（他プロジェクトの削除まで）を触れるので、
+よほど自動化したいとき以外は渡さない。
+
 ### ③ ローカルで往復を確認する
 
 **ここがこのプロジェクトで唯一まだ実測できていない部分。** 開発環境に Supabase も Docker も
