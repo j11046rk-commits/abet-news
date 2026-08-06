@@ -176,7 +176,8 @@ a {
 .shell {
   max-width: 62rem;
   margin: 0 auto;
-  padding: 0 1.125rem 6.5rem;
+  /* 下部固定ナビの分だけ余白を取り、最後の行が隠れないようにする */
+  padding: 0 1.125rem 6rem;
 }
 
 @media (min-width: 768px) {
@@ -494,6 +495,10 @@ textarea.field {
 /* ── マストヘッド / ナビ ─────────────────────────────────────────────── */
 
 .masthead {
+  position: sticky;
+  top: 0;
+  z-index: 70;
+  background: var(--ink);
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1368,3 +1373,292 @@ textarea.field {
   font-size: 0.8125rem;
   padding: 0.25rem 0.125rem;
 }
+
+/* ── 積立ゲージ（シグネチャー要素・DESIGN.md §5）──────────────────────── */
+
+.vault {
+  display: flex;
+  align-items: stretch;
+  gap: 1.5rem;
+  padding: 1.5rem 0 0.5rem;
+}
+
+@media (min-width: 560px) {
+  .vault {
+    gap: 2.5rem;
+  }
+
+  .vault__glass {
+    width: 120px;
+    height: 320px;
+  }
+}
+
+.vault__glass {
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 260px;
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-edge);
+  overflow: hidden;
+  background: linear-gradient(180deg, rgb(176 141 79 / 0.04), transparent 40%);
+  transition: border-color 400ms var(--ease);
+}
+
+/* 目標到達で外周の真鍮リングが静かに点灯する。点滅させない。 */
+.vault__glass::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--brass);
+  border-radius: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms var(--ease);
+}
+
+.vault__glass.is-reached::after {
+  opacity: 0.55;
+}
+
+.vault__liquid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #b08d4f, #8a6b33);
+  transition: height 900ms var(--ease);
+}
+
+.vault__wave {
+  position: absolute;
+  top: -11px;
+  left: 0;
+  width: 200%;
+  height: 12px;
+  fill: #b08d4f;
+  animation: vault-drift 4.2s linear infinite;
+}
+
+.vault__wave--back {
+  opacity: 0.55;
+  animation-duration: 6.4s;
+  animation-direction: reverse;
+}
+
+@keyframes vault-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault__wave {
+    animation: none;
+    transform: none;
+  }
+
+  .vault__wave--back {
+    display: none;
+  }
+
+  .vault__liquid {
+    transition: none;
+  }
+}
+
+.vault__ticks i {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  height: 1px;
+  background: var(--brass-hairline-strong);
+}
+
+.vault__figures {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.vault__amount {
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+  margin: 0.25rem 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.vault__target {
+  letter-spacing: 0.1em;
+}
+
+/* ── ダッシュボード ─────────────────────────────────────────────────── */
+
+.recovery {
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 1rem;
+  margin-top: 1.5rem;
+}
+
+.recovery__lead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  font-size: 1rem;
+}
+
+.recovery__amount {
+  font-size: 1.75rem;
+  color: var(--brass);
+}
+
+.recovery__list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--paper);
+  line-height: 1.8;
+}
+
+.recovery__strong {
+  color: var(--brass);
+  font-weight: 500;
+}
+
+.recovery__claret {
+  color: #a2606a;
+}
+
+.recovery.is-reached .recovery__lead {
+  color: var(--brass);
+}
+
+.carry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 0.875rem;
+  margin-top: 1.5rem;
+}
+
+.carry__amount {
+  font-size: 1.125rem;
+}
+
+.carry__amount.is-negative {
+  color: #a2606a;
+}
+
+.carry__warn {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.rule__link {
+  color: var(--brass);
+  white-space: nowrap;
+  order: 1;
+}
+
+.rule > .rule__link {
+  margin-left: auto;
+}
+
+/* 直近のセッション */
+.recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recent__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.recent__date {
+  font-size: 0.9375rem;
+}
+
+.recent__rake {
+  color: var(--brass);
+  font-size: 0.9375rem;
+  min-width: 5rem;
+  text-align: right;
+}
+
+/* 今週の予約 */
+.wstrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.wstrip__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.5rem 0.125rem 0.625rem;
+  border-top: 1px solid rgb(176 141 79 / 0.12);
+  min-width: 0;
+}
+
+.wstrip__day.is-today {
+  border-top-color: var(--brass);
+}
+
+.wstrip__day.is-today .wstrip__num,
+.wstrip__day.is-today .wstrip__dow {
+  color: var(--brass);
+}
+
+.wstrip__num {
+  font-size: 0.875rem;
+}
+
+.wstrip__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.25rem;
+  width: 100%;
+  align-items: center;
+}
+
+.wstrip__item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: 1px solid;
+  border-radius: 1px;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  line-height: 1.5;
+}
+
+.wstrip__none {
+  display: block;
+  width: 60%;
+  height: 1px;
+  background: rgb(176 141 79 / 0.18);
+  margin-top: 0.5rem;
+}
+

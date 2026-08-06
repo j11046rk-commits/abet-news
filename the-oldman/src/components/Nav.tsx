@@ -49,6 +49,10 @@ export default function Nav({
         </Link>
         <div className="masthead__right">
           <span className="micro masthead__who">{displayName}</span>
+          {/* 記録するボタンは常時アクセスできる位置に置く。マストヘッドを sticky にしている。 */}
+          <Link href="/sessions?new=1" className="btn btn-sm btn-primary">
+            記録する
+          </Link>
           <button className="btn btn-sm" onClick={signOut} disabled={busy}>
             退出
           </button>

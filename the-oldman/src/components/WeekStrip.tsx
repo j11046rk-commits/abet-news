@@ -1,0 +1,66 @@
+import { addDaysJst, fmt, fmtDate, fmtTime, jstHourToIso } from "@/lib/time";
+import { purposeMeta, type Reservation } from "@/lib/types";
+
+/** 今週の予約を曜日ごとの横並びで。ダッシュボードの最後の段。 */
+export default function WeekStrip({
+  weekStart,
+  reservations,
+  names,
+}: {
+  weekStart: string;
+  reservations: Reservation[];
+  names: Record<string, string>;
+}) {
+  const today = fmtDate(new Date());
+  const days = Array.from({ length: 7 }, (_, i) =>
+    fmtDate(addDaysJst(new Date(`${weekStart}T00:00:00+09:00`), i)),
+  );
+
+  return (
+    <div className="wstrip">
+      {days.map((d) => {
+        const dayStart = new Date(jstHourToIso(d, 0)).getTime();
+        const dayEnd = new Date(jstHourToIso(d, 24)).getTime();
+        const items = reservations.filter((r) => {
+          const s = new Date(r.starts_at).getTime();
+          const e = new Date(r.ends_at).getTime();
+          return e > dayStart && s < dayEnd;
+        });
+
+        return (
+          <div key={d} className={`wstrip__day${d === today ? " is-today" : ""}`}>
+            <span className="micro wstrip__dow">{fmt(new Date(`${d}T00:00:00+09:00`), "E")}</span>
+            <span className="wstrip__num num">{Number(d.slice(8))}</span>
+
+            <div className="wstrip__items">
+              {items.length === 0 ? (
+                <span className="wstrip__none" aria-hidden />
+              ) : (
+                items.map((r) => {
+                  const m = purposeMeta(r.purposes[0]);
+                  // 日をまたぐ予約は、その日に実際に始まる時刻を出す
+                  const segStart = Math.max(new Date(r.starts_at).getTime(), dayStart);
+                  const hour = Math.round((segStart - dayStart) / 3600_000);
+                  return (
+                    <span
+                      key={r.id}
+                      className={`wstrip__item${r.is_exclusive ? " is-exclusive" : ""}`}
+                      style={{
+                        borderColor: m.color,
+                        background: r.is_exclusive ? m.color : "transparent",
+                        color: r.is_exclusive ? m.onFill : "var(--smoke)",
+                      }}
+                      title={`${names[r.created_by] ?? "メンバー"} ${fmtTime(r.starts_at)}–${fmtTime(r.ends_at)}`}
+                    >
+                      {String(hour).padStart(2, "0")}
+                    </span>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
