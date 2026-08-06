@@ -14,7 +14,8 @@ const SPANS: { key: Span; ja: string; en: string }[] = [
 /**
  * 利用時間に縛りは無い。罰則も上限も設けない。
  * 誰がどれだけ独占していたかが全員に見えている状態を作るだけの表（SPEC §3-5）。
- * 貸切と通常利用を同じ太さ・同じスケールで併記し、順位番号は振らない。
+ * 通常利用は数えない — 見たいのは「誰がどれだけ独占していたか」だけなので、
+ * 貸切の時間だけを同じスケールで並べる。順位番号は振らない。
  */
 export default function ExclusiveHoursTable({
   profiles,
@@ -34,26 +35,21 @@ export default function ExclusiveHoursTable({
       span === "month" ? r.ym === thisMonth : span === "year" ? r.ym.startsWith(thisYear) : true,
     );
 
-    const acc = new Map<string, { exclusive: number; shared: number }>();
-    for (const p of profiles) acc.set(p.id, { exclusive: 0, shared: 0 });
-    for (const r of keep) {
-      const cur = acc.get(r.profile_id) ?? { exclusive: 0, shared: 0 };
-      cur.exclusive += r.exclusive_hours;
-      cur.shared += r.shared_hours;
-      acc.set(r.profile_id, cur);
-    }
+    const acc = new Map<string, number>();
+    for (const p of profiles) acc.set(p.id, 0);
+    for (const r of keep) acc.set(r.profile_id, (acc.get(r.profile_id) ?? 0) + r.exclusive_hours);
 
     const list = profiles.map((p) => ({
       id: p.id,
       name: p.name,
-      ...(acc.get(p.id) ?? { exclusive: 0, shared: 0 }),
+      exclusive: acc.get(p.id) ?? 0,
     }));
 
     // 多い順に並べる。ただし順位番号は振らない。
-    list.sort((a, b) => b.exclusive - a.exclusive || b.shared - a.shared);
+    list.sort((a, b) => b.exclusive - a.exclusive);
 
     // 全員を同一スケールで測る
-    const max = Math.max(1, ...list.map((r) => Math.max(r.exclusive, r.shared)));
+    const max = Math.max(1, ...list.map((r) => r.exclusive));
     return { list, max };
   }, [rows, profiles, span, thisMonth, thisYear]);
 
@@ -92,22 +88,10 @@ export default function ExclusiveHoursTable({
               />
             </span>
             <span className="ebar__num amount">{r.exclusive.toFixed(1)} h</span>
-
-            <span className="ebar__track ebar__track--shared">
-              <span
-                className="ebar__fill ebar__fill--shared"
-                style={{ width: `${(r.shared / data.max) * 100}%` }}
-              />
-            </span>
-            <span className="ebar__num amount ebar__num--sub">{r.shared.toFixed(1)} h</span>
           </li>
         ))}
       </ul>
 
-      <p className="micro ebars__key">
-        <span className="ebars__swatch ebars__swatch--exclusive" /> 貸切
-        <span className="ebars__swatch ebars__swatch--shared" /> 通常利用
-      </p>
     </>
   );
 }

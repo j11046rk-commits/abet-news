@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Visits from "@/components/Visits";
 import WhiskyGauge from "@/components/WhiskyGauge";
 import WeekStrip from "@/components/WeekStrip";
 import { requireProfile } from "@/lib/auth";
@@ -13,7 +14,6 @@ import {
 } from "@/lib/queries";
 import {
   addDaysJst,
-  durationHours,
   fmtDate,
   fmtDateJa,
   fmtTime,
@@ -21,6 +21,7 @@ import {
   nowJst,
   startOfWeekJst,
 } from "@/lib/time";
+import { purposeMeta } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function Top() {
   const weekStart = fmtDate(startOfWeekJst(nowJst()));
   const weekEnd = fmtDate(addDaysJst(startOfWeekJst(nowJst()), 7));
 
-  const [, vault, sessions, weekReservations, profiles, openCheckIns, recentCheckIns] =
+  const [me, vault, sessions, weekReservations, profiles, openCheckIns, recentCheckIns] =
     await Promise.all([
       requireProfile(),
       getVault(),
@@ -66,14 +67,24 @@ export default async function Top() {
           </p>
         ) : (
           <>
+            {/* 人数は連れを含めた合計。会員の数ではなく、いま中にいる人の数を出す。 */}
             <p className="now__count">
-              <span className="now__num amount">{openCheckIns.length}</span>
+              <span className="now__num amount">
+                {openCheckIns.reduce((n, c) => n + (c.headcount || 1), 0)}
+              </span>
               <span className="now__unit">名が滞在中</span>
             </p>
             <ul className="now__list">
               {openCheckIns.map((c) => (
                 <li key={c.id} className="now__item">
-                  <span className="now__name">{names[c.profile_id] ?? "メンバー"}</span>
+                  <span className="now__name">
+                    {names[c.profile_id] ?? "メンバー"}
+                    {c.headcount > 1 ? <span className="micro"> +{c.headcount - 1}</span> : null}
+                  </span>
+                  <span className="now__what micro">
+                    {(c.purposes ?? []).map((p) => purposeMeta(p).ja).join("・")}
+                    {c.memo ? ` · ${c.memo}` : ""}
+                  </span>
                   <span className="micro amount">{fmtTime(c.checked_in_at)}〜</span>
                 </li>
               ))}
@@ -83,6 +94,11 @@ export default async function Top() {
       </section>
 
       <WhiskyGauge saved={vault.saved} target={vault.target} />
+
+      {/* いちばん多い操作。ゲージのすぐ下、金額を読んだ流れで押せる位置に置く。 */}
+      <Link href="/sessions?new=1" className="btn btn-primary block record">
+        卓を記録する
+      </Link>
 
       <section className={`recovery${reached ? " is-reached" : ""}`}>
         {reached ? (
@@ -114,7 +130,7 @@ export default async function Top() {
                   の開催で達成
                 </li>
               ) : (
-                <li className="dim">まだ平均レーキを計算できません。セッションを記録してください。</li>
+                <li className="dim">まだ平均レーキを計算できません。卓を記録してください。</li>
               )}
               <li>
                 今月残り <span className="amount">{vault.daysLeft}</span> 日
@@ -133,34 +149,12 @@ export default async function Top() {
         <span className="label">Recent visits</span>
       </div>
 
-      {recentCheckIns.length === 0 ? (
-        <p className="empty">まだ利用の記録がありません。</p>
-      ) : (
-        <ul className="visits">
-          {recentCheckIns.map((c) => (
-            <li key={c.id} className="visits__row">
-              <span className="visits__date mincho">{fmtDateJa(c.checked_in_at)}</span>
-              <span className="visits__name">{names[c.profile_id] ?? "メンバー"}</span>
-              <span className="micro amount">
-                {fmtTime(c.checked_in_at)}
-                {c.checked_out_at ? `–${fmtTime(c.checked_out_at)}` : "〜"}
-              </span>
-              <span className="micro visits__dur amount">
-                {c.checked_out_at
-                  ? `${durationHours(c.checked_in_at, c.checked_out_at)} h`
-                  : "滞在中"}
-                {/* 本人が押したのか、朝10時の自動締めかを区別する */}
-                {c.auto_closed ? <span className="visits__auto">自動</span> : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Visits visits={recentCheckIns} names={names} meId={me.id} />
 
       <div className="rule">
         <span className="label">Recent tables</span>
         <Link href="/sessions" className="micro rule__link">
-          セッション →
+          記録 →
         </Link>
       </div>
 

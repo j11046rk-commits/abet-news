@@ -91,9 +91,11 @@ export default function Passbook({
                       ? "卓"
                       : r.fixed_cost_id
                         ? "自動"
-                        : r.created_by
-                          ? (names[r.created_by] ?? "")
-                          : ""}
+                        : r.advance_id
+                          ? `立替 · ${r.created_by ? (names[r.created_by] ?? "") : ""}`
+                          : r.created_by
+                            ? (names[r.created_by] ?? "")
+                            : ""}
                   </span>
                 </td>
                 <td className="pb__c-num amount">

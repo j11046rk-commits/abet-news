@@ -44,7 +44,7 @@ export default function LedgerClient({
   }
 
   /** 手で直せる行だけを一覧に出す。自動起票の行はここに並べない。 */
-  const editable = rows.filter((r) => !r.session_id && !r.fixed_cost_id);
+  const editable = rows.filter((r) => !r.session_id && !r.fixed_cost_id && !r.advance_id);
 
   function startEdit(e: PassbookRow) {
     setEditingId(e.id);

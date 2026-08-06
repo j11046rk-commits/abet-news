@@ -29,8 +29,22 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const END_HOURS = Array.from({ length: 24 }, (_, i) => i + 1);
-const hhmm = (h: number) => `${String(h).padStart(2, "0")}:00`;
+// 終了は翌10:00まで選べる。宿泊が日をまたぐため（24 を超える値は翌日の時刻）。
+const END_HOURS = Array.from({ length: 34 }, (_, i) => i + 1);
+
+/**
+ * 用途ごとの既定の長さ。用途を選んだ時点で終了時刻を入れておく。
+ * hours を指定したものは開始からの時間数、start を持つものは開始時刻も決める。
+ */
+const DEFAULT_SPAN: Record<ReservationPurpose, { hours: number; start?: number }> = {
+  poker: { hours: 5 },
+  meeting: { hours: 2 },
+  private: { hours: 3 },
+  lodging: { hours: 15, start: 19 }, // 19:00 → 翌10:00
+  other: { hours: 1 },
+};
+const hhmm = (h: number) =>
+  h > 24 ? `翌${String(h - 24).padStart(2, "0")}:00` : `${String(h).padStart(2, "0")}:00`;
 
 export default function ReservationForm({
   names,
@@ -68,7 +82,7 @@ export default function ReservationForm({
     return {
       date: presetDate ?? fmtDate(new Date()),
       start: presetStart ?? 20,
-      end: presetEnd ?? 24,
+      end: presetEnd ?? 25, // ポーカーの既定 5時間（20:00 → 翌01:00）
       purposes: ["poker"] as ReservationPurpose[],
       exclusive: false,
       headcount: 4,
@@ -86,6 +100,8 @@ export default function ReservationForm({
   const [memo, setMemo] = useState(initial.memo);
   const [title, setTitle] = useState(initial.title);
 
+  // 時刻を手で動かしたあとは、用途を選び直しても勝手に上書きしない。
+  const [timesTouched, setTimesTouched] = useState(Boolean(editing));
   const [error, setError] = useState<string | null>(null);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,7 +110,17 @@ export default function ReservationForm({
 
   function togglePurpose(p: ReservationPurpose) {
     setConflicts(null);
-    setPurposes((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+    const adding = !purposes.includes(p);
+    setPurposes((prev) => (adding ? [...prev, p] : prev.filter((x) => x !== p)));
+
+    // 用途を選んだら、その用途のふつうの長さを入れておく。
+    // ただし時刻を自分で動かしたあとは触らない。
+    if (adding && !timesTouched) {
+      const span = DEFAULT_SPAN[p];
+      const from = span.start ?? start;
+      if (span.start !== undefined) setStart(from);
+      setEnd(Math.min(34, from + span.hours));
+    }
   }
 
   /** 重複はブロックしない。警告して、押し直しで通す（SPEC §3-3）。 */
@@ -223,7 +249,8 @@ export default function ReservationForm({
             onChange={(e) => {
               const v = Number(e.target.value);
               setStart(v);
-              if (end <= v) setEnd(Math.min(24, v + 1));
+              if (end <= v) setEnd(Math.min(34, v + 1));
+              setTimesTouched(true);
               setConflicts(null);
             }}
           >
@@ -244,12 +271,13 @@ export default function ReservationForm({
             value={end}
             onChange={(e) => {
               setEnd(Number(e.target.value));
+              setTimesTouched(true);
               setConflicts(null);
             }}
           >
             {END_HOURS.filter((h) => h > start).map((h) => (
               <option key={h} value={h}>
-                {hhmm(h === 24 ? 24 : h)}
+                {hhmm(h)}
               </option>
             ))}
           </select>

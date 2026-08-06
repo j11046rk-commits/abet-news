@@ -4,7 +4,6 @@ import ExclusiveHoursTable from "./ExclusiveHoursTable";
 import { requireProfile } from "@/lib/auth";
 import { getExclusiveHours, getProfiles } from "@/lib/queries";
 import { fmtDate, fmtYm, nowJst } from "@/lib/time";
-import { yen } from "@/lib/money";
 
 export const metadata: Metadata = { title: "メンバー — The Oldmans" };
 export const dynamic = "force-dynamic";
@@ -30,27 +29,15 @@ export default async function MembersPage() {
         <span className="label">Members — {profiles.length}</span>
       </div>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>名前</th>
-            <th>ロール</th>
-            <th className="ta-r">出資額</th>
-          </tr>
-        </thead>
-        <tbody>
-          {profiles.map((p) => (
-            <tr key={p.id} className={p.is_active ? undefined : "is-off"}>
-              <td>
-                {p.display_name}
-                {p.id === me.id ? <span className="micro"> — あなた</span> : null}
-              </td>
-              <td className="micro">{p.role === "owner" ? "オーナー" : "メンバー"}</td>
-              <td className="ta-r amount">{yen(p.investment_yen)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* 6人とも共同オーナーなので、ロールも出資額も並べない。名前だけでよい。 */}
+      <ul className="roster">
+        {profiles.map((p) => (
+          <li key={p.id} className={`roster__row${p.is_active ? "" : " is-off"}`}>
+            <span>{p.display_name}</span>
+            {p.id === me.id ? <span className="micro">あなた</span> : null}
+          </li>
+        ))}
+      </ul>
 
       <ExclusiveHoursTable
         profiles={profiles.map((p) => ({ id: p.id, name: p.display_name }))}

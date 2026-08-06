@@ -69,13 +69,14 @@ export async function updateLedgerEntry(id: string, input: LedgerInput): Promise
     .eq("id", id)
     .is("session_id", null)
     .is("fixed_cost_id", null)
+    .is("advance_id", null)
     .select("id");
 
   if (error) return { ok: false, error: "更新できませんでした。" };
   if (!data || data.length === 0)
     return {
       ok: false,
-      error: "この行は編集できません（卓や固定費から自動で起票された行です）。",
+      error: "この行は編集できません（卓・固定費・立替の精算から自動で起票された行です）。",
     };
 
   revalidateAll();
@@ -90,7 +91,8 @@ export async function deleteLedgerEntry(id: string): Promise<Result> {
     .delete()
     .eq("id", id)
     .is("session_id", null)
-    .is("fixed_cost_id", null);
+    .is("fixed_cost_id", null)
+    .is("advance_id", null);
   if (error) return { ok: false, error: "削除できませんでした。" };
   revalidateAll();
   return { ok: true };

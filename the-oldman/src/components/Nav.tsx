@@ -10,9 +10,10 @@ type Item = { href: string; ja: string; en: string };
 const ITEMS: Item[] = [
   // TOP は日本語も英語も同じ綴りなので、en を空にして1行だけ出す。
   { href: "/", ja: "TOP", en: "" },
+  // 卓の記録がいちばん頻繁に触るものなので、親指の近くの2番目に置く。
+  { href: "/sessions", ja: "記録", en: "TABLE" },
   { href: "/reservations", ja: "予約", en: "BOOK" },
   { href: "/calendar", ja: "カレンダー", en: "CAL" },
-  { href: "/sessions", ja: "セッション", en: "TABLE" },
   { href: "/ledger", ja: "台帳", en: "LEDGER" },
   { href: "/wishlist", ja: "リスト", en: "WISH" },
 ];
@@ -90,8 +91,14 @@ export default function Nav({
             className={`nav__item${active(it.href) ? " is-active" : ""}`}
             aria-current={active(it.href) ? "page" : undefined}
           >
-            {it.en ? <span className="nav__en">{it.en}</span> : null}
-            <span className={`nav__ja${it.en ? "" : " is-solo"}`}>{it.ja}</span>
+            {/*
+              英語の行が無い項目（TOP）にも見えない行を置く。
+              余白で位置を合わせようとすると、端末ごとの行高の違いでずれる。
+            */}
+            <span className="nav__en" aria-hidden={!it.en}>
+              {it.en || "\u00a0"}
+            </span>
+            <span className="nav__ja">{it.ja}</span>
           </Link>
         ))}
       </nav>

@@ -32,6 +32,11 @@ export type CheckIn = {
   checked_out_at: string | null;
   /** 朝10時の自動締めで閉じた行。本人が押したものと区別する。 */
   auto_closed: boolean;
+  /** 滞在の用途。予約と同じ enum。 */
+  purposes: ReservationPurpose[];
+  /** 本人を含む人数。 */
+  headcount: number;
+  memo: string | null;
 };
 
 export type Reservation = {
@@ -58,6 +63,8 @@ export type LedgerEntry = {
   session_id: string | null;
   /** 固定費マスタから自動起票された行。台帳側からは直せない。 */
   fixed_cost_id: string | null;
+  /** 立替の精算から自動起票された行。立替側のチェックを外すと消える。 */
+  advance_id: string | null;
   created_by: string | null;
   created_at: string;
 };
