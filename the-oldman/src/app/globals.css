@@ -1,0 +1,681 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   The Oldman — デザイントークン
+   DESIGN.md §2 の6色だけで組む。7色目を足したくなったら階層の作り方が誤り。
+   例外はカレンダーの用途色2つ（--pine / --ash）だけ。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-ink: #0c0d0f;
+  --color-leather: #1a1512;
+  --color-brass: #b08d4f;
+  --color-claret: #5a2028;
+  --color-paper: #e8e1d3;
+  --color-smoke: #7c766b;
+  --color-pine: #4a5a52;
+  --color-ash: #3a3632;
+
+  --font-display: var(--f-display), "Times New Roman", serif;
+  --font-mincho: var(--f-mincho), "Yu Mincho", serif;
+  --font-sans: var(--f-sans), var(--f-jp), system-ui, sans-serif;
+  --font-mono: var(--f-mono), ui-monospace, monospace;
+
+  --radius-none: 0px;
+  --radius-edge: 2px;
+}
+
+:root {
+  /* 6色 */
+  --ink: #0c0d0f;
+  --leather: #1a1512;
+  --brass: #b08d4f;
+  --claret: #5a2028;
+  --paper: #e8e1d3;
+  --smoke: #7c766b;
+
+  /* 用途色（カレンダー専用の例外2色） */
+  --pine: #4a5a52;
+  --ash: #3a3632;
+
+  /* 派生は透明度違いのみ */
+  --brass-hairline: rgb(176 141 79 / 0.28);
+  --brass-hairline-strong: rgb(176 141 79 / 0.5);
+  --brass-wash: rgb(176 141 79 / 0.08);
+  --claret-wash: rgb(90 32 40 / 0.35);
+  --paper-dim: rgb(232 225 211 / 0.62);
+  --leather-raised: #211b17;
+
+  /* タイプスケール — 中間を作らない（DESIGN.md §3）*/
+  --fs-hero: clamp(3.5rem, 14vw, 6rem);
+  --fs-display: clamp(1.75rem, 6vw, 2.5rem);
+  --fs-body: 0.875rem;
+  --fs-label: 0.6875rem;
+  --fs-micro: 0.625rem;
+
+  --ease: cubic-bezier(0.16, 0.84, 0.44, 1);
+  --dur: 240ms;
+
+  color-scheme: dark;
+}
+
+/* ── ベース ─────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  /* ドロップシャドウは使わない。階層は明度差とヘアラインだけで作る。 */
+  box-shadow: none;
+}
+
+html {
+  background: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* フィルムグレイン — 全面に1枚だけ。opacity .03（DESIGN.md §4）*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* フォーカスリング — 真鍮 2px（非機能要件）*/
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--brass);
+  color: var(--ink);
+}
+
+/* ── 活字 ───────────────────────────────────────────────────────────── */
+
+.display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.mincho {
+  font-family: var(--font-mincho);
+  font-weight: 500;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 金額が縦に並ぶ画面なので桁揃えは絶対 */
+.amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  line-height: 1.4;
+}
+
+.micro {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  color: var(--smoke);
+}
+
+.dim {
+  color: var(--smoke);
+}
+
+/* ── レイアウト ─────────────────────────────────────────────────────── */
+
+.shell {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0 1.125rem 6.5rem;
+}
+
+@media (min-width: 768px) {
+  .shell {
+    padding: 0 2rem 4rem;
+  }
+}
+
+/* 面 — 上辺のみに真鍮のヘアライン。葉巻のバンド（DESIGN.md §4）*/
+.surface {
+  position: relative;
+  background: var(--leather);
+  border-top: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
+  padding: 1.125rem 1.125rem 1.375rem;
+  transition: border-color var(--dur) var(--ease);
+}
+
+.surface-flat {
+  background: transparent;
+  border-top: 1px solid var(--brass-hairline);
+  padding: 1rem 0 1.25rem;
+}
+
+a.surface:hover,
+button.surface:hover,
+.surface-hover:hover {
+  border-top-color: var(--brass-hairline-strong);
+}
+
+/* セクション見出し — 罫線はラベルの右側だけに伸ばす */
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 2.25rem 0 0.875rem;
+}
+
+.rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--brass-hairline);
+}
+
+.rule > .label {
+  white-space: nowrap;
+}
+
+/* ── 部品 ───────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.125rem;
+  border: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--brass);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c09a58;
+}
+
+.btn-danger {
+  border-color: rgb(90 32 40 / 0.7);
+  color: #b9757e;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--claret);
+  background: var(--claret-wash);
+}
+
+.btn-sm {
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font-size: var(--fs-micro);
+}
+
+/* 入力 — 下線だけ。箱にしない */
+.field {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.125rem;
+  border: 0;
+  border-bottom: 1px solid var(--brass-hairline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 1rem; /* iOS のズーム防止に 16px を下回らせない */
+  transition: border-color var(--dur) var(--ease);
+  appearance: none;
+}
+
+.field:hover {
+  border-bottom-color: var(--brass-hairline-strong);
+}
+
+.field:focus {
+  outline: none;
+  border-bottom-color: var(--brass);
+}
+
+.field-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+select.field {
+  background-image: linear-gradient(45deg, transparent 50%, var(--smoke) 50%),
+    linear-gradient(135deg, var(--smoke) 50%, transparent 50%);
+  background-position:
+    right 0.75rem center,
+    right 0.4rem center;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.5rem;
+}
+
+option {
+  background: var(--leather);
+  color: var(--paper);
+}
+
+textarea.field {
+  min-height: 4.5rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.field-label {
+  display: block;
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  margin-bottom: 0.125rem;
+}
+
+/* チェック — 枠線と塗りだけ。アイコンフォントを持ち込まない */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.check input {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin: 0;
+  border: 1px solid var(--brass-hairline-strong);
+  border-radius: 1px;
+  background: transparent;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.check input:checked {
+  background: var(--brass);
+  border-color: var(--brass);
+}
+
+.check input:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* バッジ — 面積を極小に（DESIGN.md §9-6）*/
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.4rem;
+  border-radius: 1px;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-outline {
+  border: 1px solid var(--brass-hairline);
+  color: var(--smoke);
+}
+
+.badge-exclusive {
+  background: var(--claret);
+  color: var(--paper);
+}
+
+.badge-brass {
+  border: 1px solid var(--brass);
+  color: var(--brass);
+}
+
+/* 警告 */
+.notice {
+  border-left: 2px solid var(--brass);
+  padding: 0.625rem 0.875rem;
+  background: var(--brass-wash);
+  font-size: var(--fs-body);
+}
+
+.notice-strong {
+  border-left-color: var(--claret);
+  background: var(--claret-wash);
+}
+
+.err {
+  color: #c98089;
+  font-size: var(--fs-body);
+}
+
+/* 表 — 罫線は行間の1本だけ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-size: var(--fs-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  font-weight: 400;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--brass-hairline);
+}
+
+.table td {
+  padding: 0.75rem 0.5rem 0.75rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 空状態 */
+.empty {
+  color: var(--smoke);
+  padding: 1.75rem 0;
+  font-size: var(--fs-body);
+}
+
+/* ── モーション ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* スクロールバー — 主張させない */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brass-hairline);
+  border-radius: 1px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── マストヘッド / ナビ ─────────────────────────────────────────────── */
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.125rem 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .masthead {
+    padding: 2rem 2rem 1rem;
+  }
+}
+
+.masthead__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.masthead__name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--paper);
+}
+
+.masthead__sub {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.28em;
+  color: var(--smoke);
+}
+
+.masthead__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: none;
+}
+
+.masthead__who {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .masthead__who {
+    display: inline;
+  }
+}
+
+/* モバイル：下部固定。デスクトップ：マストヘッド直下の帯 */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--ink);
+  border-top: 1px solid var(--brass-hairline);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.125rem 0.5rem;
+  border-top: 2px solid transparent;
+  margin-top: -1px;
+  color: var(--smoke);
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.nav__item:hover {
+  color: var(--paper);
+}
+
+.nav__item.is-active {
+  color: var(--brass);
+  border-top-color: var(--brass);
+}
+
+.nav__en {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+}
+
+.nav__ja {
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    position: static;
+    max-width: 62rem;
+    margin: 0 auto 1.5rem;
+    grid-auto-columns: max-content;
+    justify-content: start;
+    gap: 1.75rem;
+    padding: 0 2rem;
+    border-top: 1px solid var(--brass-hairline);
+  }
+
+  .nav__item {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.6rem 0 0.55rem;
+  }
+
+  .nav__ja {
+    font-size: var(--fs-micro);
+  }
+}
+
+/* ── ゲート（ログイン / パスワード変更）─────────────────────────────── */
+
+.gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 2.5rem 1.25rem;
+}
+
+.gate__inner {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.gate__head {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.gate__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 12vw, 3.25rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.gate__sub {
+  letter-spacing: 0.34em;
+  padding-left: 0.34em;
+}
+
+.gate__lead {
+  margin-bottom: 1.25rem;
+  line-height: 1.8;
+}
+
+.gate__notice {
+  margin-bottom: 1.25rem;
+}
+
+.gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gate__submit {
+  margin-top: 0.25rem;
+}
+
+.gate__foot {
+  display: block;
+  margin-top: 2rem;
+  text-align: center;
+  line-height: 1.9;
+  letter-spacing: 0.06em;
+}
