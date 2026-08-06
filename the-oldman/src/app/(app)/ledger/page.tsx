@@ -45,7 +45,8 @@ export default async function LedgerPage({
   const at = timeline.indexOf(ym);
 
   const current = monthly.find((m) => m.ym === thisYm);
-  const balance = current?.balance_yen ?? vault.carryover;
+  // TOP と同じ数字を出す。残高の出しかたは getVault に1本化してある。
+  const balance = vault.balance;
 
   return (
     <>

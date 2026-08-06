@@ -34,8 +34,13 @@ export type Vault = {
   daysLeft: number;
   /** 不足した場合の1人あたりの負担 */
   perOwner: number;
-  /** 前月までの累計収支 */
-  carryover: number;
+  /**
+   * 現時点の残高。今月ぶんまで含めた累計収支。
+   *
+   * 前月末の繰越ではない — 今月レーキが入ったのに数字が動かないと、
+   * 「いま金庫にいくらあるのか」が読めない。
+   */
+  balance: number;
   ownerCount: number;
   facilityName: string;
   /** 残高がゼロを割る予測月（YYYY-MM）。割らない見込みなら null */
@@ -58,8 +63,14 @@ export async function getVault(): Promise<Vault> {
   const target = settings.monthly_target_yen;
   const shortfall = Math.max(0, target - saved);
 
-  const past = monthly.filter((m) => m.ym < ym);
-  const carryover = past.length ? past[past.length - 1].balance_yen : 0;
+  /*
+   * balance_yen は古い月から積み上げた累計なので、今月以前の最後の行がいまの残高。
+   * 「今月の行」を直に引かないのは、今月まだ1件も記帳が無いと行そのものが
+   * 存在せず、残高が 0 に見えてしまうため。
+   * 先の月の行（日付を先に入れた記帳）は「現時点」ではないので入れない。
+   */
+  const upToNow = monthly.filter((m) => m.ym <= ym);
+  const balance = upToNow.length ? upToNow[upToNow.length - 1].balance_yen : 0;
 
   const avgRake = stats.avg_rake_90d_yen > 0 ? stats.avg_rake_90d_yen : null;
 
@@ -79,7 +90,7 @@ export async function getVault(): Promise<Vault> {
     sessionsNeeded: avgRake && shortfall > 0 ? ceilDiv(shortfall, avgRake) : avgRake ? 0 : null,
     daysLeft: daysLeftInMonth(),
     perOwner: ceilDiv(shortfall, settings.owner_count),
-    carryover,
+    balance,
     ownerCount: settings.owner_count,
     facilityName: settings.facility_name,
     breakEvenMonth: forecastZeroMonth(monthly),

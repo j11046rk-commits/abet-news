@@ -186,9 +186,9 @@ export default async function Top() {
       )}
 
       <section className="carry">
-        <span className="label">繰越残高</span>
-        <span className={`carry__amount amount${vault.carryover < 0 ? " is-negative" : ""}`}>
-          {vault.carryover < 0 ? `−${yen(Math.abs(vault.carryover))}` : yen(vault.carryover)}
+        <span className="label">現時点残高</span>
+        <span className={`carry__amount amount${vault.balance < 0 ? " is-negative" : ""}`}>
+          {vault.balance < 0 ? `−${yen(Math.abs(vault.balance))}` : yen(vault.balance)}
         </span>
         {vault.breakEvenMonth ? (
           <p className="notice notice-strong carry__warn">
