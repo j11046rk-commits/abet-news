@@ -591,6 +591,11 @@ textarea.field {
     border-color var(--dur) var(--ease);
 }
 
+/* タブの切れ目が分かるよう、項目のあいだに真鍮の仕切りを入れる */
+.nav__item + .nav__item {
+  border-left: 1px solid var(--brass-hairline);
+}
+
 .nav__item:hover {
   color: var(--paper);
 }
@@ -1494,31 +1499,35 @@ textarea.field {
 }
 
 /* 瓶：右上から傾いて入り、注ぎ終わったら戻る */
+/*
+ * 瓶は右上から入り、注ぎ口をグラス側（左下）へ向けて傾ける。
+ * 回転は負の向き。正だと注ぎ口が glass と反対（右下）を向いてしまう。
+ */
 .whisky__bottle {
-  transform-origin: 176px 96px;
+  transform-origin: 168px 100px;
   animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
 }
 
 @keyframes wg-bottle {
   0% {
-    transform: translate(58px, -78px) rotate(4deg);
+    transform: translate(72px, -84px) rotate(-6deg);
     opacity: 0;
   }
   14% {
-    transform: translate(8px, -10px) rotate(108deg);
+    transform: translate(18px, -14px) rotate(-96deg);
     opacity: 1;
   }
   22%,
   70% {
-    transform: translate(0, 0) rotate(126deg);
+    transform: translate(6px, 0) rotate(-122deg);
     opacity: 1;
   }
   86% {
-    transform: translate(14px, -18px) rotate(70deg);
+    transform: translate(22px, -22px) rotate(-70deg);
     opacity: 1;
   }
   100% {
-    transform: translate(58px, -78px) rotate(4deg);
+    transform: translate(72px, -84px) rotate(-6deg);
     opacity: 0;
   }
 }
@@ -2361,4 +2370,42 @@ tr.is-off {
 
 .surface {
   isolation: isolate;
+}
+
+/* 朝10時の自動締めであることの印。責める表示にはしない。 */
+.visits__auto {
+  display: inline-block;
+  margin-left: 0.375rem;
+  color: var(--smoke);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+}
+
+/* タブから外した画面への入口。目立たせない。 */
+.backdoor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.backdoor a {
+  color: var(--brass);
+  letter-spacing: 0.08em;
+}
+
+/* 更新 — ホーム画面起動だと引っ張って更新ができないため、ナビの右端に置く */
+.nav__refresh {
+  background: none;
+  border: 0;
+  border-top: 2px solid transparent;
+  border-left: 1px solid var(--brass-hairline);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nav__refresh.is-busy {
+  color: var(--brass);
 }

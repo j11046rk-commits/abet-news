@@ -26,7 +26,7 @@ export default function CheckInButton({ isIn }: { isIn: boolean }) {
       disabled={busy}
       aria-pressed={isIn}
     >
-      {busy ? "…" : isIn ? "退出する" : "チェックイン"}
+      {busy ? "…" : isIn ? "チェックアウト" : "チェックイン"}
     </button>
   );
 }
