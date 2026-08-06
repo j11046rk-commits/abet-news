@@ -20,6 +20,14 @@ type Conflict = {
   ends_at: string;
 };
 
+/** 重複チェックが返らないときに、保存ボタンを永久に止めないための保険 */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const END_HOURS = Array.from({ length: 24 }, (_, i) => i + 1);
 const hhmm = (h: number) => `${String(h).padStart(2, "0")}:00`;
@@ -115,7 +123,14 @@ export default function ReservationForm({
 
     // 初回の送信では重複を検知して止める。2回目はそのまま通す。
     if (conflicts === null) {
-      const found = await findConflicts();
+      // 重複チェックはあくまで警告。通信が詰まっても保存自体は止めない。
+      // 予約の正しさは DB 側の制約と RLS が担保している。
+      let found: Conflict[] = [];
+      try {
+        found = await withTimeout(findConflicts(), 6000);
+      } catch {
+        found = [];
+      }
       if (found.length > 0) {
         setConflicts(found);
         setBusy(false);
