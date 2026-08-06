@@ -19,7 +19,6 @@
   --font-display: var(--f-display), "Times New Roman", serif;
   --font-mincho: var(--f-mincho), "Yu Mincho", serif;
   --font-sans: var(--f-sans), var(--f-jp), system-ui, sans-serif;
-  --font-mono: var(--f-mono), ui-monospace, monospace;
 
   --radius-none: 0px;
   --radius-edge: 2px;
@@ -147,14 +146,14 @@ a {
 }
 
 .num {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
 /* 金額が縦に並ぶ画面なので桁揃えは絶対 */
 .amount {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   white-space: nowrap;
@@ -322,7 +321,7 @@ button.surface:hover,
 }
 
 .field-num {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1224,7 +1223,8 @@ textarea.field {
   color: var(--paper);
   font-size: 0.75rem;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
 }
 
 .mcal__bars {
@@ -2011,7 +2011,8 @@ textarea.field {
   text-align: center;
   border: 1px solid;
   border-radius: 1px;
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 0.5625rem;
   line-height: 1.5;
 }
@@ -2224,7 +2225,8 @@ textarea.field {
 
 .chart__tick {
   fill: var(--smoke);
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
   font-size: 9px;
   letter-spacing: 0.06em;
 }
