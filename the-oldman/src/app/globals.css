@@ -660,7 +660,7 @@ textarea.field {
   background-color: var(--ink);
   background-image: url("/images/gate-portrait.jpg");
   background-size: cover;
-  background-position: center 32%;
+  background-position: center top;
   background-repeat: no-repeat;
 }
 
@@ -681,15 +681,15 @@ textarea.field {
    * 写真の上に重ねる層。写真の色を施設のパレットへ寄せ、
    * 文字が乗る下2/3を --ink に沈める。写真が無くてもこの層だけで成立する。
    */
+  /*
+   * 写真はすでに上1/3に灯りがあり、下2/3が沈んでいる。
+   * だから被せは最小限にして、文字が乗る帯だけを確実に沈める。
+   */
   background:
-    /* 灯りの芯 */
-    radial-gradient(38% 22% at 78% 13%, rgb(198 160 92 / 0.26), transparent 68%),
-    /* 部屋に広がる暖かい滲み */
-    radial-gradient(85% 52% at 70% 8%, rgb(176 141 79 / 0.12), transparent 72%),
-    /* 上部も少しだけ落として、白飛びを抑える */
-    radial-gradient(130% 70% at 50% 0%, rgb(12 13 15 / 0.55), rgb(12 13 15 / 0.82) 60%),
-    /* 下は完全に沈める */
-    linear-gradient(180deg, rgb(12 13 15 / 0.2) 18%, var(--ink) 74%);
+    /* ランプの光をわずかに広げる */
+    radial-gradient(60% 26% at 40% 12%, rgb(198 160 92 / 0.1), transparent 70%),
+    /* 文字が乗る下側を確実に読めるところまで落とす */
+    linear-gradient(180deg, transparent 26%, rgb(12 13 15 / 0.72) 46%, var(--ink) 68%);
 }
 
 /* 光をよぎる煙 — 1本だけ、ごく薄く */

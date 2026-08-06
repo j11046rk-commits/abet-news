@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   description: "会員制プライベートクラブの運営ダッシュボード",
   robots: { index: false, follow: false },
   // 真鍮のカジキの刻印。タブとホーム画面のアイコン。
-  icons: { icon: "/images/mark.png", apple: "/images/mark.png" },
+  icons: { icon: "/images/icon-192.png", apple: "/images/apple-touch-icon.png" },
   // LINE等でURLを共有したときのカード。真っ黒なカードになるのを防ぐ。
   openGraph: {
     title: "The Oldman",
