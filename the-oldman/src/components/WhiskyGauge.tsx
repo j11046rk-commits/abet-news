@@ -16,8 +16,10 @@ import { yen } from "@/lib/money";
  * 時間の流れ：
  *   0.0s  瓶が右上から傾いて入る
  *   0.7s  注ぎ口から一本の筋が落ちる
- *   0.7s〜 液面が目標の高さまで上がる
- *   2.6s  瓶が戻る。以降は液面がごく緩やかに揺れるだけ
+ *   1.6s〜 液面が目標の高さまで上がる
+ *   4.4s  瓶が立って戻る。以降は液面がごく緩やかに揺れるだけ
+ *
+ * 氷は最初から入っている。注いでから現れるのは順序が逆になる。
  *
  * prefers-reduced-motion では瓶も筋も出さず、静止した液面だけを描く。
  */
@@ -94,8 +96,9 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
             }}
           >
             {/*
-             * 氷は液体の下に置く。こうすると、液面より下に沈んだ部分だけが
-             * 琥珀に染まり、上に出ている部分は透明なまま残る。
+             * 氷は最初からグラスに入っている。液体より下に置くので、
+             * 液面より下に沈んだ部分だけが琥珀に染まり、
+             * 上に出ている部分は透明なまま残る。
              */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/images/ice.webp" alt="" className="whisky__ice" aria-hidden />
