@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AnimatedYen from "@/components/AnimatedYen";
 import { yen } from "@/lib/money";
 
 /**
@@ -124,7 +125,10 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
 
       <div className="whisky__figures">
         <p className="label">今月の運営積立金</p>
-        <p className="whisky__amount">{yen(saved)}</p>
+        <p className="whisky__amount">
+          {/* 液面と同じ時間割で 0 から育つ。注ぎ終わりと同時に着地する。 */}
+          <AnimatedYen to={saved} />
+        </p>
         <p className="whisky__target micro">
           目標 {yen(target)} · {Math.round(ratio * 100)}%
         </p>
