@@ -18,15 +18,30 @@ import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib
  */
 const pct = (hours: number) => `${(hours / 24) * 100}%`;
 
-type Segment = {
-  r: Reservation;
+/**
+ * 時間の格子に置くもの。
+ *
+ * 予約（これからの約束）と卓（実際に開催された記録）は別の物だが、
+ * どちらも「その時間、部屋が使われている」ことを表す。同じ形の枠で出さないと、
+ * 予約を出していない夜だけ細い線になって、開催が無かったように見える。
+ * 重なりを横に並べる計算も共通なので、ひとつの型にまとめる。
+ */
+type Piece =
+  | { kind: "reservation"; r: Reservation }
+  | { kind: "table"; s: Session };
+
+/** 日内に切り出したところまで。まだ横の位置は決まっていない。 */
+type Placed = Piece & {
   fromHour: number; // 0..23
   toHour: number; // 1..24
-  lane: number;
-  lanes: number;
   continues: boolean; // 翌日に続く
   head: boolean; // この日に始まった（前日から続いている側は false）
 };
+
+/** 重なりを横に並べたあと。 */
+type Segment = Placed & { lane: number; lanes: number };
+
+const segKey = (seg: Segment) => (seg.kind === "reservation" ? seg.r.id : seg.s.id);
 
 /** 滞在の1本。予約と同じ時間軸に、細い帯として並べる。 */
 type VisitSeg = { c: CheckIn; fromHour: number; toHour: number };
@@ -103,32 +118,54 @@ function rakeOnDay(list: Session[] | undefined, date: string): number {
 const dayKey = (d: Date) => fmtDate(d);
 const parseJstDate = (s: string) => new Date(`${s}T00:00:00+09:00`);
 
-/** その日に重なる予約を、日内のセグメントに切り出す */
-function segmentsForDay(reservations: Reservation[], date: string): Segment[] {
+/**
+ * その日に重なる予約と卓を、日内のセグメントに切り出す。
+ *
+ * 卓は終了時刻が入っているものだけ。終了が空だと長さが分からないので、
+ * 枠にはせず別に小さな印として出す（勝手な長さを描かないため）。
+ */
+function segmentsForDay(
+  reservations: Reservation[],
+  tables: Session[],
+  date: string,
+): Segment[] {
   const dayStart = new Date(jstHourToIso(date, 0)).getTime();
   const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
 
-  const raw = reservations
-    .map((r) => {
-      const s = new Date(r.starts_at).getTime();
-      const e = new Date(r.ends_at).getTime();
+  const pieces: { piece: Piece; s: number; e: number }[] = [
+    ...reservations.map((r) => ({
+      piece: { kind: "reservation" as const, r },
+      s: new Date(r.starts_at).getTime(),
+      e: new Date(r.ends_at).getTime(),
+    })),
+    ...tables
+      .filter((t) => t.ended_at)
+      .map((t) => ({
+        piece: { kind: "table" as const, s: t },
+        s: new Date(t.started_at).getTime(),
+        e: new Date(t.ended_at as string).getTime(),
+      })),
+  ];
+
+  const raw = pieces
+    .map(({ piece, s, e }) => {
       if (e <= dayStart || s >= dayEnd) return null;
       const from = Math.max(s, dayStart);
       const to = Math.min(e, dayEnd);
       return {
-        r,
+        ...piece,
         fromHour: Math.round((from - dayStart) / 3600_000),
         toHour: Math.round((to - dayStart) / 3600_000),
         continues: e > dayEnd,
         head: s >= dayStart,
       };
     })
-    .filter((x): x is Omit<Segment, "lane" | "lanes"> => x !== null)
+    .filter((x): x is Placed => x !== null)
     .sort((a, b) => a.fromHour - b.fromHour || a.toHour - b.toHour);
 
   // 重なりをレーンに割り当てる（横に並べる）
   const out: Segment[] = [];
-  let group: (Omit<Segment, "lane" | "lanes"> & { lane: number })[] = [];
+  let group: (Placed & { lane: number })[] = [];
   let groupEnd = -1;
 
   const flush = () => {
@@ -368,8 +405,12 @@ export default function CalendarView({
               <span className="micro">貸切 — 塗りつぶし</span>
             </span>
             <span className="cal__legenditem">
+              <span className="cal__legendswatch cal__legendswatch--outline" />
+              <span className="micro">卓 — 枠の中に金額</span>
+            </span>
+            <span className="cal__legenditem">
               <span className="cal__legendswatch cal__legendswatch--table" />
-              <span className="micro">卓 — 右端の金額</span>
+              <span className="micro">終了未入力の卓 — 金額だけ</span>
             </span>
             <span className="cal__legenditem">
               <span className="cal__legendswatch cal__legendswatch--visit" />
@@ -494,7 +535,7 @@ function WeekGrid({
         </div>
 
         {days.map((d) => {
-          const segs = segmentsForDay(reservations, d);
+          const segs = segmentsForDay(reservations, loose, d);
           return (
             <div key={d} className={`cal__col${d === today ? " is-today" : ""}`}>
               {Array.from({ length: 24 }, (_, h) => (
@@ -520,13 +561,18 @@ function WeekGrid({
                 />
               ) : null}
 
-              {segs.map((s) => (
+              {segs.map((seg) => (
                 <Block
-                  key={`${s.r.id}-${d}`}
-                  seg={s}
-                  name={names[s.r.created_by] ?? "メンバー"}
-                  rake={rakeOnDay(byReservation.get(s.r.id), d)}
+                  key={`${segKey(seg)}-${d}`}
+                  seg={seg}
+                  names={names}
+                  rake={
+                    seg.kind === "reservation"
+                      ? rakeOnDay(byReservation.get(seg.r.id), d)
+                      : seg.s.rake_yen
+                  }
                   onPick={onPick}
+                  onPickTable={onPickTable}
                 />
               ))}
 
@@ -550,10 +596,11 @@ function WeekGrid({
               ))}
 
               {/*
-                予約の無い卓。予約と重なっている卓は帯の中に金額を出しているので、
-                ここには出さない（1回の開催が2つに見えるため）。
+                終了時刻が入っていない卓。長さが分からないので枠にできない。
+                始まった時刻に金額だけを置く。
+                終了が入っている卓は上の枠として出しているので、ここには来ない。
               */}
-              {tablesForDay(loose, d).map((t) => (
+              {tablesForDay(loose.filter((x) => !x.ended_at), d).map((t) => (
                 <button
                   key={`t-${t.s.id}-${d}`}
                   className={`cal__table${t.open ? " is-open" : ""}${t.head ? "" : " is-tail"}`}
@@ -593,25 +640,38 @@ function WeekGrid({
   );
 }
 
+/**
+ * 時間の格子に置く1枚。
+ *
+ * 予約でも卓でも同じ形で出す。卓を細い線にしていたら、予約を出していない夜の
+ * 開催だけ線になって「反映されていない」ように見えた。
+ * 卓はポーカーの色（真鍮）で、塗りはしない — 塗りは貸切のしるしなので。
+ */
 function Block({
   seg,
-  name,
+  names,
   rake,
   onPick,
+  onPickTable,
 }: {
   seg: Segment;
-  name: string;
-  /** この予約と同じ夜に立った卓のレーキ。0 なら記録がまだ無い。 */
+  names: Record<string, string>;
+  /** 予約ならその夜の卓のレーキ（0 なら記録がまだ無い）、卓ならその卓のレーキ。 */
   rake: number;
   onPick: (r: Reservation) => void;
+  onPickTable: (s: Session) => void;
 }) {
-  const main = purposeMeta(seg.r.purposes[0]);
-  const rest = seg.r.purposes.slice(1);
+  const isRes = seg.kind === "reservation";
+  const main = isRes ? purposeMeta(seg.r.purposes[0]) : purposeMeta("poker");
+  const rest = isRes ? seg.r.purposes.slice(1) : [];
+  const filled = isRes && seg.r.is_exclusive;
+  const by = isRes ? seg.r.created_by : seg.s.created_by;
+  const name = (by && names[by]) || "メンバー";
   const width = `calc((100% - 2px) / ${seg.lanes})`;
 
   return (
     <button
-      className={`cal__block${seg.r.is_exclusive ? " is-exclusive" : ""}${seg.head ? "" : " is-tail"}`}
+      className={`cal__block${filled ? " is-exclusive" : ""}${seg.head ? "" : " is-tail"}`}
       style={{
         top: pct(seg.fromHour),
         height: pct(seg.toHour - seg.fromHour),
@@ -619,13 +679,19 @@ function Block({
         width,
         // 塗り = 貸切かどうか。相席OKは枠線のみで中は透過（SPEC §3-3b）
         borderColor: main.color,
-        background: seg.r.is_exclusive ? main.color : "transparent",
-        color: seg.r.is_exclusive ? main.onFill : "var(--paper)",
+        background: filled ? main.color : "transparent",
+        color: filled ? main.onFill : "var(--paper)",
       }}
+      title={
+        isRes
+          ? `${name} ${fmtTime(seg.r.starts_at)}–${fmtTime(seg.r.ends_at)}`
+          : `卓 ${name} ${fmtTime(seg.s.started_at)}–${fmtTime(seg.s.ended_at as string)} ${yen(seg.s.rake_yen)}`
+      }
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
-        onPick(seg.r);
+        if (seg.kind === "reservation") onPick(seg.r);
+        else onPickTable(seg.s);
       }}
     >
       {/*
@@ -691,7 +757,11 @@ function MonthGrid({
       <div className="mcal__grid">
         {days.map((d) => {
           // 1回の開催は1本だけ。深夜まで続いた予約を翌日にも出すと、2件あったように見える。
-          const segs = segmentsForDay(reservations, d).filter((s) => s.head);
+          // 月表示のバーは予約だけ。卓はその日のレーキ合計として下に出す。
+          const segs = segmentsForDay(reservations, [], d).filter(
+            (x): x is Segment & { kind: "reservation"; r: Reservation } =>
+              x.head && x.kind === "reservation",
+          );
           const outside = d.slice(0, 7) !== anchorMonth;
           return (
             <div key={d} className={`mcal__cell${outside ? " is-outside" : ""}${d === today ? " is-today" : ""}`}>
