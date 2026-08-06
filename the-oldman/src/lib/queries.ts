@@ -174,3 +174,23 @@ export async function getExclusiveHours(): Promise<ExclusiveHours[]> {
     shared_hours: Number((r as ExclusiveHours).shared_hours ?? 0),
   }));
 }
+
+/** 参加者ごとの参加回数と直近参加日 */
+export async function getPlayerStats(): Promise<Map<string, { count: number; last: string | null }>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("session_players")
+    .select("player_id, sessions(started_at)");
+
+  type Row = { player_id: string; sessions: { started_at: string } | { started_at: string }[] | null };
+  const map = new Map<string, { count: number; last: string | null }>();
+
+  for (const row of (data ?? []) as unknown as Row[]) {
+    const s = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
+    const cur = map.get(row.player_id) ?? { count: 0, last: null };
+    cur.count += 1;
+    if (s?.started_at && (!cur.last || s.started_at > cur.last)) cur.last = s.started_at;
+    map.set(row.player_id, cur);
+  }
+  return map;
+}
