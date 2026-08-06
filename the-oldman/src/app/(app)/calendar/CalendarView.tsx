@@ -46,10 +46,7 @@ function tablesForDay(sessions: Session[], date: string): TableSeg[] {
 
   return sessions
     .map((s) => {
-      const st = new Date(s.started_at).getTime();
-      const en = s.ended_at
-        ? new Date(s.ended_at).getTime()
-        : st + OPEN_TABLE_HOURS * 3600_000;
+      const [st, en] = tableSpan(s);
       if (en <= dayStart || st >= dayEnd) return null;
       return {
         s,
@@ -87,6 +84,56 @@ function visitsForDay(visits: CheckIn[], date: string): VisitSeg[] {
     })
     .filter((x): x is VisitSeg => x !== null)
     .sort((a, b) => a.fromHour - b.fromHour);
+}
+
+/** その卓が占める時間。終了が空なら仮の長さで見る。 */
+function tableSpan(s: Session): [number, number] {
+  const st = new Date(s.started_at).getTime();
+  return [st, s.ended_at ? new Date(s.ended_at).getTime() : st + OPEN_TABLE_HOURS * 3600_000];
+}
+
+/**
+ * 予約と卓を「同じ開催」に束ねる。
+ *
+ * 施設は1部屋しかないので、時間が重なっている予約と卓は同じ夜のこと。
+ * 別々に描くと、1回の開催が2つ入っているように見える。
+ * 束ねた卓は予約の帯の中に金額として出し、単独の印は描かない。
+ */
+function pairTables(reservations: Reservation[], sessions: Session[]) {
+  const byReservation = new Map<string, Session[]>();
+  const paired = new Set<string>();
+
+  for (const s of sessions) {
+    const [ss, se] = tableSpan(s);
+    const r = reservations.find(
+      (x) => new Date(x.starts_at).getTime() < se && new Date(x.ends_at).getTime() > ss,
+    );
+    if (!r) continue;
+    byReservation.set(r.id, [...(byReservation.get(r.id) ?? []), s]);
+    paired.add(s.id);
+  }
+
+  return {
+    byReservation,
+    /** どの予約にも紐づかない卓。単独の印として描く。 */
+    loose: sessions.filter((s) => !paired.has(s.id)),
+  };
+}
+
+/**
+ * その日に始まった卓のレーキ合計。
+ *
+ * 日をまたぐ予約は帯が2日に分かれるので、始まった日のぶんだけ数える。
+ * 両日に出すと同じレーキを2回数えることになる。
+ */
+function rakeStartedOn(list: Session[] | undefined, date: string): number {
+  if (!list?.length) return 0;
+  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
+  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+  return list.reduce((n, s) => {
+    const t = new Date(s.started_at).getTime();
+    return t >= dayStart && t < dayEnd ? n + s.rake_yen : n;
+  }, 0);
 }
 
 const dayKey = (d: Date) => fmtDate(d);
@@ -179,6 +226,12 @@ export default function CalendarView({
   }, []);
 
   const today = fmtDate(nowJst());
+
+  // 予約と卓の対応づけ。週・月・詳細で同じ束ね方を使う。
+  const { byReservation, loose } = useMemo(
+    () => pairTables(reservations, sessions),
+    [reservations, sessions],
+  );
 
   const days = useMemo(() => {
     const a = parseJstDate(anchor);
@@ -309,7 +362,8 @@ export default function CalendarView({
           today={today}
           reservations={reservations}
           visits={visits}
-          sessions={sessions}
+          byReservation={byReservation}
+          loose={loose}
           onPickVisit={setVisit}
           onPickTable={setTable}
           meId={meId}
@@ -386,6 +440,7 @@ export default function CalendarView({
           <Detail
             r={detail}
             name={names[detail.created_by] ?? "メンバー"}
+            tables={byReservation.get(detail.id) ?? []}
             editable={isOwner || detail.created_by === meId}
             names={names}
             onDone={() => setDetail(null)}
@@ -420,7 +475,8 @@ function WeekGrid({
   today,
   reservations,
   visits,
-  sessions,
+  byReservation,
+  loose,
   onPickVisit,
   onPickTable,
   meId,
@@ -434,7 +490,10 @@ function WeekGrid({
   today: string;
   reservations: Reservation[];
   visits: CheckIn[];
-  sessions: Session[];
+  /** 予約ID → その夜の卓。予約の帯の中に金額として出す。 */
+  byReservation: Map<string, Session[]>;
+  /** 予約の無い卓。単独の印として出す。 */
+  loose: Session[];
   onPickVisit: (c: CheckIn) => void;
   onPickTable: (s: Session) => void;
   meId: string;
@@ -502,7 +561,13 @@ function WeekGrid({
               ) : null}
 
               {segs.map((s) => (
-                <Block key={`${s.r.id}-${d}`} seg={s} name={names[s.r.created_by] ?? "メンバー"} onPick={onPick} />
+                <Block
+                  key={`${s.r.id}-${d}`}
+                  seg={s}
+                  name={names[s.r.created_by] ?? "メンバー"}
+                  rake={rakeStartedOn(byReservation.get(s.r.id), d)}
+                  onPick={onPick}
+                />
               ))}
 
               {/*
@@ -525,11 +590,10 @@ function WeekGrid({
               ))}
 
               {/*
-                実際に立った卓。予約の帯の上に、右端の小さな金額として重ねる。
-                この施設でいちばん見たいのは「その日いくら入ったか」なので、
-                色の帯ではなく数字そのものを出す。
+                予約の無い卓。予約と重なっている卓は帯の中に金額を出しているので、
+                ここには出さない（1回の開催が2つに見えるため）。
               */}
-              {tablesForDay(sessions, d).map((t) => (
+              {tablesForDay(loose, d).map((t) => (
                 <button
                   key={`t-${t.s.id}-${d}`}
                   className={`cal__table${t.open ? " is-open" : ""}${t.head ? "" : " is-tail"}`}
@@ -560,10 +624,13 @@ function WeekGrid({
 function Block({
   seg,
   name,
+  rake,
   onPick,
 }: {
   seg: Segment;
   name: string;
+  /** この予約と同じ夜に立った卓のレーキ。0 なら記録がまだ無い。 */
+  rake: number;
   onPick: (r: Reservation) => void;
 }) {
   const main = purposeMeta(seg.r.purposes[0]);
@@ -591,6 +658,8 @@ function Block({
     >
       <span className="cal__blockname">{name}</span>
       <span className="cal__blockpurpose">{main.en}</span>
+      {/* この夜のレーキ。予約と卓は同じ開催なので、帯を分けずにここへ入れる。 */}
+      {rake > 0 ? <span className="cal__blockrake amount">{yen(rake)}</span> : null}
       {rest.length > 0 ? (
         <span className="cal__stripes" aria-hidden>
           {rest.map((p) => (
@@ -761,12 +830,15 @@ function Popover({ children, onClose }: { children: React.ReactNode; onClose: ()
 function Detail({
   r,
   name,
+  tables,
   editable,
   names,
   onDone,
 }: {
   r: Reservation;
   name: string;
+  /** この予約と同じ夜に立った卓。予約とは別の記録なので、金額だけ添える。 */
+  tables: Session[];
   editable: boolean;
   names: Record<string, string>;
   onDone: () => void;
@@ -803,6 +875,13 @@ function Detail({
       </p>
       {r.memo ? <p className="rcard__memo dim">{r.memo}</p> : null}
       {!r.is_exclusive ? <p className="micro">この時間は合流できます。</p> : null}
+
+      {tables.length > 0 ? (
+        <p className="rcard__rake">
+          <span className="label">この夜のレーキ</span>
+          <span className="amount">{yen(tables.reduce((n, t) => n + t.rake_yen, 0))}</span>
+        </p>
+      ) : null}
 
       {editable ? (
         <div className="rform__actions">

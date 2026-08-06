@@ -38,9 +38,18 @@ export default function WeekStrip({
               ) : (
                 items.map((r) => {
                   const m = purposeMeta(r.purposes[0]);
-                  // 日をまたぐ予約は、その日に実際に始まる時刻を出す
-                  const segStart = Math.max(new Date(r.starts_at).getTime(), dayStart);
-                  const hour = Math.round((segStart - dayStart) / 3600_000);
+                  /*
+                   * 数字だけだと人数にも件数にも見えるので、時刻として読める形で出す。
+                   * 日をまたいだ予約の続きは、始まりが前日なので終わり側を出す
+                   * （前日から翌日まで通しの日は、その日いっぱい埋まっている）。
+                   */
+                  const startsToday = new Date(r.starts_at).getTime() >= dayStart;
+                  const endsToday = new Date(r.ends_at).getTime() <= dayEnd;
+                  const label = startsToday
+                    ? fmtTime(r.starts_at)
+                    : endsToday
+                      ? `〜${fmtTime(r.ends_at)}`
+                      : "終日";
                   return (
                     <span
                       key={r.id}
@@ -52,7 +61,7 @@ export default function WeekStrip({
                       }}
                       title={`${names[r.created_by] ?? "メンバー"} ${fmtTime(r.starts_at)}–${fmtTime(r.ends_at)}`}
                     >
-                      {String(hour).padStart(2, "0")}
+                      {label}
                     </span>
                   );
                 })

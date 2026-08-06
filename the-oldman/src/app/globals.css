@@ -3254,3 +3254,22 @@ tr.is-off {
   font-size: 1.5rem;
   line-height: 1.1;
 }
+
+/* 予約の帯に入るレーキ。予約と卓は同じ開催なので、帯を分けずにここに出す */
+.cal__blockrake {
+  margin-top: auto;
+  font-size: 0.5625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* 予約の詳細に添えるレーキ */
+.rcard__rake {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--brass-hairline);
+  color: var(--brass);
+}
