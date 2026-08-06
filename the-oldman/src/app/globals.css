@@ -1,0 +1,2055 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   The Oldman — デザイントークン
+   DESIGN.md §2 の6色だけで組む。7色目を足したくなったら階層の作り方が誤り。
+   例外はカレンダーの用途色2つ（--pine / --ash）だけ。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --color-ink: #0c0d0f;
+  --color-leather: #1a1512;
+  --color-brass: #b08d4f;
+  --color-claret: #5a2028;
+  --color-paper: #e8e1d3;
+  --color-smoke: #7c766b;
+  --color-pine: #4a5a52;
+  --color-ash: #3a3632;
+
+  --font-display: var(--f-display), "Times New Roman", serif;
+  --font-mincho: var(--f-mincho), "Yu Mincho", serif;
+  --font-sans: var(--f-sans), var(--f-jp), system-ui, sans-serif;
+  --font-mono: var(--f-mono), ui-monospace, monospace;
+
+  --radius-none: 0px;
+  --radius-edge: 2px;
+}
+
+:root {
+  /* 6色 */
+  --ink: #0c0d0f;
+  --leather: #1a1512;
+  --brass: #b08d4f;
+  --claret: #5a2028;
+  --paper: #e8e1d3;
+  --smoke: #7c766b;
+
+  /* 用途色（カレンダー専用の例外2色） */
+  --pine: #4a5a52;
+  --ash: #3a3632;
+
+  /* 派生は透明度違いのみ */
+  --brass-hairline: rgb(176 141 79 / 0.28);
+  --brass-hairline-strong: rgb(176 141 79 / 0.5);
+  --brass-wash: rgb(176 141 79 / 0.08);
+  --claret-wash: rgb(90 32 40 / 0.35);
+  --paper-dim: rgb(232 225 211 / 0.62);
+  --leather-raised: #211b17;
+
+  /* タイプスケール — 中間を作らない（DESIGN.md §3）*/
+  --fs-hero: clamp(2.25rem, 11vw, 5.5rem);
+  --fs-display: clamp(1.75rem, 6vw, 2.5rem);
+  --fs-body: 0.875rem;
+  --fs-label: 0.6875rem;
+  --fs-micro: 0.625rem;
+
+  --ease: cubic-bezier(0.16, 0.84, 0.44, 1);
+  --dur: 240ms;
+
+  color-scheme: dark;
+}
+
+/* ── ベース ─────────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  /* ドロップシャドウは使わない。階層は明度差とヘアラインだけで作る。 */
+  box-shadow: none;
+}
+
+html {
+  background: var(--ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* フィルムグレイン — 全面に1枚だけ。opacity .03（DESIGN.md §4）*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* フォーカスリング — 真鍮 2px（非機能要件）*/
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--brass);
+  color: var(--ink);
+}
+
+/* ── 活字 ───────────────────────────────────────────────────────────── */
+
+.display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+.mincho {
+  font-family: var(--font-mincho);
+  font-weight: 500;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 金額が縦に並ぶ画面なので桁揃えは絶対 */
+.amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  line-height: 1.4;
+}
+
+.micro {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  color: var(--smoke);
+}
+
+.dim {
+  color: var(--smoke);
+}
+
+/* ── レイアウト ─────────────────────────────────────────────────────── */
+
+.shell {
+  max-width: 62rem;
+  margin: 0 auto;
+  /* 下部固定ナビの分だけ余白を取り、最後の行が隠れないようにする */
+  padding: 0 1.125rem 6rem;
+}
+
+@media (min-width: 768px) {
+  .shell {
+    padding: 0 2rem 4rem;
+  }
+}
+
+/* 面 — 上辺のみに真鍮のヘアライン。葉巻のバンド（DESIGN.md §4）*/
+.surface {
+  position: relative;
+  background: var(--leather);
+  border-top: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
+  padding: 1.125rem 1.125rem 1.375rem;
+  transition: border-color var(--dur) var(--ease);
+}
+
+.surface-flat {
+  background: transparent;
+  border-top: 1px solid var(--brass-hairline);
+  padding: 1rem 0 1.25rem;
+}
+
+a.surface:hover,
+button.surface:hover,
+.surface-hover:hover {
+  border-top-color: var(--brass-hairline-strong);
+}
+
+/* セクション見出し — 罫線はラベルの右側だけに伸ばす */
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 2.25rem 0 0.875rem;
+}
+
+.rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--brass-hairline);
+}
+
+.rule > .label {
+  white-space: nowrap;
+}
+
+/* ── 部品 ───────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.125rem;
+  border: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: var(--fs-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--brass);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c09a58;
+}
+
+.btn-danger {
+  border-color: rgb(90 32 40 / 0.7);
+  color: #b9757e;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--claret);
+  background: var(--claret-wash);
+}
+
+.btn-sm {
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font-size: var(--fs-micro);
+}
+
+/* 入力 — 下線だけ。箱にしない */
+.field {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.125rem;
+  border: 0;
+  border-bottom: 1px solid var(--brass-hairline);
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 1rem; /* iOS のズーム防止に 16px を下回らせない */
+  transition: border-color var(--dur) var(--ease);
+  appearance: none;
+}
+
+.field:hover {
+  border-bottom-color: var(--brass-hairline-strong);
+}
+
+.field:focus {
+  outline: none;
+  border-bottom-color: var(--brass);
+}
+
+.field-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+select.field {
+  background-image: linear-gradient(45deg, transparent 50%, var(--smoke) 50%),
+    linear-gradient(135deg, var(--smoke) 50%, transparent 50%);
+  background-position:
+    right 0.75rem center,
+    right 0.4rem center;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.5rem;
+}
+
+option {
+  background: var(--leather);
+  color: var(--paper);
+}
+
+textarea.field {
+  min-height: 4.5rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.field-label {
+  display: block;
+  font-size: var(--fs-label);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  margin-bottom: 0.125rem;
+}
+
+/* チェック — 枠線と塗りだけ。アイコンフォントを持ち込まない */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.check input {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin: 0;
+  border: 1px solid var(--brass-hairline-strong);
+  border-radius: 1px;
+  background: transparent;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.check input:checked {
+  background: var(--brass);
+  border-color: var(--brass);
+}
+
+.check input:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* バッジ — 面積を極小に（DESIGN.md §9-6）*/
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.4rem;
+  border-radius: 1px;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-outline {
+  border: 1px solid var(--brass-hairline);
+  color: var(--smoke);
+}
+
+.badge-exclusive {
+  background: var(--claret);
+  color: var(--paper);
+}
+
+.badge-brass {
+  border: 1px solid var(--brass);
+  color: var(--brass);
+}
+
+/* 警告 */
+.notice {
+  border-left: 2px solid var(--brass);
+  padding: 0.625rem 0.875rem;
+  background: var(--brass-wash);
+  font-size: var(--fs-body);
+}
+
+.notice-strong {
+  border-left-color: var(--claret);
+  background: var(--claret-wash);
+}
+
+.err {
+  color: #c98089;
+  font-size: var(--fs-body);
+}
+
+/* 表 — 罫線は行間の1本だけ */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  font-size: var(--fs-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--smoke);
+  font-weight: 400;
+  padding: 0.5rem 0.5rem 0.5rem 0;
+  border-bottom: 1px solid var(--brass-hairline);
+}
+
+.table td {
+  padding: 0.75rem 0.5rem 0.75rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 空状態 */
+.empty {
+  color: var(--smoke);
+  padding: 1.75rem 0;
+  font-size: var(--fs-body);
+}
+
+/* ── モーション ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* スクロールバー — 主張させない */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--brass-hairline);
+  border-radius: 1px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── マストヘッド / ナビ ─────────────────────────────────────────────── */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 70;
+  background: var(--ink);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.125rem 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .masthead {
+    padding: 2rem 2rem 1rem;
+  }
+}
+
+.masthead__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.masthead__name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--paper);
+}
+
+.masthead__sub {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.28em;
+  color: var(--smoke);
+}
+
+.masthead__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: none;
+}
+
+.masthead__who {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .masthead__who {
+    display: inline;
+  }
+}
+
+/* モバイル：下部固定。デスクトップ：マストヘッド直下の帯 */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--ink);
+  border-top: 1px solid var(--brass-hairline);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.125rem 0.5rem;
+  border-top: 2px solid transparent;
+  margin-top: -1px;
+  color: var(--smoke);
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.nav__item:hover {
+  color: var(--paper);
+}
+
+.nav__item.is-active {
+  color: var(--brass);
+  border-top-color: var(--brass);
+}
+
+.nav__en {
+  display: none;
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+}
+
+.nav__ja {
+  font-size: 0.625rem;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    position: static;
+    max-width: 62rem;
+    margin: 0 auto 1.5rem;
+    grid-auto-columns: max-content;
+    justify-content: start;
+    gap: 1.75rem;
+    padding: 0 2rem;
+    border-top: 1px solid var(--brass-hairline);
+  }
+
+  .nav__item {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.6rem 0 0.55rem;
+  }
+
+  .nav__en {
+    display: inline;
+  }
+
+  .nav__ja {
+    font-size: var(--fs-micro);
+    letter-spacing: 0.06em;
+  }
+}
+
+/* ── ゲート（ログイン / パスワード変更）─────────────────────────────── */
+
+/*
+ * ログイン画面の背景。
+ * 写真は置かない。上手側の低い位置に真鍮のランプが1つあり、
+ * 光がすぐ減衰して下2/3が --ink に沈む、という状態だけを重ねる。
+ * 画像を使わないので重量ゼロ、どの画面幅でも構図が崩れない。
+ */
+.gate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 2.5rem 1.25rem;
+  isolation: isolate;
+}
+
+.gate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    /* 灯りの芯 */
+    radial-gradient(38% 22% at 78% 13%, rgb(198 160 92 / 0.3), transparent 68%),
+    /* 部屋に広がる暖かい滲み */
+    radial-gradient(85% 52% at 70% 8%, rgb(176 141 79 / 0.14), transparent 72%),
+    /* 革のサーフェスがかすかに照り返す */
+    radial-gradient(120% 60% at 50% 0%, rgb(26 21 18 / 0.9), transparent 60%),
+    /* 下は沈める */
+    linear-gradient(180deg, transparent 30%, var(--ink) 78%),
+    var(--ink);
+}
+
+/* 光をよぎる煙 — 1本だけ、ごく薄く */
+.gate::after {
+  content: "";
+  position: absolute;
+  top: -12%;
+  right: -20%;
+  width: 90%;
+  height: 62%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(
+    196deg,
+    transparent 42%,
+    rgb(232 225 211 / 0.05) 50%,
+    transparent 58%
+  );
+  filter: blur(18px);
+}
+
+.gate__inner {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.gate__head {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.gate__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 12vw, 3.25rem);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.gate__sub {
+  letter-spacing: 0.34em;
+  padding-left: 0.34em;
+}
+
+.gate__lead {
+  margin-bottom: 1.25rem;
+  line-height: 1.8;
+}
+
+.gate__notice {
+  margin-bottom: 1.25rem;
+}
+
+.gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gate__submit {
+  margin-top: 0.25rem;
+}
+
+.gate__foot {
+  display: block;
+  margin-top: 2rem;
+  text-align: center;
+  line-height: 1.9;
+  letter-spacing: 0.06em;
+}
+
+/* ── ページ見出し ───────────────────────────────────────────────────── */
+
+.page {
+  padding: 0.5rem 0 0;
+}
+
+.page__lead {
+  margin-top: 0.5rem;
+  line-height: 1.8;
+  max-width: 34rem;
+}
+
+.page__aside {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--brass);
+  letter-spacing: 0.1em;
+}
+
+.block {
+  display: flex;
+  width: 100%;
+}
+
+/* ── 予約フォーム ───────────────────────────────────────────────────── */
+
+.rform {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rform__row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.rform__set {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* 用途は色 + 字間を広げた極小の大文字ラベルで区別する。アイコンは使わない。 */
+.rform__purposes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.rform__code {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.2em;
+}
+
+/* 貸切は明示的な選択。用途タグの「プライベート」と混同させない */
+.rform__exclusive {
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 0.875rem;
+}
+
+.rform__exclusive-label {
+  color: var(--paper);
+  letter-spacing: 0.04em;
+}
+
+.rform__exclusive-note {
+  line-height: 1.8;
+  padding-left: 1.625rem;
+  margin-top: -0.25rem;
+}
+
+.rform__conflicts {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.rform__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+}
+
+.rform__actions .btn-primary {
+  flex: 1;
+  min-width: 9rem;
+}
+
+/* ── 予約カード / 一覧 ──────────────────────────────────────────────── */
+
+.rlist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rlist--past .rcard {
+  opacity: 0.6;
+}
+
+.rlist__toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.rlist__toggle:hover {
+  color: var(--paper);
+}
+
+.rcard {
+  display: block;
+  padding: 0.875rem 1rem 1rem;
+}
+
+.rcard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.rcard__when {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.rcard__date {
+  font-size: 1.0625rem;
+  color: var(--paper);
+}
+
+.rcard__time {
+  font-size: 0.9375rem;
+  color: var(--brass);
+}
+
+.rcard__purposes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.rcard__purpose {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.2em;
+}
+
+.rcard__title {
+  margin-top: 0.5rem;
+  color: var(--paper);
+}
+
+.rcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.625rem;
+}
+
+.rcard__memo {
+  margin-top: 0.5rem;
+  font-size: var(--fs-body);
+  line-height: 1.7;
+  border-top: 1px solid rgb(176 141 79 / 0.12);
+  padding-top: 0.5rem;
+}
+
+/* ── カレンダー ─────────────────────────────────────────────────────── */
+
+.cal__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0 1rem;
+}
+
+.cal__nav,
+.cal__views {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.cal__title {
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  order: -1;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .cal__title {
+    order: 0;
+    width: auto;
+  }
+}
+
+.btn.is-on {
+  border-color: var(--brass);
+  color: var(--brass);
+}
+
+.cal {
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.cal__head {
+  display: grid;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--ink);
+  border-bottom: 1px solid var(--brass-hairline);
+}
+
+.cal__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  padding: 0.5rem 0 0.4rem;
+  border-left: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.cal__day.is-today {
+  color: var(--brass);
+}
+
+.cal__day.is-today .micro {
+  color: var(--brass);
+}
+
+.cal__daynum {
+  font-size: 1rem;
+}
+
+.cal__body {
+  display: grid;
+  position: relative;
+}
+
+.cal__hours {
+  border-right: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.cal__hour {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 0.375rem;
+}
+
+.cal__hour .micro {
+  transform: translateY(-0.4em);
+}
+
+.cal__col {
+  position: relative;
+  border-left: 1px solid rgb(176 141 79 / 0.12);
+  touch-action: pan-y;
+}
+
+.cal__slot {
+  border-bottom: 1px solid rgb(176 141 79 / 0.07);
+  cursor: crosshair;
+}
+
+.cal__slot:hover {
+  background: var(--brass-wash);
+}
+
+.cal__drag {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  background: var(--brass-wash);
+  border: 1px dashed var(--brass);
+  pointer-events: none;
+}
+
+.cal__block {
+  position: absolute;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  padding: 0.15rem 0.25rem;
+  border: 1px solid;
+  border-radius: 1px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: filter var(--dur) var(--ease);
+}
+
+.cal__block:hover {
+  filter: brightness(1.15);
+}
+
+.cal__blockname {
+  font-size: 0.625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cal__blockpurpose {
+  font-size: 0.5rem;
+  letter-spacing: 0.16em;
+  opacity: 0.85;
+  line-height: 1.2;
+}
+
+/* 複数用途は下端に他の用途色の細いストライプを重ねる */
+.cal__stripes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  display: flex;
+}
+
+.cal__stripes > span {
+  flex: 1;
+}
+
+.cal__legendbar {
+  margin-top: 1rem;
+}
+
+.cal__legendtoggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cal__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.cal__legenditem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cal__legendswatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 1px;
+}
+
+.cal__legendswatch--outline {
+  border: 1px solid var(--smoke);
+  background: transparent;
+}
+
+/* 月表示 */
+.mcal__head {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid var(--brass-hairline);
+  border-bottom: 1px solid var(--brass-hairline);
+}
+
+.mcal__head > span {
+  text-align: center;
+  padding: 0.4rem 0;
+}
+
+.mcal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.mcal__cell {
+  min-height: 4.5rem;
+  padding: 0.25rem;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+  border-left: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.mcal__cell.is-outside {
+  opacity: 0.35;
+}
+
+.mcal__cell.is-today .mcal__daynum {
+  color: var(--brass);
+}
+
+.mcal__daynum {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--paper);
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.mcal__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.25rem;
+}
+
+.mcal__bar {
+  height: 5px;
+  border: 1px solid;
+  border-radius: 1px;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ── ポップオーバー ─────────────────────────────────────────────────── */
+
+.pop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .pop {
+    align-items: center;
+  }
+}
+
+.pop__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(12 13 15 / 0.82);
+  border: 0;
+  cursor: pointer;
+}
+
+.pop__panel {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 1.25rem 1.125rem 1.5rem;
+}
+
+.pop__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cal__drafthead {
+  margin-bottom: 1rem;
+  color: var(--brass);
+}
+
+/* 週グリッドはスクロール領域に収め、開いた瞬間に夜の時間帯が見えるようにする */
+.cal__scroll {
+  max-height: 60dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 768px) {
+  .cal__scroll {
+    max-height: 64dvh;
+  }
+}
+
+.cal__col.is-today {
+  background: rgb(176 141 79 / 0.035);
+}
+
+/* 用途タグの「プライベート」と混同させないため、貸切希望は独立した見出しを持たせる */
+.rform__exclusive-head {
+  display: block;
+  color: var(--brass);
+  margin-bottom: 0.125rem;
+}
+
+.rform__exclusive-label {
+  font-size: 0.9375rem;
+}
+
+/* ── メンバー ───────────────────────────────────────────────────────── */
+
+.ta-r {
+  text-align: right;
+}
+
+.members__foot {
+  margin-top: 2rem;
+  line-height: 1.9;
+}
+
+.ehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.ehead__title {
+  color: var(--paper);
+}
+
+.ehead__spans {
+  display: flex;
+  gap: 0.375rem;
+}
+
+/*
+ * 貸切と通常利用は同じ太さ・同じスケール。大きさで序列をつけない。
+ * 順位番号は振らない（ランキング化させない）。
+ */
+.ebars {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ebar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "name name"
+    "etrack enum"
+    "strack snum";
+  align-items: center;
+  gap: 0.25rem 0.625rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+@media (min-width: 560px) {
+  .ebar {
+    grid-template-columns: 7rem 1fr 4.5rem 1fr 4.5rem;
+    grid-template-areas: "name etrack enum strack snum";
+  }
+}
+
+.ebar__name {
+  grid-area: name;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ebar__track {
+  height: 6px;
+  background: rgb(176 141 79 / 0.1);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.ebar__track--exclusive {
+  grid-area: etrack;
+}
+
+.ebar__track--shared {
+  grid-area: strack;
+}
+
+.ebar__fill {
+  display: block;
+  height: 100%;
+  transition: width var(--dur) var(--ease);
+}
+
+.ebar__fill--exclusive {
+  background: var(--claret);
+}
+
+.ebar__fill--shared {
+  background: var(--brass-hairline-strong);
+}
+
+.ebar__num {
+  font-size: 0.8125rem;
+  text-align: right;
+  grid-area: enum;
+}
+
+.ebar__num--sub {
+  color: var(--smoke);
+  grid-area: snum;
+}
+
+.ebars__key {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+}
+
+.ebars__swatch {
+  display: inline-block;
+  width: 0.625rem;
+  height: 6px;
+  border-radius: 1px;
+}
+
+.ebars__swatch--exclusive {
+  background: var(--claret);
+}
+
+.ebars__swatch--shared {
+  background: var(--brass-hairline-strong);
+  margin-left: 0.75rem;
+}
+
+/* ── アカウント管理 ─────────────────────────────────────────────────── */
+
+.issued {
+  margin-bottom: 1.25rem;
+}
+
+.issued__pair {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+}
+
+.issued__value {
+  font-size: 1.0625rem;
+  color: var(--brass);
+  user-select: all;
+}
+
+.accounts td {
+  vertical-align: middle;
+}
+
+.accounts tr.is-off {
+  opacity: 0.5;
+}
+
+.accounts__ops {
+  display: flex;
+  gap: 0.375rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.field-sm {
+  min-height: 2rem;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.125rem;
+}
+
+/* ── 積立ゲージ（シグネチャー要素・DESIGN.md §5）──────────────────────── */
+
+.vault {
+  display: flex;
+  align-items: stretch;
+  gap: 1.5rem;
+  padding: 1.5rem 0 0.5rem;
+}
+
+@media (min-width: 560px) {
+  .vault {
+    gap: 2.5rem;
+  }
+
+  .vault__glass {
+    width: 120px;
+    height: 320px;
+  }
+}
+
+.vault__glass {
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 260px;
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-edge);
+  overflow: hidden;
+  background: linear-gradient(180deg, rgb(176 141 79 / 0.04), transparent 40%);
+  transition: border-color 400ms var(--ease);
+}
+
+/* 目標到達で外周の真鍮リングが静かに点灯する。点滅させない。 */
+.vault__glass::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid var(--brass);
+  border-radius: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms var(--ease);
+}
+
+.vault__glass.is-reached::after {
+  opacity: 0.55;
+}
+
+.vault__liquid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #b08d4f, #8a6b33);
+  transition: height 900ms var(--ease);
+}
+
+.vault__wave {
+  position: absolute;
+  top: -11px;
+  left: 0;
+  width: 200%;
+  height: 12px;
+  fill: #b08d4f;
+  animation: vault-drift 4.2s linear infinite;
+}
+
+.vault__wave--back {
+  opacity: 0.55;
+  animation-duration: 6.4s;
+  animation-direction: reverse;
+}
+
+@keyframes vault-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault__wave {
+    animation: none;
+    transform: none;
+  }
+
+  .vault__wave--back {
+    display: none;
+  }
+
+  .vault__liquid {
+    transition: none;
+  }
+}
+
+.vault__ticks i {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  height: 1px;
+  background: var(--brass-hairline-strong);
+}
+
+.vault__figures {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.vault__amount {
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+  margin: 0.25rem 0 0.5rem;
+  /* 桁の途中で折り返させない */
+  white-space: nowrap;
+}
+
+.vault__target {
+  letter-spacing: 0.1em;
+}
+
+/* ── ダッシュボード ─────────────────────────────────────────────────── */
+
+.recovery {
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 1rem;
+  margin-top: 1.5rem;
+}
+
+.recovery__lead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  font-size: 1rem;
+}
+
+.recovery.is-reached .recovery__lead {
+  display: block;
+  line-height: 1.8;
+}
+
+.recovery__amount {
+  font-size: 1.75rem;
+  color: var(--brass);
+}
+
+.recovery__list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--paper);
+  line-height: 1.8;
+}
+
+.recovery__strong {
+  color: var(--brass);
+  font-weight: 500;
+}
+
+.recovery__claret {
+  color: #a2606a;
+}
+
+.recovery.is-reached .recovery__lead {
+  color: var(--brass);
+}
+
+.carry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 0.875rem;
+  margin-top: 1.5rem;
+}
+
+.carry__amount {
+  font-size: 1.125rem;
+}
+
+.carry__amount.is-negative {
+  color: #a2606a;
+}
+
+.carry__warn {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.rule__link {
+  color: var(--brass);
+  white-space: nowrap;
+  order: 1;
+}
+
+.rule > .rule__link {
+  margin-left: auto;
+}
+
+/* 直近のセッション */
+.recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recent__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.recent__date {
+  font-size: 0.9375rem;
+}
+
+.recent__rake {
+  color: var(--brass);
+  font-size: 0.9375rem;
+  min-width: 5rem;
+  text-align: right;
+}
+
+/* 今週の予約 */
+.wstrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.wstrip__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.5rem 0.125rem 0.625rem;
+  border-top: 1px solid rgb(176 141 79 / 0.12);
+  min-width: 0;
+}
+
+.wstrip__day.is-today {
+  border-top-color: var(--brass);
+}
+
+.wstrip__day.is-today .wstrip__num,
+.wstrip__day.is-today .wstrip__dow {
+  color: var(--brass);
+}
+
+.wstrip__num {
+  font-size: 0.875rem;
+}
+
+.wstrip__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.25rem;
+  width: 100%;
+  align-items: center;
+}
+
+.wstrip__item {
+  display: block;
+  width: 100%;
+  text-align: center;
+  border: 1px solid;
+  border-radius: 1px;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  line-height: 1.5;
+}
+
+.wstrip__none {
+  display: block;
+  width: 60%;
+  height: 1px;
+  background: rgb(176 141 79 / 0.18);
+  margin-top: 0.5rem;
+}
+
+
+/* ── セッション記録 ─────────────────────────────────────────────────── */
+
+/* 卓が終わった直後に打ち込むのは金額。だから最初に、いちばん大きく。 */
+.sform__rake {
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  padding-top: 0.25rem;
+}
+
+.sform__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+}
+
+.sform__preview {
+  margin-top: 0.375rem;
+  color: var(--brass);
+  letter-spacing: 0.02em;
+}
+
+.sform__picked {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0;
+  margin: 0.375rem 0 0.625rem;
+}
+
+.sform__chip {
+  cursor: pointer;
+  background: transparent;
+  font-family: inherit;
+}
+
+.badge-brass.sform__chip:hover {
+  background: var(--brass-wash);
+}
+
+.sform__matches {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  border-left: 1px solid var(--brass-hairline);
+}
+
+.sform__match {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0.625rem 0.75rem;
+  color: var(--paper);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+.sform__match:hover {
+  background: var(--brass-wash);
+}
+
+.sform__match.is-new {
+  color: var(--brass);
+}
+
+.slist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scard {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.scard__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.scard__date {
+  font-size: 1.0625rem;
+}
+
+.scard__rake {
+  font-size: 1.0625rem;
+  color: var(--brass);
+}
+
+.scard__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.scard__edit {
+  margin-left: auto;
+}
+
+.scard__players {
+  margin-top: 0.375rem;
+  line-height: 1.7;
+}
+
+.scard__note {
+  margin-top: 0.375rem;
+  font-size: var(--fs-body);
+}
+
+/* ── 台帳 ───────────────────────────────────────────────────────────── */
+
+.lsum {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.lsum > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 0.5rem;
+}
+
+.lsum__num {
+  font-size: 1.0625rem;
+  color: var(--brass);
+}
+
+.lsum__num.is-expense,
+.amount.is-expense {
+  color: #a2606a;
+}
+
+.lsum__warn,
+.lsum__post,
+.lsum__flash {
+  margin-top: 1rem;
+}
+
+.lsum__post {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* 月次推移 — 自作SVG。軸は下辺1本、グリッドは描かない。 */
+.chart {
+  margin: 0;
+}
+
+.chart__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart__axis {
+  stroke: var(--brass-hairline);
+  stroke-width: 1;
+}
+
+.chart__zero {
+  stroke: rgb(90 32 40 / 0.6);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.chart__income {
+  fill: var(--brass);
+  opacity: 0.85;
+}
+
+.chart__expense {
+  fill: var(--claret);
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.25;
+  opacity: 0.85;
+}
+
+.chart__dot {
+  fill: var(--paper);
+}
+
+.chart__tick {
+  fill: var(--smoke);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* 目盛を振らない代わりに、棒のスケール上限だけを1つ置く */
+.chart__scale {
+  margin-top: 0.25rem;
+}
+
+.chart__key {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.chart__keyitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.chart__swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.chart__swatch--income {
+  background: var(--brass);
+}
+
+.chart__swatch--expense {
+  background: var(--claret);
+}
+
+.chart__swatch--line {
+  height: 2px;
+  width: 12px;
+  background: var(--paper);
+}
+
+.chart__latest {
+  margin-left: auto;
+  color: var(--brass);
+}
+
+.ltable__date {
+  white-space: nowrap;
+  color: var(--smoke);
+}
+
+.ltable td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.fixedadd {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.fixedadd .btn {
+  grid-column: span 2;
+}
+
+@media (min-width: 640px) {
+  .fixedadd {
+    grid-template-columns: 2fr 1fr 1fr auto;
+  }
+
+  .fixedadd .btn {
+    grid-column: auto;
+  }
+}
+
+tr.is-off {
+  opacity: 0.5;
+}
+
+/* ── アクセシビリティ / モバイルの詰め ──────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 下部ナビはタップ領域を 44px 以上に */
+.nav__item {
+  min-height: 3rem;
+}
+
+/* iOS の慣性スクロールとバウンス制御 */
+.cal__scroll,
+.pop__panel {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 横スクロールは起こさない。広い表は自分の中でだけスクロールさせる */
+.table-scroll {
+  overflow-x: auto;
+}
+
+/* Windows のハイコントラストモードでも枠線を残す */
+@media (forced-colors: active) {
+  .surface,
+  .btn,
+  .field,
+  .cal__block {
+    border: 1px solid CanvasText;
+  }
+}
+
+.ltable__ops {
+  display: inline-flex;
+  gap: 0.375rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.lform__editing {
+  color: var(--brass);
+}
