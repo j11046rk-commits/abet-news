@@ -1122,7 +1122,8 @@ textarea.field {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.05rem;
-  padding: 0.15rem 0.25rem;
+  /* 左右の余白は最小限。そのぶんを名前の幅にまわす */
+  padding: 0.15rem 0.125rem;
   border: 1px solid;
   border-radius: 1px;
   font-family: inherit;
@@ -1138,6 +1139,8 @@ textarea.field {
 .cal__blockname {
   font-size: 0.625rem;
   line-height: 1.2;
+  /* 7日ぶんに割った列でも Hiroaki が切れないよう、わずかに詰める */
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
