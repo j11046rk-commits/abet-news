@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LedgerClient from "./LedgerClient";
 import MonthlyChart from "@/components/MonthlyChart";
 import { requireProfile } from "@/lib/auth";
@@ -56,6 +57,18 @@ export default async function LedgerPage() {
         currentYm={ym}
         names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
       />
+
+      {/* メンバーと設定はタブから外した。使う頻度が低いのでここから入る。 */}
+      <nav className="backdoor">
+        <Link href="/members" className="micro">
+          メンバー・貸切時間 →
+        </Link>
+        {profile.role === "owner" ? (
+          <Link href="/settings" className="micro">
+            施設の設定 →
+          </Link>
+        ) : null}
+      </nav>
     </>
   );
 }

@@ -13,7 +13,6 @@ const ITEMS: Item[] = [
   { href: "/calendar", ja: "カレンダー", en: "CAL" },
   { href: "/sessions", ja: "セッション", en: "TABLE" },
   { href: "/ledger", ja: "台帳", en: "LEDGER" },
-  { href: "/members", ja: "メンバー", en: "CREW" },
 ];
 
 export default function Nav({
@@ -30,11 +29,23 @@ export default function Nav({
   const pathname = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const items = isOwner ? [...ITEMS, { href: "/settings", ja: "設定", en: "SET" }] : ITEMS;
+  // メンバーと設定はタブから外した。滅多に使わないので、台帳の末尾からリンクで入る。
+  const items = ITEMS;
 
   const active = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  /*
+   * ホーム画面から起動すると引っ張って更新ができない。
+   * 下部ナビの右端に置く。親指が届く位置のほうが実際に押される。
+   */
+  function refresh() {
+    setRefreshing(true);
+    router.refresh();
+    setTimeout(() => setRefreshing(false), 700);
+  }
 
   async function signOut() {
     setBusy(true);
@@ -72,6 +83,15 @@ export default function Nav({
             <span className="nav__ja">{it.ja}</span>
           </Link>
         ))}
+
+        <button
+          className={`nav__item nav__refresh${refreshing ? " is-busy" : ""}`}
+          onClick={refresh}
+          aria-label="表示を更新"
+        >
+          <span className="nav__en">SYNC</span>
+          <span className="nav__ja">{refreshing ? "更新中" : "更新"}</span>
+        </button>
       </nav>
     </>
   );

@@ -591,6 +591,11 @@ textarea.field {
     border-color var(--dur) var(--ease);
 }
 
+/* タブの切れ目が分かるよう、項目のあいだに真鍮の仕切りを入れる */
+.nav__item + .nav__item {
+  border-left: 1px solid var(--brass-hairline);
+}
+
 .nav__item:hover {
   color: var(--paper);
 }
@@ -2374,4 +2379,33 @@ tr.is-off {
   color: var(--smoke);
   font-size: var(--fs-micro);
   letter-spacing: 0.08em;
+}
+
+/* タブから外した画面への入口。目立たせない。 */
+.backdoor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.backdoor a {
+  color: var(--brass);
+  letter-spacing: 0.08em;
+}
+
+/* 更新 — ホーム画面起動だと引っ張って更新ができないため、ナビの右端に置く */
+.nav__refresh {
+  background: none;
+  border: 0;
+  border-top: 2px solid transparent;
+  border-left: 1px solid var(--brass-hairline);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.nav__refresh.is-busy {
+  color: var(--brass);
 }
