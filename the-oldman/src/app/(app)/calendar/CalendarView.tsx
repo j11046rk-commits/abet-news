@@ -185,13 +185,44 @@ export default function CalendarView({
     if (d) setDraft({ date: d.date, start: d.from, end: Math.min(24, d.to) });
   };
 
+  /** 何も作らずに畳む。指がグリッドの外で離れたときと、スクロールに化けたとき。 */
+  const cancelDrag = () => {
+    dragRef.current = null;
+    setDrag(null);
+  };
+
+  /*
+   * 掴んだ指がどこで離れても必ず終わらせる。確定するかどうかの判断はここ1か所だけ。
+   *
+   * もとは pointerup をマス目にしか付けていなかった。マス目の外（月/週のボタンの上など）で
+   * 指を離すと掴んだ状態が残り、次にどこかを押した拍子にそれが確定して、覚えのない
+   * 予約の下書きが開いていた。
+   *
+   * マス目側にも pointerup を残すと「先に走ったほうが勝つ」競争になり、
+   * 外で離したのに下書きができることがある。だからマス目からは外し、
+   * 指が離れた場所をここで見て決める。
+   *
+   * スクロールに化けた場合はブラウザが pointercancel を投げてくるので、それも拾う。
+   */
   useEffect(() => {
-    const up = () => {
-      if (dragRef.current) endDrag();
+    if (!drag) return;
+    const up = (e: PointerEvent) => {
+      const inside = (e.target as HTMLElement | null)?.closest?.(".cal__col");
+      if (inside) endDrag();
+      else cancelDrag();
     };
     window.addEventListener("pointerup", up);
-    return () => window.removeEventListener("pointerup", up);
-  }, []);
+    window.addEventListener("pointercancel", cancelDrag);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancelDrag);
+    };
+  }, [drag]);
+
+  // 表示を切り替えたら掴みかけは捨てる
+  useEffect(() => {
+    cancelDrag();
+  }, [view, anchor]);
 
   return (
     <>
@@ -238,7 +269,6 @@ export default function CalendarView({
           drag={drag}
           onBegin={beginDrag}
           onExtend={extendDrag}
-          onEnd={endDrag}
           onPick={setDetail}
         />
       ) : (
@@ -330,7 +360,6 @@ function WeekGrid({
   drag,
   onBegin,
   onExtend,
-  onEnd,
   onPick,
 }: {
   days: string[];
@@ -343,7 +372,6 @@ function WeekGrid({
   drag: { date: string; from: number; to: number } | null;
   onBegin: (d: string, h: number) => void;
   onExtend: (d: string, h: number) => void;
-  onEnd: () => void;
   onPick: (r: Reservation) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -384,12 +412,12 @@ function WeekGrid({
                   key={h}
                   className="cal__slot"
                   style={{ height: ROW }}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
+                  onPointerDown={() => {
+                    // preventDefault は入れない。入れるとブラウザが縦スクロールを
+                    // 引き受けられなくなり、スクロールのつもりの指が掴みになる。
                     onBegin(d, h);
                   }}
                   onPointerEnter={() => onExtend(d, h)}
-                  onPointerUp={onEnd}
                   role="button"
                   tabIndex={-1}
                   aria-label={`${d} ${String(h).padStart(2, "0")}:00 から予約`}
