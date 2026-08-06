@@ -50,13 +50,14 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
   const clip = `polygon(0% 0%, 100% 0%, ${TAPER.right * 100}% 100%, ${TAPER.left * 100}% 100%)`;
 
   /*
-   * 筋が落ちる先＝満ちたときの液面の高さ（グラス画像に対する割合）。
-   * 満杯に近いと筋がごく短くなって注いでいるように見えないので、
-   * 最低限の長さは残す。
+   * 筋はグラスの底まで伸ばしておく。液体は筋より後に描かれるので、
+   * 液面が上がるにつれて筋の下の方から順に隠れていく＝液に突き刺さって見える。
+   *
+   * 「満ちたときの液面」で筋を止めると、上昇中はまだ液面がそこまで来ておらず、
+   * 筋の先と液面のあいだに隙間が空く。
    */
-  const surfaceY = (CAVITY.top + (1 - ratio) * cavityH) * 100;
   const POUR_TOP = 3;
-  const pourH = Math.max(26, surfaceY - POUR_TOP);
+  const pourH = CAVITY.bottom * 100 - POUR_TOP;
 
   return (
     <section className={`whisky${reached ? " is-reached" : ""}`} aria-label="今月の積立">
@@ -104,6 +105,11 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
             <img src="/images/ice.webp" alt="" className="whisky__ice" aria-hidden />
             <div className="whisky__liquid" style={{ height: `${fill * 100}%` }}>
               <span className="whisky__surface" aria-hidden />
+              {/*
+               * 着水の波紋。液体の上端に置いてあるので、液面が上がれば一緒に上がる。
+               * 筋の先端に置くと、まだ空のうちから空中で波紋が広がってしまう。
+               */}
+              <span className="whisky__ripple" aria-hidden />
             </div>
           </div>
         </div>

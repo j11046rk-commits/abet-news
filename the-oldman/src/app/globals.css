@@ -70,10 +70,18 @@
 html {
   background: var(--ink);
   -webkit-text-size-adjust: 100%;
+  /*
+   * 引っ張り戻し（ラバーバンド）を止める。
+   * iOS のホーム画面アプリで上端を越えて引っ張ると、その間だけ
+   * position: fixed の要素が画面の途中に置き去りにされる。
+   * 下タブが本文の真ん中に現れるのはこれ。
+   */
+  overscroll-behavior-y: none;
 }
 
 body {
   margin: 0;
+  overscroll-behavior-y: none;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--font-sans);
@@ -1706,19 +1714,24 @@ textarea.field {
   }
 }
 
-/* 着水の波紋。筋の先で静かに広がる。 */
-.whisky__pour::after {
-  content: "";
+/*
+ * 着水の波紋。液体の上端に置いてあるので、液面が上がれば一緒に上がる。
+ * 筋の先端に置いていたときは、まだ空のうちから空中で波紋が広がっていた。
+ *
+ * 注いでいるあいだだけ出す。回数を決めて止めるので、注ぎ終われば消える。
+ */
+.whisky__ripple {
   position: absolute;
+  top: -4px;
   left: 50%;
-  bottom: -3px;
   width: 34px;
   height: 10px;
   margin-left: -17px;
   border-radius: 50%;
   border: 1px solid rgb(247 222 172 / 0.7);
   border-top-color: rgb(247 222 172 / 0.2);
-  animation: wg-splash 820ms ease-out infinite;
+  opacity: 0;
+  animation: wg-splash 820ms ease-out 1560ms 3 forwards;
 }
 
 @keyframes wg-splash {
@@ -1764,7 +1777,7 @@ textarea.field {
     transition: none;
   }
 
-  .whisky__pour::after {
+  .whisky__ripple {
     animation: none;
     opacity: 0;
   }
@@ -2882,6 +2895,15 @@ tr.is-off {
   text-decoration: line-through;
 }
 
+/* サムネイルは押せる。押すと拡大表示が開く。 */
+.wish__zoombtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
 .wish__thumb {
   width: 3.5rem;
   height: 3.5rem;
@@ -3055,4 +3077,33 @@ tr.is-off {
 
 .roster__row.is-off {
   opacity: 0.4;
+}
+
+/* ── 画像の拡大表示 ─────────────────────────────────────────────────── */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  background: rgb(12 13 15 / 0.94);
+  cursor: zoom-out;
+}
+
+.lightbox__img {
+  max-width: 100%;
+  max-height: 72dvh;
+  object-fit: contain;
+  border-radius: var(--radius-edge);
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.lightbox__cap {
+  color: var(--paper-dim);
+  text-align: center;
 }
