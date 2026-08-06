@@ -294,7 +294,8 @@ export default function ReservationForm({
 
       <fieldset className="rform__set">
         <legend className="field-label">用途（複数選べます）</legend>
-        <div className="rform__purposes">
+        {/* この画面だけ英字コードも並ぶので、1行に収まる幅に組み替える */}
+        <div className="rform__purposes rform__purposes--code">
           {PURPOSES.map((p) => (
             <label key={p.value} className="check">
               <input
