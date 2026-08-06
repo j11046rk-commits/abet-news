@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReservationForm from "@/components/ReservationForm";
 import { yen } from "@/lib/money";
 import { OPEN_TABLE_HOURS, pairTables, rakeStartedOn, tableSpan } from "@/lib/tables";
-import { addDaysJst, fmt, fmtDate, fmtDateJa, fmtTime, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
+import { DAY_START_HOUR, addDaysJst, clockLabel, dayWindow, fmt, fmtDate, fmtDateJa, fmtTime, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 import VisitEditor from "@/components/VisitEditor";
 import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib/types";
 
@@ -74,8 +74,7 @@ type TableSeg = { s: Session; fromHour: number; toHour: number; open: boolean; h
  * 印として出す。長さを勝手に伸ばすと、入っていない情報を書いたことになる。
  */
 function tablesForDay(sessions: Session[], date: string): TableSeg[] {
-  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
-  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+  const [dayStart, dayEnd] = dayWindow(date);
 
   return sessions
     .map((s) => {
@@ -100,8 +99,7 @@ function tablesForDay(sessions: Session[], date: string): TableSeg[] {
  * レーンを共有せず、列の左端の細い帯にまとめて出す。
  */
 function visitsForDay(visits: CheckIn[], date: string): VisitSeg[] {
-  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
-  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+  const [dayStart, dayEnd] = dayWindow(date);
   const now = Date.now();
 
   return visits
@@ -121,11 +119,7 @@ function visitsForDay(visits: CheckIn[], date: string): VisitSeg[] {
 
 /** その日に始まった卓のレーキ合計。 */
 function rakeOnDay(list: Session[] | undefined, date: string): number {
-  return rakeStartedOn(
-    list,
-    new Date(jstHourToIso(date, 0)).getTime(),
-    new Date(jstHourToIso(date, 24)).getTime(),
-  );
+  return rakeStartedOn(list, ...dayWindow(date));
 }
 
 const dayKey = (d: Date) => fmtDate(d);
@@ -142,8 +136,7 @@ function segmentsForDay(
   tables: Session[],
   date: string,
 ): Segment[] {
-  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
-  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+  const [dayStart, dayEnd] = dayWindow(date);
 
   const pieces: { piece: Piece; s: number; e: number }[] = [
     ...reservations.map((r) => ({
@@ -282,11 +275,23 @@ export default function CalendarView({
     setDrag(dragRef.current);
   };
 
+  /*
+   * 掴んだのは「4時始まりの格子の何行目か」。予約そのものは普通の日付と時刻で
+   * 持っているので、ここで直す。24時を越えた行は、翌日の 0〜3時として渡す。
+   */
   const endDrag = () => {
     const d = dragRef.current;
     dragRef.current = null;
     setDrag(null);
-    if (d) setDraft({ date: d.date, start: d.from, end: Math.min(24, d.to) });
+    if (!d) return;
+    const from = d.from + DAY_START_HOUR;
+    const to = d.to + DAY_START_HOUR;
+    const shift = from >= 24 ? 24 : 0;
+    setDraft({
+      date: shift ? dayKey(addDaysJst(parseJstDate(d.date), 1)) : d.date,
+      start: from - shift,
+      end: to - shift,
+    });
   };
 
   /** 何も作らずに畳む。指がグリッドの外で離れたときと、スクロールに化けたとき。 */
@@ -460,8 +465,8 @@ export default function CalendarView({
       {draft ? (
         <Popover onClose={() => setDraft(null)}>
           <p className="label cal__drafthead">
-            {fmtDateJa(parseJstDate(draft.date))} {String(draft.start).padStart(2, "0")}:00 —{" "}
-            {String(draft.end).padStart(2, "0")}:00
+            {fmtDateJa(parseJstDate(draft.date))} {clockLabel(draft.start)} —{" "}
+            {clockLabel(draft.end)}
           </p>
           <ReservationForm
             names={names}
@@ -542,7 +547,7 @@ function WeekGrid({
         <div className="cal__hours">
           {Array.from({ length: 24 }, (_, h) => (
             <div key={h} className="cal__hour">
-              <span className="micro">{String(h).padStart(2, "0")}</span>
+              <span className="micro">{String(h + DAY_START_HOUR).padStart(2, "0")}</span>
             </div>
           ))}
         </div>
@@ -563,7 +568,7 @@ function WeekGrid({
                   onPointerEnter={() => onExtend(d, h)}
                   role="button"
                   tabIndex={-1}
-                  aria-label={`${d} ${String(h).padStart(2, "0")}:00 から予約`}
+                  aria-label={`${d} ${clockLabel(h + DAY_START_HOUR)} から予約`}
                 />
               ))}
 
