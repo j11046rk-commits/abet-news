@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════════════
-   The Oldman — デザイントークン
+   The Oldmans — デザイントークン
    DESIGN.md §2 の6色だけで組む。7色目を足したくなったら階層の作り方が誤り。
    例外はカレンダーの用途色2つ（--pine / --ash）だけ。
    ═══════════════════════════════════════════════════════════════════════ */
@@ -1455,7 +1455,8 @@ textarea.field {
   display: flex;
   align-items: stretch;
   gap: 1.25rem;
-  padding: 1.25rem 0 0.5rem;
+  /* 上の余白は瓶が入ってくる場所。詰めると本文の上に瓶が乗る。 */
+  padding: 3rem 0 0.5rem;
 }
 
 @media (min-width: 560px) {
@@ -1503,38 +1504,62 @@ textarea.field {
   overflow: hidden;
 }
 
-/* 液面が目標の高さまで上がる。瓶が傾き終わってから動き出す。 */
+/*
+ * 液面が目標の高さまで上がる。瓶が傾き終わってから動き出す。
+ *
+ * ウイスキーは不透明な塗料ではない。透けるから、グラスの地（暗い店内）と
+ * 底のカットガラスがそのまま琥珀越しに見える。だから塗りは半透明にして、
+ * 下へ行くほど濃くする — 液は深いところほど色が濃く見える。
+ *
+ * 乗算合成は使えない。このグラス写真は空洞が透明なので、乗算の相手が
+ * 存在せず、ただの単色の板になってしまう。
+ */
 .whisky__liquid {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
-  background: linear-gradient(180deg, #c9a05e 0%, #b08d4f 55%, #7d5f2b 100%);
+  background: linear-gradient(
+    180deg,
+    rgb(206 126 44 / 0.5) 0%,
+    rgb(170 92 26 / 0.62) 45%,
+    rgb(104 50 12 / 0.8) 100%
+  );
+  /*
+   * 液面は直線ではない。写真がやや上から見た角度なので、
+   * グラスの口と同じように楕円に見える。上辺だけを浅く膨らませる。
+   */
+  border-radius: 50% 50% 0 0 / 7px 7px 0 0;
+  border-top: 2px solid rgb(247 222 172 / 0.55);
   transition: height 1900ms cubic-bezier(0.22, 0.68, 0.3, 1) 700ms;
 }
 
-/* 液面のさざなみ。派手にしない。 */
+/* ガラス越しの照り返し。左右の縁だけ、ほんの少し明るくする。 */
+.whisky__liquid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgb(240 196 122 / 0.22) 0%,
+    transparent 22%,
+    transparent 78%,
+    rgb(240 196 122 / 0.16) 100%
+  );
+}
+
+/* 手前側の液面。楕円の近い縁が、ふちに沿って光る。 */
 .whisky__surface {
   position: absolute;
-  top: -3px;
-  left: -25%;
-  width: 150%;
-  height: 6px;
-  background: radial-gradient(60% 100% at 25% 100%, #d8b169 60%, transparent 62%),
-    radial-gradient(60% 100% at 75% 100%, #d8b169 60%, transparent 62%);
-  background-size: 50% 100%;
-  animation: wg-drift 5.5s linear infinite;
+  top: 1px;
+  left: 6%;
+  right: 6%;
+  height: 9px;
+  border-radius: 50%;
+  border-bottom: 1px solid rgb(247 222 172 / 0.28);
 }
 
-@keyframes wg-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-33.333%);
-  }
-}
-
-/* 氷は液体の上に浮く。注ぎ終わりに合わせて現れる。 */
+/* 氷。注ぎ終わりに合わせて現れる。液体はこの上に重なる。 */
 .whisky__ice {
   position: absolute;
   left: 14%;
@@ -1546,31 +1571,35 @@ textarea.field {
 
 @keyframes wg-ice {
   to {
-    opacity: 0.92;
+    opacity: 0.78;
   }
 }
 
 /*
- * 瓶は右上から入り、注ぎ口をグラス側（左下）へ向けて傾ける。
- * 画像はすでに注ぐ姿勢に回してあるので、ここでの回転はごく浅い。
+ * 瓶は右上から入り、注ぎ口をグラスの口の上へ持ってくる。
+ * 画像はすでに注ぐ姿勢（注ぎ口が左下）に回してあるので、
+ * ここでは位置だけを合わせ、回転は入退場の揺れに使う。
+ *
+ * left/top は書き出した瓶の画像の中の注ぎ口の位置（x 3.5% / y 96.8%）から逆算した。
+ * 軸は注ぎ口に置く — 実際に注ぐときも口を支点にして瓶を倒す。
  */
 .whisky__bottle {
   position: absolute;
-  top: -26%;
-  left: 24%;
-  width: 96%;
-  transform-origin: 30% 24%;
+  left: 43%;
+  top: -50%;
+  width: 74%;
+  transform-origin: 3.5% 97%;
   animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
   pointer-events: none;
 }
 
 @keyframes wg-bottle {
   0% {
-    transform: translate(58px, -60px) rotate(26deg);
+    transform: translate(54px, -46px) rotate(-30deg);
     opacity: 0;
   }
   14% {
-    transform: translate(12px, -8px) rotate(8deg);
+    transform: translate(10px, -8px) rotate(-8deg);
     opacity: 1;
   }
   22%,
@@ -1579,29 +1608,80 @@ textarea.field {
     opacity: 1;
   }
   86% {
-    transform: translate(16px, -16px) rotate(14deg);
+    transform: translate(14px, -12px) rotate(-12deg);
     opacity: 1;
   }
   100% {
-    transform: translate(58px, -60px) rotate(26deg);
+    transform: translate(54px, -46px) rotate(-30deg);
     opacity: 0;
   }
 }
 
-/* 注がれる一本の筋。瓶の口からグラスの中へ落ちる。 */
+/*
+ * 注がれる筋。
+ *
+ * 一定の幅の棒だと液体に見えない。落ちるにつれて加速するぶん細くなるので
+ * 下すぼまりに切り、片側だけ明るくして丸みを出す。着水点には波紋を置く。
+ * top と height は注ぎ口と液面の位置から component 側で決めている。
+ */
 .whisky__pour {
   position: absolute;
-  top: 16%;
-  left: 46%;
-  width: 3px;
-  height: 46%;
-  background: linear-gradient(180deg, #c9a05e, #8a6a30);
-  border-radius: 2px;
+  left: 43%;
+  width: 8px;
+  background:
+    linear-gradient(90deg,
+      rgb(120 72 24 / 0.55) 0%,
+      rgb(232 186 110 / 0.95) 34%,
+      rgb(198 140 62 / 0.9) 58%,
+      rgb(110 64 20 / 0.5) 100%),
+    linear-gradient(180deg, rgb(226 170 92 / 0.9), rgb(150 92 30 / 0.85));
+  /* 下へ行くほど細くなる。太さは絶えず揺れている — 液体なので */
+  clip-path: polygon(24% 0%, 76% 0%, 62% 100%, 38% 100%);
+  filter: blur(0.3px);
   transform-origin: top center;
   transform: scaleY(0);
   opacity: 0;
-  animation: wg-pour 3400ms linear 1 forwards;
+  animation:
+    wg-pour 3400ms linear 1 forwards,
+    wg-ribbon 780ms ease-in-out infinite;
   pointer-events: none;
+}
+
+/* 筋のくびれ。等幅のままだと棒に見える。 */
+@keyframes wg-ribbon {
+  0%,
+  100% {
+    clip-path: polygon(24% 0%, 76% 0%, 62% 100%, 38% 100%);
+  }
+  50% {
+    clip-path: polygon(28% 0%, 72% 0%, 68% 100%, 32% 100%);
+  }
+}
+
+/* 着水の波紋。筋の先で静かに広がる。 */
+.whisky__pour::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 30px;
+  height: 9px;
+  margin-left: -15px;
+  border-radius: 50%;
+  border: 1px solid rgb(247 222 172 / 0.7);
+  border-top-color: rgb(247 222 172 / 0.2);
+  animation: wg-splash 820ms ease-out infinite;
+}
+
+@keyframes wg-splash {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
 }
 
 @keyframes wg-pour {
@@ -1633,6 +1713,15 @@ textarea.field {
 @media (prefers-reduced-motion: reduce) {
   .whisky__liquid {
     transition: none;
+  }
+
+  .whisky__pour::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .whisky__pour {
+    animation: wg-pour 3400ms linear 1 forwards;
   }
 
   .whisky__surface {
@@ -2021,24 +2110,21 @@ textarea.field {
   stroke-dasharray: 2 3;
 }
 
-.chart__income {
-  fill: var(--brass);
-  opacity: 0.85;
-}
-
-.chart__expense {
-  fill: var(--claret);
-}
-
 .chart__line {
   fill: none;
-  stroke: var(--paper);
-  stroke-width: 1.25;
-  opacity: 0.85;
+  stroke: var(--brass);
+  stroke-width: 1.5;
+}
+
+/* 線の下の塗り。残高の「厚み」を出すためだけの、ごく薄い面。 */
+.chart__area {
+  fill: var(--brass);
+  opacity: 0.1;
+  stroke: none;
 }
 
 .chart__dot {
-  fill: var(--paper);
+  fill: var(--brass);
 }
 
 .chart__tick {
@@ -2049,43 +2135,13 @@ textarea.field {
 }
 
 /* 目盛を振らない代わりに、棒のスケール上限だけを1つ置く */
-.chart__scale {
-  margin-top: 0.25rem;
-}
-
 .chart__key {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.875rem;
   flex-wrap: wrap;
   margin-top: 0.5rem;
-}
-
-.chart__keyitem {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.chart__swatch {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 1px;
-}
-
-.chart__swatch--income {
-  background: var(--brass);
-}
-
-.chart__swatch--expense {
-  background: var(--claret);
-}
-
-.chart__swatch--line {
-  height: 2px;
-  width: 12px;
-  background: var(--paper);
 }
 
 .chart__latest {
@@ -2473,10 +2529,17 @@ tr.is-off {
   vertical-align: baseline;
 }
 
+/* 当月計は表の頭。開いてまず目に入る場所に置く。 */
+.pb__sum td {
+  border-bottom: 1px solid var(--brass-hairline);
+  color: var(--paper);
+}
+
+/* 前月繰越はいちばん下。時間をさかのぼった先にある。 */
 .pb tfoot td {
   border-top: 1px solid var(--brass-hairline);
   border-bottom: none;
-  color: var(--paper);
+  color: var(--smoke);
 }
 
 .pb__c-date {

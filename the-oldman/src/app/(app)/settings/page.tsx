@@ -4,7 +4,7 @@ import SettingsForm from "./SettingsForm";
 import { requireOwner } from "@/lib/auth";
 import { getFixedCosts, getSettings } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "設定 — The Oldman" };
+export const metadata: Metadata = { title: "設定 — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {

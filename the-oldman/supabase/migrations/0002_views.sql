@@ -1,4 +1,4 @@
--- The Oldman — 0002 views
+-- The Oldmans — 0002 views
 -- security_invoker = on : ビュー経由でも呼び出し元の RLS が効くようにする（PG15+ / Supabase）
 
 -- ── 年月ごとの収入・支出・当月収支・累計残高 ────────────────────────────

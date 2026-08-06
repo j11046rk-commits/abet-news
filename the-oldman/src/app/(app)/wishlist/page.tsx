@@ -3,7 +3,7 @@ import WishlistClient from "./WishlistClient";
 import { requireProfile } from "@/lib/auth";
 import { getProfiles, getWishlist } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "リスト — The Oldman" };
+export const metadata: Metadata = { title: "リスト — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function WishlistPage() {

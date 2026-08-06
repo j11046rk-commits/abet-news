@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <Nav
-        facilityName={settings?.facility_name ?? "The Oldman"}
+        facilityName={settings?.facility_name ?? "The Oldmans"}
         displayName={profile.display_name}
         isCheckedIn={openCheckIn !== null}
       />

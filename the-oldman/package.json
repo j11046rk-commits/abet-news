@@ -2,7 +2,7 @@
   "name": "the-oldman",
   "version": "0.1.0",
   "private": true,
-  "description": "The Oldman — 会員制プライベートクラブの運営ダッシュボード",
+  "description": "The Oldmans — 会員制プライベートクラブの運営ダッシュボード",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -1,4 +1,4 @@
--- The Oldman — 0001 schema
+-- The Oldmans — 0001 schema
 -- 金額はすべて円の整数。小数は使わない。
 -- タイムゾーンは Asia/Tokyo 固定（保存は timestamptz、表示側で JST に変換）。
 
@@ -138,7 +138,7 @@ create table fixed_costs (
 -- ── 施設設定（1行のみ）─────────────────────────────────────────────────
 create table settings (
   id boolean primary key default true check (id),
-  facility_name text not null default 'The Oldman',
+  facility_name text not null default 'The Oldmans',
   monthly_target_yen integer not null default 100000 check (monthly_target_yen > 0),
   owner_count smallint not null default 6 check (owner_count > 0),
   rake_rule text

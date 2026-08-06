@@ -6,7 +6,7 @@ import { getExclusiveHours, getProfiles } from "@/lib/queries";
 import { fmtDate, fmtYm, nowJst } from "@/lib/time";
 import { yen } from "@/lib/money";
 
-export const metadata: Metadata = { title: "メンバー — The Oldman" };
+export const metadata: Metadata = { title: "メンバー — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function MembersPage() {

@@ -1,5 +1,5 @@
 -- ============================================================
--- The Oldman — セットアップ用SQL（本番用・これ1本を貼れば完了）
+-- The Oldmans — セットアップ用SQL（本番用・これ1本を貼れば完了）
 -- ============================================================
 -- Supabase ダッシュボード → SQL Editor に全文を貼って Run する。
 -- migrations/0001 0002 0003 0004 0006 を順番に連結したもの。
@@ -20,7 +20,7 @@
 -- 0001_schema.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0001 schema
+-- The Oldmans — 0001 schema
 -- 金額はすべて円の整数。小数は使わない。
 -- タイムゾーンは Asia/Tokyo 固定（保存は timestamptz、表示側で JST に変換）。
 
@@ -160,7 +160,7 @@ create table fixed_costs (
 -- ── 施設設定（1行のみ）─────────────────────────────────────────────────
 create table settings (
   id boolean primary key default true check (id),
-  facility_name text not null default 'The Oldman',
+  facility_name text not null default 'The Oldmans',
   monthly_target_yen integer not null default 100000 check (monthly_target_yen > 0),
   owner_count smallint not null default 6 check (owner_count > 0),
   rake_rule text
@@ -170,7 +170,7 @@ create table settings (
 -- 0002_views.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0002 views
+-- The Oldmans — 0002 views
 -- security_invoker = on : ビュー経由でも呼び出し元の RLS が効くようにする（PG15+ / Supabase）
 
 -- ── 年月ごとの収入・支出・当月収支・累計残高 ────────────────────────────
@@ -235,7 +235,7 @@ grant select on v_monthly_summary, v_session_stats, v_exclusive_hours to authent
 -- 0003_rls.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0003 RLS
+-- The Oldmans — 0003 RLS
 -- 方針：
 --   * 閲覧は「有効なアカウント全員」に開く。会計を一人に属人化させないため、台帳も member が読める。
 --   * 書き込みは、自分が作ったものと、owner だけ。
@@ -451,7 +451,7 @@ to authenticated;
 -- 0004_session_ledger_sync.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0004 セッション → 台帳の自動起票
+-- The Oldmans — 0004 セッション → 台帳の自動起票
 --
 -- セッションを保存すると ledger_entries に income / rake の行が自動で起票される。
 -- 同じ数字を二度入力させないための仕組みなので、アプリ側ではなく DB 側に置く。
@@ -508,7 +508,7 @@ create trigger sessions_sync_ledger_del
 -- 0006_ledger_write_for_members.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0006 台帳の書き込みを全メンバーに開放
+-- The Oldmans — 0006 台帳の書き込みを全メンバーに開放
 --
 -- 変更理由：この施設は6人で回している。会計を一人に属人化させないという設計意図
 -- （SPEC §1 G4）に照らすと、閲覧だけ開いて記帳を owner に閉じるのは中途半端だった。
@@ -543,7 +543,7 @@ create policy ledger_delete on ledger_entries
 -- ═══════════════════════════════════════════════════════════
 
 insert into settings (id, facility_name, monthly_target_yen, owner_count, rake_rule)
-values (true, 'The Oldman', 100000, 6, null)
+values (true, 'The Oldmans', 100000, 6, null)
 on conflict (id) do nothing;
 
 -- 家賃・光熱費は実額に合わせて変更する（アプリの台帳画面からでも編集できる）
@@ -557,7 +557,7 @@ on conflict do nothing;
 -- 0007_simplify.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0007 構成の簡素化とチェックイン
+-- The Oldmans — 0007 構成の簡素化とチェックイン
 --
 -- オーナー指示（2026-08-06）：
 --   * セッションの参加者リストをやめ、参加人数だけを持つ
@@ -646,7 +646,7 @@ grant select on v_session_stats to authenticated;
 -- 0008_auto_checkout.sql
 -- ═══════════════════════════════════════════════════════════
 
--- The Oldman — 0008 朝10時の自動チェックアウト
+-- The Oldmans — 0008 朝10時の自動チェックアウト
 --
 -- チェックアウトの押し忘れ対策。毎朝10時（JST）に、まだ滞在中の行を締める。
 -- 締めた時刻は 10:00 とし、`auto_closed` で「本人が押したのではない」ことを残す。

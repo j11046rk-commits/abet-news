@@ -4,7 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { getProfiles, getReservationsBetween } from "@/lib/queries";
 import { addDaysJst, fmtDate, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 
-export const metadata: Metadata = { title: "カレンダー — The Oldman" };
+export const metadata: Metadata = { title: "カレンダー — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function CalendarPage({

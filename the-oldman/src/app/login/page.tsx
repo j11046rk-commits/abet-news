@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import LoginForm from "./LoginForm";
 
-export const metadata: Metadata = { title: "The Oldman" };
+export const metadata: Metadata = { title: "The Oldmans" };
 
 const MESSAGES: Record<string, string> = {
   noprofile: "このアカウントは登録されていません。オーナーにお問い合わせください。",
@@ -20,7 +20,7 @@ export default async function LoginPage({
     <div className="gate">
       <div className="gate__inner">
         <header className="gate__head">
-          <h1 className="gate__title">The Oldman</h1>
+          <h1 className="gate__title">The Oldmans</h1>
           <p className="micro gate__sub">MATSUYAMA · MEMBERS ONLY</p>
         </header>
 

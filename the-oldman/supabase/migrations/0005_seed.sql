@@ -1,4 +1,4 @@
--- The Oldman — 0005 seed
+-- The Oldmans — 0005 seed
 -- 施設設定・固定費・参加者マスタ・過去3ヶ月のダミーセッション。
 -- アカウント（auth.users / profiles）はオーナーが管理画面から発行するため、ここでは作らない。
 -- 実行は postgres ロール想定（RLS はバイパスされる）。
@@ -7,7 +7,7 @@
 insert into settings (id, facility_name, monthly_target_yen, owner_count, rake_rule)
 values (
   true,
-  'The Oldman',
+  'The Oldmans',
   100000,
   6,
   'キャッシュゲームはポット5%（上限 ¥1,000）。トーナメントは参加費の10%を運営費として徴収する。'

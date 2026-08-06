@@ -16,7 +16,7 @@ import {
 } from "@/lib/queries";
 import { fmtYm, nowJst } from "@/lib/time";
 
-export const metadata: Metadata = { title: "台帳 — The Oldman" };
+export const metadata: Metadata = { title: "台帳 — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function LedgerPage({
