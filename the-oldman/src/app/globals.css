@@ -3107,3 +3107,50 @@ tr.is-off {
   color: var(--paper-dim);
   text-align: center;
 }
+
+/* ── 読み込み中の骨組み ─────────────────────────────────────────────── */
+/*
+ * タブを押してからサーバーが返るまでの数百ミリ秒を埋める。
+ * 動きは控えめに — 待たせていることを知らせたいだけで、目を引きたいのではない。
+ */
+.skel {
+  padding-top: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.skel__rule {
+  height: 1px;
+  background: var(--brass-hairline);
+  margin: 0.75rem 0 0.25rem;
+}
+
+.skel__line {
+  height: 0.75rem;
+  width: 100%;
+  border-radius: var(--radius-edge);
+  background: rgb(232 225 211 / 0.07);
+  animation: skel-pulse 1400ms ease-in-out infinite;
+}
+
+.skel__line--lg {
+  height: 2.25rem;
+  width: 52%;
+}
+
+@keyframes skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel__line {
+    animation: none;
+  }
+}

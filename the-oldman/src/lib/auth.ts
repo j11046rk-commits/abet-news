@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -25,7 +26,14 @@ export function generateInitialPassword(length = 12): string {
 }
 
 /** 認証済みの profile を返す。未認証なら /login へ。 */
-export async function requireProfile(): Promise<Profile> {
+/*
+ * cache() で1リクエスト内の重複を潰す。
+ *
+ * requireProfile は (app) のレイアウトと、ほぼすべてのページの両方から呼ばれる。
+ * 中身は auth.getUser()（Supabase Auth への往復）と profiles の取得なので、
+ * 素のままだと画面を1枚描くたびに同じ往復を2回している。
+ */
+export const requireProfile = cache(async function requireProfile(): Promise<Profile> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,7 +49,7 @@ export async function requireProfile(): Promise<Profile> {
   if (!profile) redirect("/login?e=noprofile");
   if (!profile.is_active) redirect("/login?e=inactive");
   return profile;
-}
+});
 
 /** owner 限定ページ用 */
 export async function requireOwner(): Promise<Profile> {
@@ -51,7 +59,7 @@ export async function requireOwner(): Promise<Profile> {
 }
 
 /** Route Handler 用。リダイレクトせず null を返す。 */
-export async function getProfile(): Promise<Profile | null> {
+export const getProfile = cache(async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,4 +73,4 @@ export async function getProfile(): Promise<Profile | null> {
     .single<Profile>();
 
   return data && data.is_active ? data : null;
-}
+});

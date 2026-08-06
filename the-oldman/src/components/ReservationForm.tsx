@@ -108,19 +108,27 @@ export default function ReservationForm({
 
   const needsMemo = purposes.includes("other");
 
+  /**
+   * 用途を選び直したら、時間も選び直す。
+   *
+   * 外したときも入れ直す。宿泊（19:00〜翌10:00）を外してポーカーだけが残ったのに
+   * 宿泊の時間が居座る、ということが起きるため。基準にするのは最後に残った用途。
+   *
+   * 開始時刻を自分で持っている用途（宿泊）以外は、もとの開始時刻に戻す。
+   * 宿泊を外したのに 19:00 が残るのも同じ種類の居座りになる。
+   */
   function togglePurpose(p: ReservationPurpose) {
     setConflicts(null);
-    const adding = !purposes.includes(p);
-    setPurposes((prev) => (adding ? [...prev, p] : prev.filter((x) => x !== p)));
+    const next = purposes.includes(p) ? purposes.filter((x) => x !== p) : [...purposes, p];
+    setPurposes(next);
 
-    // 用途を選んだら、その用途のふつうの長さを入れておく。
-    // ただし時刻を自分で動かしたあとは触らない。
-    if (adding && !timesTouched) {
-      const span = DEFAULT_SPAN[p];
-      const from = span.start ?? start;
-      if (span.start !== undefined) setStart(from);
-      setEnd(Math.min(34, from + span.hours));
-    }
+    // 時刻を自分で動かしたあとは触らない。
+    if (timesTouched || next.length === 0) return;
+
+    const span = DEFAULT_SPAN[next[next.length - 1]];
+    const from = span.start ?? initial.start;
+    setStart(from);
+    setEnd(Math.min(34, from + span.hours));
   }
 
   /** 重複はブロックしない。警告して、押し直しで通す（SPEC §3-3）。 */
