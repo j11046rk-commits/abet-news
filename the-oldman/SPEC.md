@@ -312,4 +312,3 @@ JST は UTC+9（分のオフセットを持たない）ため、JST の毎正時
 | E5 | ハンドヒストリー | 別プロダクト。`sessions` を外部キーで参照する形で疎結合に |
 | E6 | サウナ / 葉巻の在庫 | `ledger_entries.category` の拡張ではなく別テーブルが妥当 |
 | E7 | 予約のiCalエクスポート | `/calendar` の ics フィード（トークン付きURL） |
-</content>
