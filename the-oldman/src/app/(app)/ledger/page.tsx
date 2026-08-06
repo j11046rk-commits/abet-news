@@ -4,6 +4,7 @@ import Advances from "./Advances";
 import LedgerClient from "./LedgerClient";
 import Passbook from "./Passbook";
 import MonthlyChart from "@/components/MonthlyChart";
+import YearlyRake from "@/components/YearlyRake";
 import { requireProfile } from "@/lib/auth";
 import { getVault } from "@/lib/dashboard";
 import { yen } from "@/lib/money";
@@ -96,6 +97,13 @@ export default async function LedgerPage({
       </div>
 
       <MonthlyChart rows={monthly} />
+
+      <div className="rule">
+        <span className="label">Yearly</span>
+      </div>
+
+      {/* 直近12ヶ月の運営積立。目標に届いた月がどれだけあるかを一目で。 */}
+      <YearlyRake rows={monthly} target={vault.target} currentYm={thisYm} />
 
       {/* 設定はタブから外した。固定費もここから入る。 */}
       {profile.role === "owner" ? (

@@ -84,6 +84,15 @@ export default function Nav({
       </header>
 
       <nav className="nav" aria-label="メインナビゲーション">
+        {/*
+          滞在中のしるし。チェックアウトを忘れたまま帰ると、朝10時の自動締めまで
+          「いる」ことになってしまう。どのタブにいても視界に入る場所に細く出す。
+        */}
+        {isCheckedIn ? (
+          <span className="nav__stay" aria-live="polite">
+            滞在中
+          </span>
+        ) : null}
         {items.map((it) => (
           <Link
             key={it.href}
