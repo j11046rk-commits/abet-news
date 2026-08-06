@@ -40,8 +40,17 @@ export default function CheckInButton({
   async function press() {
     if (isIn) {
       setBusy(true);
-      await checkOut();
+      const res = await checkOut();
       setBusy(false);
+      /*
+       * ポーカーをしに来たのにレーキが入っていないまま帰ろうとしている。
+       * 卓の数字はその日のうちに入れないと、あとから誰も思い出せない。
+       * 止めはしないが、記録の画面へ連れて行って入力欄を開いておく。
+       */
+      if (res.ok && res.needsRake) {
+        router.push("/sessions?new=1&rake=1");
+        return;
+      }
       router.refresh();
       return;
     }

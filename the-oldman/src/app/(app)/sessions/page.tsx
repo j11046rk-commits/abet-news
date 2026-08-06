@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function SessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ new?: string }>;
+  searchParams: Promise<{ new?: string; rake?: string }>;
 }) {
   const [profile, sessions, profiles, sp] = await Promise.all([
     requireProfile(),
@@ -25,6 +25,8 @@ export default async function SessionsPage({
       sessions={sessions}
       names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
       openForm={sp.new === "1"}
+      // チェックアウトのときにレーキが無くて連れてこられた
+      fromCheckout={sp.rake === "1"}
     />
   );
 }

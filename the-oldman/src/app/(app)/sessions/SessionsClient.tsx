@@ -12,6 +12,7 @@ export default function SessionsClient({
   sessions,
   names,
   openForm,
+  fromCheckout,
 }: {
   meId: string;
   isOwner: boolean;
@@ -19,6 +20,8 @@ export default function SessionsClient({
   /** profile_id → 表示名 */
   names: Record<string, string>;
   openForm?: boolean;
+  /** チェックアウト時にレーキが無くて連れてこられた。理由を書いておく。 */
+  fromCheckout?: boolean;
 }) {
   const [creating, setCreating] = useState(Boolean(openForm));
   const [editing, setEditing] = useState<Session | null>(null);
@@ -31,6 +34,17 @@ export default function SessionsClient({
         <h1 className="display">記録</h1>
         <p className="dim page__lead">卓が終わったら、その場で。金額から入れられます。</p>
       </header>
+
+      {/*
+        連れてきた理由を書く。黙って別の画面に飛ばされると、
+        押し間違えたのかと思う。
+      */}
+      {fromCheckout ? (
+        <p className="notice notice-strong">
+          チェックアウトしました。<br />
+          今日の卓のレーキがまだ入っていません。忘れないうちにどうぞ。
+        </p>
+      ) : null}
 
       <div className="rule">
         <span className="label">New record</span>
