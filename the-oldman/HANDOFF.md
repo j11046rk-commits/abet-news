@@ -45,36 +45,63 @@ insert into profiles (id, login_id, display_name, role, investment_yen, must_cha
 values ('<uuid>', 'santiago', 'サンチャゴ', 'owner', 500000, true);
 ```
 
-### ②-b（任意）Claude から Supabase を直接叩けるようにする
+### ②-b Claude に全部任せる場合の準備（オーナー指示・2026-08-06）
 
-既定の環境は **Trusted** ネットワークで、`supabase.com` は許可リストに入っていない。
-そのため Claude のセッションからは Supabase API に一切届かない
-（プロキシが CONNECT に 403 を返す）。
+「指示だけで完結させたい」という方針。以下を用意すれば、プロジェクト作成から
+デプロイまでセッション側で完結できる。
 
-許可するには claude.ai/code のメッセージ欄の上にある**クラウドアイコン**（環境名が
-出ているボタン）→ 環境の**設定アイコン** →「**Network access**」を `Custom` にし、
-「**Allowed domains**」に1行ずつ：
+#### 1. ネットワーク許可
+
+claude.ai/code の**新規セッション画面**で、メッセージ入力欄のすぐ上にある
+クラウドアイコン（環境名「デフォルト」が出ているボタン）→ その行にカーソルを
+乗せて右端の**歯車** → ダイアログで：
+
+- **Network access** を `Custom` に
+- **Allowed domains** に：
 
 ```
 api.supabase.com
 *.supabase.co
+api.vercel.com
 ```
 
-「**Also include default list of common package managers**」に必ずチェックを入れる。
-外すと npm も PyPI も届かなくなり、ビルドが通らなくなる。
+- **Also include default list of common package managers** に**必ずチェック**
+  （外すと npm も PyPI も届かず、ビルドが通らなくなる）
 
-反映されるのは**新しいセッションから**。設定変更時に環境キャッシュが作り直される。
+#### 2. トークンを環境変数に置く
 
-これを入れると、次のセッションの Claude は
-「アカウント発行 → 実データでの往復確認 → 画面のスクリーンショット」まで
-自分でできるようになる（③がClaude側で完結する）。
-Vercel も任せたい場合は `api.vercel.com` を足す。
+同じダイアログの **Environment variables** 欄に、`.env` 形式で1行ずつ：
 
-**キーの渡し方の注意**：環境変数欄はその環境を使う全員から読めるうえ、
-チャットに貼れば会話履歴に残る。渡すなら `service_role` キーだけにして、
-作業が終わったら Supabase 側で **キーをローテーション**するのが安全。
-Personal Access Token はアカウント全体（他プロジェクトの削除まで）を触れるので、
-よほど自動化したいとき以外は渡さない。
+```
+SUPABASE_ACCESS_TOKEN=sbp_xxxxxxxxxxxxxxxx
+VERCEL_TOKEN=xxxxxxxxxxxxxxxx
+```
+
+- Supabase の発行元：https://supabase.com/dashboard/account/tokens
+- Vercel の発行元：https://vercel.com/account/tokens
+
+**チャットに貼らないこと。** 環境変数欄に入れれば会話履歴に残らず、毎セッション
+自動で読める。ただしこの欄はその環境を使う全員から平文で読めるので、
+**作業が終わったら両方のトークンを発行元で削除する**（どちらもワンクリックで失効）。
+
+#### 3. これで Claude ができること
+
+| 範囲 | 内容 |
+|---|---|
+| Supabase | プロジェクト作成 → `setup.sql` 実行 → Auth設定 → 最初のオーナー作成 → キー取得 |
+| Vercel | プロジェクト作成 → 環境変数登録 → デプロイ → URL の報告 |
+| 検証 | 実データでログイン・予約・セッション記録・台帳の往復確認とスクリーンショット |
+
+Supabase Personal Access Token は**アカウント全体**（他プロジェクトの削除を含む）を
+操作できる。それを承知のうえでオーナーが選択した。作業後の削除を必ず行うこと。
+
+#### 4. 反映のタイミング
+
+設定は**新しいセッションから**効く。設定を保存したら、その画面で
+リポジトリ `j11046rk-commits/abet-news`、ブランチ `claude/oldman-dashboard-dev-nhgxc6`
+を選んで新規セッションを開始し、こう指示する：
+
+> the-oldman/HANDOFF.md を読んで、Supabase の作成からデプロイまで進めて
 
 ### ③ ローカルで往復を確認する
 
