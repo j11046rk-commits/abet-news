@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import CalendarView from "./CalendarView";
 import { requireProfile } from "@/lib/auth";
-import { getCheckInsBetween, getProfiles, getReservationsBetween } from "@/lib/queries";
+import {
+  getCheckInsBetween,
+  getProfiles,
+  getReservationsBetween,
+  getSessionsBetween,
+} from "@/lib/queries";
 import { addDaysJst, fmtDate, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 
 export const metadata: Metadata = { title: "カレンダー — The Oldmans" };
@@ -28,10 +33,11 @@ export default async function CalendarPage({
     0,
   );
 
-  const [profile, reservations, visits, profiles] = await Promise.all([
+  const [profile, reservations, visits, sessions, profiles] = await Promise.all([
     requireProfile(),
     getReservationsBetween(jstHourToIso(rangeStart, 0), rangeEnd),
     getCheckInsBetween(jstHourToIso(rangeStart, 0), rangeEnd),
+    getSessionsBetween(jstHourToIso(rangeStart, 0), rangeEnd),
     getProfiles(),
   ]);
 
@@ -41,6 +47,7 @@ export default async function CalendarPage({
       anchor={anchor}
       reservations={reservations}
       visits={visits}
+      sessions={sessions}
       names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
       meId={profile.id}
       isOwner={profile.role === "owner"}

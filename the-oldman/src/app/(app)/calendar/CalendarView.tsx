@@ -1,13 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReservationForm from "@/components/ReservationForm";
+import { yen } from "@/lib/money";
 import { addDaysJst, fmt, fmtDate, fmtDateJa, fmtTime, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 import VisitEditor from "@/components/VisitEditor";
-import { purposeMeta, type CheckIn, type Reservation } from "@/lib/types";
+import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib/types";
 
 const ROW = 34; // 1時間の高さ(px)
+
+/** 終了時刻が入っていない卓の、見た目上の長さ（時間）。 */
+const OPEN_TABLE_HOURS = 1;
 
 type Segment = {
   r: Reservation;
@@ -20,6 +25,43 @@ type Segment = {
 
 /** 滞在の1本。予約と同じ時間軸に、細い帯として並べる。 */
 type VisitSeg = { c: CheckIn; fromHour: number; toHour: number };
+
+/**
+ * 実際に立った卓の1本。
+ *
+ * head は「この日に始まった卓」。深夜2時までの卓は翌日にも掛かるが、
+ * レーキはその夜1回ぶんしかない。金額を出すのは head の側だけにする。
+ */
+type TableSeg = { s: Session; fromHour: number; toHour: number; open: boolean; head: boolean };
+
+/**
+ * その日にかかった卓を切り出す。
+ *
+ * 終了時刻は任意入力なので空のことが多い。空なら開始から1時間ぶんの
+ * 印として出す。長さを勝手に伸ばすと、入っていない情報を書いたことになる。
+ */
+function tablesForDay(sessions: Session[], date: string): TableSeg[] {
+  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
+  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+
+  return sessions
+    .map((s) => {
+      const st = new Date(s.started_at).getTime();
+      const en = s.ended_at
+        ? new Date(s.ended_at).getTime()
+        : st + OPEN_TABLE_HOURS * 3600_000;
+      if (en <= dayStart || st >= dayEnd) return null;
+      return {
+        s,
+        fromHour: Math.max(0, (Math.max(st, dayStart) - dayStart) / 3600_000),
+        toHour: Math.min(24, (Math.min(en, dayEnd) - dayStart) / 3600_000),
+        open: !s.ended_at,
+        head: st >= dayStart,
+      };
+    })
+    .filter((x): x is TableSeg => x !== null)
+    .sort((a, b) => a.fromHour - b.fromHour);
+}
 
 /**
  * その日にかかる滞在を切り出す。
@@ -102,6 +144,7 @@ export default function CalendarView({
   anchor,
   reservations,
   visits,
+  sessions,
   names,
   meId,
   isOwner,
@@ -111,6 +154,8 @@ export default function CalendarView({
   reservations: Reservation[];
   /** 実際にいた記録。予約とは別物なので、別の帯として重ねる。 */
   visits: CheckIn[];
+  /** 実際に立った卓。記録タブでレーキを入れると、そのままここに出る。 */
+  sessions: Session[];
   names: Record<string, string>;
   meId: string;
   isOwner: boolean;
@@ -120,6 +165,7 @@ export default function CalendarView({
   const [legend, setLegend] = useState(false);
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [visit, setVisit] = useState<CheckIn | null>(null);
+  const [table, setTable] = useState<Session | null>(null);
   const [draft, setDraft] = useState<{ date: string; start: number; end: number } | null>(null);
   const dragRef = useRef<{ date: string; from: number; to: number } | null>(null);
   const [drag, setDrag] = useState<{ date: string; from: number; to: number } | null>(null);
@@ -263,7 +309,9 @@ export default function CalendarView({
           today={today}
           reservations={reservations}
           visits={visits}
+          sessions={sessions}
           onPickVisit={setVisit}
+          onPickTable={setTable}
           meId={meId}
           names={names}
           drag={drag}
@@ -278,6 +326,7 @@ export default function CalendarView({
           today={today}
           reservations={reservations}
           visits={visits}
+          sessions={sessions}
           meId={meId}
           names={names}
           onPickDay={(d) => go(d, "week")}
@@ -309,11 +358,28 @@ export default function CalendarView({
               <span className="cal__legendswatch" style={{ background: "var(--claret)" }} />
               <span className="micro">貸切 — 塗りつぶし</span>
             </span>
+            <span className="cal__legenditem">
+              <span className="cal__legendswatch cal__legendswatch--table" />
+              <span className="micro">卓 — 右端の金額</span>
+            </span>
+            <span className="cal__legenditem">
+              <span className="cal__legendswatch cal__legendswatch--visit" />
+              <span className="micro">滞在 — 左端の筋</span>
+            </span>
           </div>
         ) : null}
       </div>
 
       {visit ? <VisitEditor visit={visit} onClose={() => setVisit(null)} /> : null}
+
+      {table ? (
+        <Popover onClose={() => setTable(null)}>
+          <TableDetail
+            s={table}
+            name={table.created_by ? (names[table.created_by] ?? "メンバー") : "—"}
+          />
+        </Popover>
+      ) : null}
 
       {detail ? (
         <Popover onClose={() => setDetail(null)}>
@@ -354,7 +420,9 @@ function WeekGrid({
   today,
   reservations,
   visits,
+  sessions,
   onPickVisit,
+  onPickTable,
   meId,
   names,
   drag,
@@ -366,7 +434,9 @@ function WeekGrid({
   today: string;
   reservations: Reservation[];
   visits: CheckIn[];
+  sessions: Session[];
   onPickVisit: (c: CheckIn) => void;
+  onPickTable: (s: Session) => void;
   meId: string;
   names: Record<string, string>;
   drag: { date: string; from: number; to: number } | null;
@@ -453,6 +523,31 @@ function WeekGrid({
                   aria-label={`${names[v.c.profile_id] ?? "メンバー"} の滞在`}
                 />
               ))}
+
+              {/*
+                実際に立った卓。予約の帯の上に、右端の小さな金額として重ねる。
+                この施設でいちばん見たいのは「その日いくら入ったか」なので、
+                色の帯ではなく数字そのものを出す。
+              */}
+              {tablesForDay(sessions, d).map((t) => (
+                <button
+                  key={`t-${t.s.id}-${d}`}
+                  className={`cal__table${t.open ? " is-open" : ""}${t.head ? "" : " is-tail"}`}
+                  style={{
+                    top: t.fromHour * ROW + 1,
+                    height: Math.max(ROW - 2, (t.toHour - t.fromHour) * ROW - 2),
+                  }}
+                  title={`卓 ${fmtTime(t.s.started_at)}${t.s.ended_at ? `–${fmtTime(t.s.ended_at)}` : "〜"} ${yen(t.s.rake_yen)}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPickTable(t.s);
+                  }}
+                >
+                  {/* 日をまたいだ後ろ半分には金額を出さない。同じ卓が2回入ったように見えるため。 */}
+                  {t.head ? <span className="cal__tableamt amount">{yen(t.s.rake_yen)}</span> : null}
+                </button>
+              ))}
             </div>
           );
         })}
@@ -515,6 +610,7 @@ function MonthGrid({
   today,
   reservations,
   visits,
+  sessions,
   meId,
   names,
   onPickDay,
@@ -525,6 +621,7 @@ function MonthGrid({
   today: string;
   reservations: Reservation[];
   visits: CheckIn[];
+  sessions: Session[];
   meId: string;
   names: Record<string, string>;
   onPickDay: (d: string) => void;
@@ -567,6 +664,23 @@ function MonthGrid({
               </div>
 
               {/*
+                その日に立った卓のレーキ合計。月表示で真っ先に知りたいのはこれ。
+                何卓立ったかは金額の横に小さく添える（1卓なら出さない）。
+              */}
+              {(() => {
+                // 深夜に日をまたいだ卓は始まった日にだけ数える。両日に出すと合計が倍になる。
+                const ts = tablesForDay(sessions, d).filter((t) => t.head);
+                if (ts.length === 0) return null;
+                const total = ts.reduce((n, t) => n + t.s.rake_yen, 0);
+                return (
+                  <button className="mcal__rake amount" onClick={() => onPickDay(d)}>
+                    {yen(total)}
+                    {ts.length > 1 ? <span className="micro"> {ts.length}卓</span> : null}
+                  </button>
+                );
+              })()}
+
+              {/*
                 実際に人がいた日の印。
                 数えるのは「その日いた人の数」— 同じ人が出入りを繰り返しても1人。
                 滞在の本数を足すと、休憩で出入りしただけの日が大人数の日に見える。
@@ -587,6 +701,41 @@ function MonthGrid({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 卓の中身。
+ *
+ * 直しは記録タブに任せる。同じものを直せる場所を2つ作ると、
+ * どちらが本物か分からなくなるため、ここは読むだけにする。
+ */
+function TableDetail({ s, name }: { s: Session; name: string }) {
+  return (
+    <div className="pop__detail">
+      <div className="rcard__head">
+        <div className="rcard__when">
+          <span className="rcard__date mincho">{fmtDateJa(s.started_at)}</span>
+          <span className="rcard__time amount">
+            {fmtTime(s.started_at)}
+            {s.ended_at ? `–${fmtTime(s.ended_at)}` : "〜"}
+          </span>
+        </div>
+        <span className="badge badge-outline">卓</span>
+      </div>
+
+      <p className="tdetail__rake amount">{yen(s.rake_yen)}</p>
+      <p className="micro">
+        {name} · {s.headcount}名
+      </p>
+      {s.note ? <p className="rcard__memo dim">{s.note}</p> : null}
+
+      <div className="rform__actions">
+        <Link href="/sessions" className="btn">
+          記録で直す
+        </Link>
       </div>
     </div>
   );
