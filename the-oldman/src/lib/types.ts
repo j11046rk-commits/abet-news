@@ -160,7 +160,7 @@ export const PURPOSES: {
   text: string;
 }[] = [
   { value: "poker",    ja: "ポーカー",       en: "POKER",   color: "var(--brass)",  onFill: "var(--ink)",   text: "var(--brass)" },
-  { value: "meeting",  ja: "ミーティング",   en: "MEETING", color: "var(--smoke)",  onFill: "var(--ink)",   text: "var(--smoke)" },
+  { value: "meeting",  ja: "ビジネス",       en: "BUSINESS", color: "var(--smoke)",  onFill: "var(--ink)",   text: "var(--smoke)" },
   { value: "private",  ja: "プライベート",   en: "PRIVATE", color: "var(--claret)", onFill: "var(--paper)", text: "#A2606A" },
   { value: "lodging",  ja: "宿泊",           en: "LODGING", color: "var(--pine)",   onFill: "var(--paper)", text: "#7E948A" },
   { value: "other",    ja: "その他",         en: "OTHER",   color: "var(--ash)",    onFill: "var(--paper)", text: "#8A8177" },

@@ -35,6 +35,13 @@ const CAVITY = { left: 0.10, right: 0.84, top: 0.055, bottom: 0.83 };
 /** 台形の下辺（CAVITY の枠に対する割合）。 */
 const TAPER = { left: 0.095, right: 0.92 };
 
+/*
+ * 画像を差し替えたことを端末に伝えるための版番号。
+ * 同じファイル名のまま中身だけ替えると、ホーム画面アプリが古い絵を掴んだままになる。
+ * 絵を描き直したらここを上げる。
+ */
+const V = "3";
+
 export default function WhiskyGauge({ saved, target }: { saved: number; target: number }) {
   const ratio = target > 0 ? Math.max(0, Math.min(1, saved / target)) : 0;
   const reached = saved >= target;
@@ -64,7 +71,7 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
       <div className="whisky__stage">
         {/* 瓶。注ぎ終わったら枠の外へ戻る */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/bottle.webp" alt="" className="whisky__bottle" aria-hidden />
+        <img src={`/images/bottle.webp?v=${V}`} alt="" className="whisky__bottle" aria-hidden />
 
         {/* 注がれる筋。注ぎ口から液面まで届かせる。 */}
         <span
@@ -79,7 +86,7 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
         <div className="whisky__glass">
           {/* グラス本体。液体はこの上に半透明で重ねる。 */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/glass.webp" alt="" className="whisky__photo" aria-hidden />
+          <img src={`/images/glass.webp?v=${V}`} alt="" className="whisky__photo" aria-hidden />
 
           {/*
            * 液体。グラス写真の「後ろ」に置くと、厚いカット面の底に隠れて
@@ -102,7 +109,7 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
              * 上に出ている部分は透明なまま残る。
              */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/ice.webp" alt="" className="whisky__ice" aria-hidden />
+            <img src={`/images/ice.webp?v=${V}`} alt="" className="whisky__ice" aria-hidden />
             <div className="whisky__liquid" style={{ height: `${fill * 100}%` }}>
               <span className="whisky__surface" aria-hidden />
               {/*

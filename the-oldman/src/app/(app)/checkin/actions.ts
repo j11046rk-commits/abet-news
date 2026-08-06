@@ -61,21 +61,46 @@ export async function checkIn(input: CheckInInput): Promise<Result> {
   return { ok: true };
 }
 
-/** 施設を出た。滞在中の行に退出時刻を入れる。 */
-export async function checkOut(): Promise<Result> {
+/**
+ * 施設を出た。滞在中の行に退出時刻を入れる。
+ *
+ * ポーカーをしに来て、レーキが記録されないまま帰ろうとしている場合は
+ * `needsRake` を返す。呼び出し側はそれを見て記録の画面へ連れて行く。
+ * 卓の数字はその日のうちに入れないと、あとから誰も思い出せない。
+ */
+export async function checkOut(): Promise<Result & { needsRake?: boolean }> {
   const profile = await requireProfile();
   const supabase = await createClient();
 
+  const { data: open } = await supabase
+    .from("check_ins")
+    .select("id, checked_in_at, purposes")
+    .eq("profile_id", profile.id)
+    .is("checked_out_at", null)
+    .maybeSingle<{ id: string; checked_in_at: string; purposes: ReservationPurpose[] }>();
+
+  const leftAt = new Date().toISOString();
   const { error } = await supabase
     .from("check_ins")
-    .update({ checked_out_at: new Date().toISOString() })
+    .update({ checked_out_at: leftAt })
     .eq("profile_id", profile.id)
     .is("checked_out_at", null);
 
   if (error) return { ok: false, error: "チェックアウトできませんでした。" };
 
   revalidateAll();
-  return { ok: true };
+
+  if (!open || !(open.purposes ?? []).includes("poker")) return { ok: true };
+
+  // 滞在のあいだに始まった卓が1つでもあれば、記録済みとみなす。
+  // 誰が記録したかは問わない — 卓は共同のものなので。
+  const { count } = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .gte("started_at", open.checked_in_at)
+    .lte("started_at", leftAt);
+
+  return { ok: true, needsRake: (count ?? 0) === 0 };
 }
 
 /**
