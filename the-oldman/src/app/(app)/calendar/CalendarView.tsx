@@ -43,6 +43,19 @@ type Segment = Placed & { lane: number; lanes: number };
 
 const segKey = (seg: Segment) => (seg.kind === "reservation" ? seg.r.id : seg.s.id);
 
+/**
+ * 枠の中に出す呼び名。名（ファーストネーム）だけにする。
+ *
+ * 表示名は姓名をつなげた1語（YuyaNishibara）。列は7日ぶんに割ると50px前後
+ * しかないので、そのままだと「Yuya…」と切れて誰か分からない。
+ * 名だけなら6人ともそのまま入る（いちばん長いのは Hiroaki）。
+ * 切り出せない形の名前は、そのまま出す。
+ */
+function givenName(full: string): string {
+  const m = /^[A-Z][a-z]+/.exec(full);
+  return m ? m[0] : full;
+}
+
 /** 滞在の1本。予約と同じ時間軸に、細い帯として並べる。 */
 type VisitSeg = { c: CheckIn; fromHour: number; toHour: number };
 
@@ -701,7 +714,7 @@ function Block({
       */}
       {seg.head ? (
         <>
-          <span className="cal__blockname">{name}</span>
+          <span className="cal__blockname">{givenName(name)}</span>
           <span className="cal__blockpurpose">{main.en}</span>
           {/* この夜のレーキ。予約と卓は同じ開催なので、帯を分けずにここへ入れる。 */}
           {rake > 0 ? <span className="cal__blockrake amount">{yen(rake)}</span> : null}
