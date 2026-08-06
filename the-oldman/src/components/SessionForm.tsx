@@ -137,6 +137,8 @@ export default function SessionForm({
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
           />
+          {/* 空だとカレンダーに開始時刻しか置けない。入れる理由をその場で伝える。 */}
+          <p className="micro">入れるとカレンダーに開催時間が出ます。</p>
         </div>
       </div>
 

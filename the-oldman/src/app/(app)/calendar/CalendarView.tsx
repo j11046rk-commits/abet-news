@@ -558,9 +558,21 @@ function WeekGrid({
                   className={`cal__table${t.open ? " is-open" : ""}${t.head ? "" : " is-tail"}`}
                   style={{
                     top: t.fromHour * ROW + 1,
-                    height: Math.max(ROW - 2, (t.toHour - t.fromHour) * ROW - 2),
+                    /*
+                     * 終了時刻が入っていない卓は、長さを描かない。
+                     * 仮の長さで枠を出すと「20:00から21:00まで」と読めてしまい、
+                     * 入っていない情報を画面が言い切ることになる。
+                     * 始まった時刻に金額だけを置く。
+                     */
+                    ...(t.open
+                      ? {}
+                      : { height: Math.max(ROW - 2, (t.toHour - t.fromHour) * ROW - 2) }),
                   }}
-                  title={`卓 ${fmtTime(t.s.started_at)}${t.s.ended_at ? `–${fmtTime(t.s.ended_at)}` : "〜"} ${yen(t.s.rake_yen)}`}
+                  title={
+                    t.s.ended_at
+                      ? `卓 ${fmtTime(t.s.started_at)}–${fmtTime(t.s.ended_at)} ${yen(t.s.rake_yen)}`
+                      : `卓 ${fmtTime(t.s.started_at)}〜 ${yen(t.s.rake_yen)}（終了時刻は未入力）`
+                  }
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -769,6 +781,14 @@ function TableDetail({ s, name }: { s: Session; name: string }) {
         {name} · {s.headcount}名
       </p>
       {s.note ? <p className="rcard__memo dim">{s.note}</p> : null}
+
+      {/* 枠が短く見える理由をここで言う。画面が黙って仮の長さを描かないため。 */}
+      {!s.ended_at ? (
+        <p className="micro dim">
+          終了時刻が入っていないので、カレンダーには開始時刻だけを置いています。
+          記録で終了を入れると、開催時間が枠として出ます。
+        </p>
+      ) : null}
 
       <div className="rform__actions">
         <Link href="/sessions" className="btn">
