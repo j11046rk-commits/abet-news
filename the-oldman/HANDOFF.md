@@ -28,7 +28,8 @@
 ### ① Supabaseプロジェクトを作る
 
 1. https://supabase.com で新規プロジェクト（リージョンは Northeast Asia (Tokyo) を推奨）
-2. SQL Editor で `supabase/migrations/` を **0001 → 0006 の順に** 実行
+2. SQL Editor に **`supabase/setup.sql` を全文貼って1回 Run**
+   （0001〜0004 + 0006 の連結 + 最小限の初期データ。ダミーデータは入らない）
 3. Authentication → Providers → Email を有効化し、**Confirm email を無効化**
 4. Authentication → **Sign-ups を無効化**（自己サインアップ不可）
 
