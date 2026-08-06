@@ -36,6 +36,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // 真鍮のカジキの刻印。タブとホーム画面のアイコン。
   icons: { icon: "/images/icon-192.png", apple: "/images/apple-touch-icon.png" },
+  // iOS は manifest の standalone を読まないので、こちらでも宣言する
+  appleWebApp: { capable: true, title: "The Oldmans", statusBarStyle: "black-translucent" },
   // LINE等でURLを共有したときのカード。真っ黒なカードになるのを防ぐ。
   openGraph: {
     title: "The Oldmans",

@@ -5,7 +5,8 @@ import { createServerClient } from "@supabase/ssr";
  * 未認証アクセスは全て /login へ。URL が漏れても中身が見えない状態にする（SPEC §5）。
  * セッション Cookie のリフレッシュもここで行う。
  */
-const PUBLIC_PATHS = ["/login", "/api/auth/login"];
+// manifest はホーム画面登録時にブラウザが cookie 無しで取りに来ることがある
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/manifest.webmanifest"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
