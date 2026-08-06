@@ -2296,13 +2296,42 @@ tr.is-off {
   margin: 0;
 }
 
+/*
+ * 用途が増えたので2段にする。1段目に日付・名前・時刻・滞在時間、
+ * 2段目に何をしていたか。横に5つ並べると狭い画面で潰れる。
+ */
 .visits__row {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
+  grid-template-areas:
+    "date name time dur"
+    "what what what what";
   align-items: baseline;
-  gap: 0.625rem;
+  gap: 0.125rem 0.625rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.visits__row > .visits__date,
+.visits__edit > .visits__date {
+  grid-area: date;
+}
+
+.visits__row > .visits__name,
+.visits__edit > .visits__name {
+  grid-area: name;
+}
+
+.visits__what {
+  grid-area: what;
+}
+
+.visits__time {
+  grid-area: time;
+}
+
+.visits__dur {
+  grid-area: dur;
 }
 
 .visits__date {
@@ -2630,50 +2659,49 @@ tr.is-off {
 
 /* ── 固定費（設定画面）─────────────────────────────────────────────── */
 
-.fixed {
+.fixedcosts {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-/*
- * 名前は行を分ける。狭い画面で「名前・金額・日・ボタン」を横一列にすると
- * 入力欄の既定の最小幅に押されて、ボタンが画面の外へ出てしまう。
- */
-.fixed__form {
-  display: grid;
-  grid-template-columns: 1fr 4rem auto;
-  grid-template-areas:
-    "name name name"
-    "amt  day  btn";
-  align-items: center;
-  gap: 0.375rem 0.5rem;
-  padding: 0.625rem 0;
+/* 名前・入力欄の行・説明文を縦に積む。横一列に詰め込むと狭い画面で崩れる。 */
+.fixedcosts__form {
+  padding: 0.75rem 0 1rem;
   border-top: 1px solid var(--brass-hairline);
 }
 
-/* グリッドの子は既定で min-width:auto。0 にしないと縮まない。 */
-.fixed__form > * {
+.fixedcosts__fields {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem auto;
+  align-items: end;
+  gap: 0.625rem;
+}
+
+/* グリッドの子は既定で min-width:auto。0 にしないと入力欄が縮まない。 */
+.fixedcosts__fields > * {
   min-width: 0;
 }
 
-.fixed__form .fixed__name {
-  grid-area: name;
+.fixedcosts__name {
+  color: var(--paper);
+  font-size: 0.9375rem;
+  margin-bottom: 0.25rem;
 }
 
-.fixed__form > .field:not(.fixed__day) {
-  grid-area: amt;
+.fixedcosts__num {
+  text-align: right;
 }
 
-.fixed__day {
-  grid-area: day;
+.fixedcosts__day {
+  text-align: center;
 }
 
-.fixed__form > .btn {
-  grid-area: btn;
+.fixedcosts__hint {
+  margin-top: 0.5rem;
 }
 
-.fixed__view {
+.fixedcosts__view {
   display: grid;
   grid-template-columns: 4.5rem 1fr auto;
   align-items: center;
@@ -2682,20 +2710,7 @@ tr.is-off {
   border-top: 1px solid var(--brass-hairline);
 }
 
-.fixed__name {
-  color: var(--paper);
-  font-size: 0.875rem;
-}
-
-.fixed__num {
-  text-align: right;
-}
-
-.fixed__day {
-  text-align: center;
-}
-
-.fixed__msg {
+.fixedcosts__msg {
   grid-column: 1 / -1;
   margin: 0;
 }
@@ -2879,7 +2894,121 @@ tr.is-off {
   border: 1px solid var(--brass-hairline);
 }
 
-/* タブが6つ並ぶので、日本語だけの項目は縦位置を合わせる */
-.nav__ja.is-solo {
-  padding-top: 0.5625rem;
+/* ── チェックインの入力シート ─────────────────────────────────────── */
+
+.cisheet {
+  position: fixed;
+  inset: 0;
+  /* 下部タブ(80)より上。ここが下だとボタンがタブに隠れて押せない。 */
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 560px) {
+  .cisheet {
+    align-items: center;
+  }
+}
+
+.cisheet__back {
+  position: absolute;
+  inset: 0;
+  background: rgb(12 13 15 / 0.82);
+}
+
+.cisheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 30rem;
+  max-height: 88dvh;
+  overflow-y: auto;
+  /* iPhone のホームバーぶんを空ける */
+  padding-bottom: calc(1.375rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* ── カレンダーの滞在（実際にいた記録）─────────────────────────────── */
+/*
+ * 予約の帯とは別物なので、形を変える。列の左端の細い筋にして、
+ * 「約束」と「実際」が同じものに見えないようにする。
+ */
+.cal__visit {
+  position: absolute;
+  left: 0;
+  width: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--smoke);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.cal__visit.is-mine {
+  background: var(--brass);
+  opacity: 0.85;
+}
+
+.cal__visit:hover {
+  opacity: 1;
+}
+
+.mcal__visits {
+  display: block;
+  margin-top: 0.125rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brass);
+  cursor: pointer;
+}
+
+/* いま何をしているか。名前の下に小さく添える。 */
+.now__what {
+  display: block;
+  color: var(--smoke);
+}
+
+/* 直近の滞在 — 自分の行は押すと直せる */
+.visits__edit {
+  display: contents;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.visits__what:empty {
+  display: none;
+}
+
+/* TOP から卓の記録へ直行するボタン */
+.record {
+  margin: 0.25rem 0 1.5rem;
+}
+
+/* 名簿 — 6人とも共同オーナーなので、名前だけを並べる */
+.roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roster__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--brass-hairline);
+}
+
+.roster__row.is-off {
+  opacity: 0.4;
 }

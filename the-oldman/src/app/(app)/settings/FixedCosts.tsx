@@ -29,7 +29,7 @@ export default function FixedCosts({ costs, isOwner }: { costs: FixedCost[]; isO
         毎月かかる費用です。<span className="micro">計上日になると台帳に自動で載ります。</span>
       </p>
 
-      <div className="fixed">
+      <div className="fixedcosts">
         {FIXED.map((f) => (
           <FixedCostRow
             key={f.name}
@@ -82,46 +82,64 @@ function FixedCostRow({
 
   if (!isOwner) {
     return (
-      <p className="fixed__view">
-        <span className="fixed__name">{name}</span>
-        <span className="fixed__num amount">{yen(cost?.amount_yen ?? 0)}</span>
+      <p className="fixedcosts__view">
+        <span className="fixedcosts__name">{name}</span>
+        <span className="fixedcosts__num amount">{yen(cost?.amount_yen ?? 0)}</span>
         <span className="micro">毎月 {cost?.billing_day ?? 27} 日</span>
       </p>
     );
   }
 
   return (
-    <form className="fixed__form" onSubmit={save}>
-      <span className="fixed__name">{name}</span>
-      <label className="sr-only" htmlFor={`f-amt-${category}`}>
-        {name}の金額
-      </label>
-      <input
-        id={`f-amt-${category}`}
-        className="field field-num"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={amount === 0 ? "" : String(amount)}
-        onChange={(e) => setAmount(Math.max(0, parseYen(e.target.value)))}
-        placeholder="0"
-      />
-      <label className="sr-only" htmlFor={`f-day-${category}`}>
-        {name}の計上日
-      </label>
-      <input
-        id={`f-day-${category}`}
-        type="number"
-        min={1}
-        max={28}
-        className="field field-num fixed__day"
-        value={day}
-        onChange={(e) => setDay(Math.min(28, Math.max(1, Number(e.target.value) || 1)))}
-      />
-      <button type="submit" className="btn btn-sm" disabled={busy}>
-        {busy ? "…" : "保存"}
-      </button>
-      {error ? <p className="err fixed__msg">{error}</p> : null}
-      {flash ? <p className="micro fixed__msg">{flash}</p> : null}
+    <form className="fixedcosts__form" onSubmit={save}>
+      <p className="fixedcosts__name">{name}</p>
+
+      {/*
+        入力欄には見えるラベルを付ける。読み上げ用の隠しラベルをグリッドに
+        直接置いていたため、名前の付いていない子として枠に割り込み、
+        金額と計上日と保存ボタンの位置が崩れていた。
+      */}
+      <div className="fixedcosts__fields">
+        <div>
+          <label className="field-label" htmlFor={`f-amt-${category}`}>
+            金額
+          </label>
+          <input
+            id={`f-amt-${category}`}
+            className="field field-num"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={amount === 0 ? "" : String(amount)}
+            onChange={(e) => setAmount(Math.max(0, parseYen(e.target.value)))}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <label className="field-label" htmlFor={`f-day-${category}`}>
+            計上日
+          </label>
+          <input
+            id={`f-day-${category}`}
+            type="number"
+            min={1}
+            max={28}
+            className="field field-num fixedcosts__day"
+            value={day}
+            onChange={(e) => setDay(Math.min(28, Math.max(1, Number(e.target.value) || 1)))}
+          />
+        </div>
+        <button type="submit" className="btn btn-sm" disabled={busy}>
+          {busy ? "…" : "保存"}
+        </button>
+      </div>
+
+      <p className="micro fixedcosts__hint">
+        毎月 {day} 日に {yen(amount)} を台帳へ自動で載せます。
+        {amount === 0 ? "（0円のあいだは載せません）" : ""}
+      </p>
+
+      {error ? <p className="err fixedcosts__msg">{error}</p> : null}
+      {flash ? <p className="micro fixedcosts__msg">{flash}</p> : null}
     </form>
   );
 }

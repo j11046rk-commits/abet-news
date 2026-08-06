@@ -39,8 +39,9 @@ export async function getProfiles(): Promise<Profile[]> {
   const { data } = await supabase
     .from("profiles")
     .select("*")
-    .order("role", { ascending: true })
-    .order("joined_on", { ascending: true });
+    // 並びは施設側で決めた固定順（0013）。画面ごとに変わらないようにする。
+    .order("sort_order", { ascending: true })
+    .order("login_id", { ascending: true });
   return (data ?? []) as Profile[];
 }
 
@@ -208,17 +209,34 @@ export async function getFixedCosts(): Promise<FixedCost[]> {
 
 /* ── 立替 ───────────────────────────────────────────────────────────── */
 
-/** 未精算を先に、そのなかは精算予定日の早い順。返す約束が近いものから見せる。 */
-export async function getAdvances(limit = 60): Promise<Advance[]> {
+/**
+ * 立替の一覧。
+ *
+ * 未精算は月をまたいでも消えない — 返す約束は月が変わっても残るため。
+ * 精算済みは、その月に精算したものだけを出す。全部残すと一覧が伸び続けて、
+ * まだ返していないものが埋もれる。
+ *
+ * 未精算を先に、そのなかは精算予定日の早い順。
+ */
+export async function getAdvances(ym: string, limit = 100): Promise<Advance[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("advances")
-    .select("*")
-    .order("settled_at", { ascending: true, nullsFirst: true })
-    .order("due_on", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as Advance[];
+  const [{ data: open }, { data: done }] = await Promise.all([
+    supabase
+      .from("advances")
+      .select("*")
+      .is("settled_at", null)
+      .order("due_on", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("advances")
+      .select("*")
+      .gte("settled_at", `${ym}-01T00:00:00+09:00`)
+      .lt("settled_at", `${nextYm(ym)}-01T00:00:00+09:00`)
+      .order("settled_at", { ascending: false })
+      .limit(limit),
+  ]);
+  return [...((open ?? []) as Advance[]), ...((done ?? []) as Advance[])];
 }
 
 /* ── ほしい物リスト ─────────────────────────────────────────────────── */
@@ -278,6 +296,23 @@ export async function getOpenCheckIns(): Promise<CheckIn[]> {
 }
 
 /** 直近の出入り */
+/**
+ * 期間にかかった滞在。カレンダー用。
+ *
+ * 「入った時刻が期間より前で、まだ出ていない」滞在も拾いたいので、
+ * 終了側の条件は「出た時刻が期間の頭より後 or まだ出ていない」で書く。
+ */
+export async function getCheckInsBetween(fromIso: string, toIso: string): Promise<CheckIn[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("check_ins")
+    .select("*")
+    .lt("checked_in_at", toIso)
+    .or(`checked_out_at.gt.${fromIso},checked_out_at.is.null`)
+    .order("checked_in_at");
+  return (data ?? []) as CheckIn[];
+}
+
 export async function getRecentCheckIns(limit = 12): Promise<CheckIn[]> {
   const supabase = await createClient();
   const { data } = await supabase

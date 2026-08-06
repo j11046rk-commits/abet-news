@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReservationForm from "@/components/ReservationForm";
 import { addDaysJst, fmt, fmtDate, fmtDateJa, fmtTime, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
-import { purposeMeta, type Reservation } from "@/lib/types";
+import VisitEditor from "@/components/VisitEditor";
+import { purposeMeta, type CheckIn, type Reservation } from "@/lib/types";
 
 const ROW = 34; // 1時間の高さ(px)
 
@@ -16,6 +17,35 @@ type Segment = {
   lanes: number;
   continues: boolean; // 翌日に続く
 };
+
+/** 滞在の1本。予約と同じ時間軸に、細い帯として並べる。 */
+type VisitSeg = { c: CheckIn; fromHour: number; toHour: number };
+
+/**
+ * その日にかかる滞在を切り出す。
+ *
+ * 予約は「これから使う約束」、滞在は「実際にいた記録」。別の物なので、
+ * レーンを共有せず、列の左端の細い帯にまとめて出す。
+ */
+function visitsForDay(visits: CheckIn[], date: string): VisitSeg[] {
+  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
+  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
+  const now = Date.now();
+
+  return visits
+    .map((c) => {
+      const s = new Date(c.checked_in_at).getTime();
+      const e = c.checked_out_at ? new Date(c.checked_out_at).getTime() : now;
+      if (e <= dayStart || s >= dayEnd) return null;
+      return {
+        c,
+        fromHour: Math.max(0, (Math.max(s, dayStart) - dayStart) / 3600_000),
+        toHour: Math.min(24, (Math.min(e, dayEnd) - dayStart) / 3600_000),
+      };
+    })
+    .filter((x): x is VisitSeg => x !== null)
+    .sort((a, b) => a.fromHour - b.fromHour);
+}
 
 const dayKey = (d: Date) => fmtDate(d);
 const parseJstDate = (s: string) => new Date(`${s}T00:00:00+09:00`);
@@ -71,6 +101,7 @@ export default function CalendarView({
   view,
   anchor,
   reservations,
+  visits,
   names,
   meId,
   isOwner,
@@ -78,6 +109,8 @@ export default function CalendarView({
   view: "week" | "month";
   anchor: string;
   reservations: Reservation[];
+  /** 実際にいた記録。予約とは別物なので、別の帯として重ねる。 */
+  visits: CheckIn[];
   names: Record<string, string>;
   meId: string;
   isOwner: boolean;
@@ -86,6 +119,7 @@ export default function CalendarView({
   const [compact, setCompact] = useState(false); // モバイルは3日表示
   const [legend, setLegend] = useState(false);
   const [detail, setDetail] = useState<Reservation | null>(null);
+  const [visit, setVisit] = useState<CheckIn | null>(null);
   const [draft, setDraft] = useState<{ date: string; start: number; end: number } | null>(null);
   const dragRef = useRef<{ date: string; from: number; to: number } | null>(null);
   const [drag, setDrag] = useState<{ date: string; from: number; to: number } | null>(null);
@@ -197,6 +231,9 @@ export default function CalendarView({
           days={days}
           today={today}
           reservations={reservations}
+          visits={visits}
+          onPickVisit={setVisit}
+          meId={meId}
           names={names}
           drag={drag}
           onBegin={beginDrag}
@@ -210,6 +247,9 @@ export default function CalendarView({
           anchor={anchor}
           today={today}
           reservations={reservations}
+          visits={visits}
+          onPickVisit={setVisit}
+          meId={meId}
           names={names}
           onPickDay={(d) => go(d, "week")}
           onPick={setDetail}
@@ -243,6 +283,8 @@ export default function CalendarView({
           </div>
         ) : null}
       </div>
+
+      {visit ? <VisitEditor visit={visit} onClose={() => setVisit(null)} /> : null}
 
       {detail ? (
         <Popover onClose={() => setDetail(null)}>
@@ -282,6 +324,9 @@ function WeekGrid({
   days,
   today,
   reservations,
+  visits,
+  onPickVisit,
+  meId,
   names,
   drag,
   onBegin,
@@ -292,6 +337,9 @@ function WeekGrid({
   days: string[];
   today: string;
   reservations: Reservation[];
+  visits: CheckIn[];
+  onPickVisit: (c: CheckIn) => void;
+  meId: string;
   names: Record<string, string>;
   drag: { date: string; from: number; to: number } | null;
   onBegin: (d: string, h: number) => void;
@@ -359,6 +407,25 @@ function WeekGrid({
               {segs.map((s) => (
                 <Block key={`${s.r.id}-${d}`} seg={s} name={names[s.r.created_by] ?? "メンバー"} onPick={onPick} />
               ))}
+
+              {/*
+                実際にいた記録。予約の帯とは別に、列の左端の細い筋として出す。
+                「約束」と「実際」を同じ形で並べると、どちらを見ているか分からなくなる。
+              */}
+              {visitsForDay(visits, d).map((v) => (
+                <button
+                  key={`v-${v.c.id}-${d}`}
+                  className={`cal__visit${v.c.profile_id === meId ? " is-mine" : ""}`}
+                  style={{ top: v.fromHour * ROW, height: Math.max(3, (v.toHour - v.fromHour) * ROW) }}
+                  title={`${names[v.c.profile_id] ?? "メンバー"} ${fmtTime(v.c.checked_in_at)}〜`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPickVisit(v.c);
+                  }}
+                  aria-label={`${names[v.c.profile_id] ?? "メンバー"} の滞在`}
+                />
+              ))}
             </div>
           );
         })}
@@ -420,6 +487,9 @@ function MonthGrid({
   anchor,
   today,
   reservations,
+  visits,
+  onPickVisit,
+  meId,
   names,
   onPickDay,
   onPick,
@@ -428,6 +498,9 @@ function MonthGrid({
   anchor: string;
   today: string;
   reservations: Reservation[];
+  visits: CheckIn[];
+  onPickVisit: (c: CheckIn) => void;
+  meId: string;
   names: Record<string, string>;
   onPickDay: (d: string) => void;
   onPick: (r: Reservation) => void;
@@ -467,6 +540,22 @@ function MonthGrid({
                 })}
                 {segs.length > 4 ? <span className="micro">+{segs.length - 4}</span> : null}
               </div>
+
+              {/* 実際に人がいた日には、日付の下に小さく人数を出す。 */}
+              {(() => {
+                const vs = visitsForDay(visits, d);
+                if (vs.length === 0) return null;
+                const heads = vs.reduce((n, v) => n + (v.c.headcount || 1), 0);
+                return (
+                  <button
+                    className="mcal__visits micro"
+                    onClick={() => onPickVisit(vs[0].c)}
+                    title="滞在の記録"
+                  >
+                    {heads}名
+                  </button>
+                );
+              })()}
             </div>
           );
         })}

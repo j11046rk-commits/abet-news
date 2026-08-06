@@ -36,7 +36,7 @@ export default async function LedgerPage({
       getPassbook(ym),
       getVault(),
       getProfiles(),
-      getAdvances(),
+      getAdvances(ym),
     ]);
 
   // 月送りは「記帳のある月」と「今月」のあいだを行き来する。

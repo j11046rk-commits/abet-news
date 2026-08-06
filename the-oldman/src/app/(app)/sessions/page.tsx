@@ -3,7 +3,7 @@ import SessionsClient from "./SessionsClient";
 import { requireProfile } from "@/lib/auth";
 import { getProfiles, getSessions } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "セッション — The Oldmans" };
+export const metadata: Metadata = { title: "記録 — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function SessionsPage({

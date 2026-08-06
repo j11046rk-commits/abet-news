@@ -6,58 +6,46 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
-
 /**
- * ほしい物を1件追加する。画像は任意。
+ * 画像の実体はブラウザから直接バケットへ上げる。ここへ来るのはその置き場所だけ。
  *
- * FormData で受けるのは、画像をサーバ側で検証してから置きたいため。
- * ブラウザから直接バケットへ上げると、拡張子と中身が食い違っていても通ってしまう。
+ * かつては File を Server Action に渡して、サーバ経由でバケットへ入れていた。
+ * それだと (1) Server Action の本文上限 1MB に引っかかって写真が保存できず、
+ * (2) 通っても スマホ→Vercel→Supabase と同じバイト列を2回運ぶことになる。
+ *
+ * 自分のフォルダ以外のパスは受け付けない。他人が上げた画像を
+ * 自分の行に紐づけられないようにするため。
  */
-export async function createWishlistItem(form: FormData): Promise<Result> {
+const PATH_RE = /^[0-9a-f-]{36}\/[0-9a-zA-Z_-]{1,64}\.(webp|jpg|jpeg|png|heic)$/;
+
+export async function createWishlistItem(input: {
+  title: string;
+  amountYen: number | null;
+  note: string;
+  imagePath: string | null;
+}): Promise<Result> {
   const me = await requireProfile();
 
-  const title = String(form.get("title") ?? "").trim();
-  const note = String(form.get("note") ?? "").trim();
-  const raw = String(form.get("amount") ?? "").replace(/[^\d]/g, "");
-  const amount = raw ? Number(raw) : null;
-
+  const title = input.title.trim();
   if (!title) return { ok: false, error: "名称を入力してください。" };
-  if (amount !== null && !Number.isSafeInteger(amount))
+  if (input.amountYen !== null && !Number.isSafeInteger(input.amountYen))
     return { ok: false, error: "金額を確認してください。" };
 
-  const supabase = await createClient();
-
-  let imagePath: string | null = null;
-  const file = form.get("image");
-  if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_BYTES) return { ok: false, error: "画像は5MBまでです。" };
-    if (!TYPES.has(file.type)) return { ok: false, error: "画像はJPEG・PNG・WebPで。" };
-
-    // 誰のものか分かるようにフォルダを切る。名前は衝突しないものを付ける。
-    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = `${me.id}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage
-      .from("wishlist")
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (error) return { ok: false, error: "画像を保存できませんでした。" };
-    imagePath = path;
+  if (input.imagePath !== null) {
+    if (!PATH_RE.test(input.imagePath) || !input.imagePath.startsWith(`${me.id}/`))
+      return { ok: false, error: "画像を保存できませんでした。" };
   }
 
+  const supabase = await createClient();
   const { error } = await supabase.from("wishlist_items").insert({
     title,
-    amount_yen: amount,
-    note: note || null,
-    image_path: imagePath,
+    amount_yen: input.amountYen,
+    note: input.note.trim() || null,
+    image_path: input.imagePath,
     created_by: me.id,
   });
 
-  if (error) {
-    // 行が作れなかったのに画像だけ残ると、誰からも辿れないゴミになる。
-    if (imagePath) await supabase.storage.from("wishlist").remove([imagePath]);
-    return { ok: false, error: "保存できませんでした。" };
-  }
+  if (error) return { ok: false, error: "保存できませんでした。" };
 
   revalidatePath("/wishlist");
   return { ok: true };

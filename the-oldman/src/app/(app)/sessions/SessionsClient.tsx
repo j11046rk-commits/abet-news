@@ -28,7 +28,7 @@ export default function SessionsClient({
   return (
     <>
       <header className="page">
-        <h1 className="display">セッション</h1>
+        <h1 className="display">記録</h1>
         <p className="dim page__lead">卓が終わったら、その場で。金額から入れられます。</p>
       </header>
 

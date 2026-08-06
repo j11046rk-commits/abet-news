@@ -83,7 +83,8 @@ export default function Advances({
       </div>
 
       <p className="dim">
-        立て替えたぶんのメモです。<span className="micro">精算したらチェックを入れてください。</span>
+        立替分のメモです。
+        <span className="micro">精算のチェックを入れると、台帳に支出として載ります。</span>
       </p>
 
       {error ? <p className="err">{error}</p> : null}
