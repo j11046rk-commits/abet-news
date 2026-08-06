@@ -68,7 +68,10 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
           className="whisky__pour"
           style={{ top: `${POUR_TOP}%`, height: `${pourH}%` }}
           aria-hidden
-        />
+        >
+          {/* 揺れは内側に持たせる。外側は伸びる演出（scaleY）で transform を使い切っている。 */}
+          <span className="whisky__pourInner" />
+        </span>
 
         <div className="whisky__glass">
           {/* グラス本体。液体はこの上に半透明で重ねる。 */}

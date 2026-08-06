@@ -1638,41 +1638,63 @@ textarea.field {
 /*
  * 注がれる筋。
  *
- * 一定の幅の棒だと液体に見えない。落ちるにつれて加速するぶん細くなるので
- * 下すぼまりに切り、片側だけ明るくして丸みを出す。着水点には波紋を置く。
+ * 一定の幅の直線だと液体に見えない。実際の注ぎは
+ *   - 落ちるにつれて加速するので下ほど細くなる
+ *   - 注ぎ口に繋がったまま、下の方だけが左右へゆっくり振れる
+ *   - 光を集めるので中心が明るく、縁が暗い
+ *
+ * 外側は「伸びる」演出（scaleY）で transform を使い切っているので、
+ * 揺れは内側の要素に持たせている。支点は上端＝注ぎ口。
+ *
  * top と height は注ぎ口と液面の位置から component 側で決めている。
  */
 .whisky__pour {
   position: absolute;
-  left: 43%;
-  width: 8px;
-  background:
-    linear-gradient(90deg,
-      rgb(120 72 24 / 0.55) 0%,
-      rgb(232 186 110 / 0.95) 34%,
-      rgb(198 140 62 / 0.9) 58%,
-      rgb(110 64 20 / 0.5) 100%),
-    linear-gradient(180deg, rgb(226 170 92 / 0.9), rgb(150 92 30 / 0.85));
-  /* 下へ行くほど細くなる。太さは絶えず揺れている — 液体なので */
-  clip-path: polygon(24% 0%, 76% 0%, 62% 100%, 38% 100%);
-  filter: blur(0.3px);
+  left: 40.5%;
+  width: 16px;
   transform-origin: top center;
   transform: scaleY(0);
   opacity: 0;
-  animation:
-    wg-pour 3400ms linear 1 forwards,
-    wg-ribbon 780ms ease-in-out infinite;
+  animation: wg-pour 3400ms linear 1 forwards;
   pointer-events: none;
 }
 
-/* 筋のくびれ。等幅のままだと棒に見える。 */
-@keyframes wg-ribbon {
+.whisky__pourInner {
+  position: absolute;
+  inset: 0;
+  /* 断面の丸み。中心の照りは細く、周りは琥珀、縁は落とす。
+     照りを広く取ると乳白色に見えてウイスキーらしくなくなる。 */
+  background:
+    linear-gradient(90deg,
+      rgb(80 44 12 / 0.28) 0%,
+      rgb(158 96 34 / 0.82) 20%,
+      rgb(208 150 74 / 0.94) 40%,
+      rgb(246 212 154 / 0.98) 48%,
+      rgb(198 138 60 / 0.93) 58%,
+      rgb(132 78 26 / 0.68) 80%,
+      rgb(74 40 10 / 0.26) 100%),
+    linear-gradient(180deg, rgb(198 138 60 / 0.9), rgb(126 74 24 / 0.9));
+  /* 下へ行くほど細くなる */
+  clip-path: polygon(14% 0%, 86% 0%, 68% 100%, 32% 100%);
+  filter: blur(0.4px);
+  transform-origin: top center;
+  animation: wg-sway 1300ms ease-in-out infinite;
+}
+
+/*
+ * 揺れ。上端は注ぎ口に繋がったまま、下へ行くほど大きく振れる。
+ * だから平行移動ではなく、上端を支点にした傾き（skew）で作る。
+ */
+@keyframes wg-sway {
   0%,
   100% {
-    clip-path: polygon(24% 0%, 76% 0%, 62% 100%, 38% 100%);
+    transform: skewX(-3.2deg) translateX(1px);
   }
-  50% {
-    clip-path: polygon(28% 0%, 72% 0%, 68% 100%, 32% 100%);
+  30% {
+    transform: skewX(1.6deg) translateX(-0.5px);
+  }
+  65% {
+    transform: skewX(3.4deg) translateX(-1px);
   }
 }
 
@@ -1682,9 +1704,9 @@ textarea.field {
   position: absolute;
   left: 50%;
   bottom: -3px;
-  width: 30px;
-  height: 9px;
-  margin-left: -15px;
+  width: 34px;
+  height: 10px;
+  margin-left: -17px;
   border-radius: 50%;
   border: 1px solid rgb(247 222 172 / 0.7);
   border-top-color: rgb(247 222 172 / 0.2);
@@ -1738,8 +1760,8 @@ textarea.field {
     opacity: 0;
   }
 
-  .whisky__pour {
-    animation: wg-pour 3400ms linear 1 forwards;
+  .whisky__pourInner {
+    animation: none;
   }
 
   .whisky__surface {
