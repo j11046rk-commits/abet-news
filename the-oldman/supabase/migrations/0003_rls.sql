@@ -176,6 +176,7 @@ create policy ledger_select on ledger_entries
 
 -- 台帳への手入力は owner のみ。member がセッションを記録したときの
 -- レーキ行は 0004 の security definer トリガが起票するため、この制限に触れない。
+-- ※ この3つのポリシーは 0006 で差し替え、6人全員が記帳・編集できるようにしている。
 create policy ledger_insert_owner on ledger_entries
   for insert to authenticated with check (public.is_owner());
 

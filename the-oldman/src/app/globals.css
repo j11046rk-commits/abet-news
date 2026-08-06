@@ -1996,3 +1996,14 @@ tr.is-off {
     border: 1px solid CanvasText;
   }
 }
+
+.ltable__ops {
+  display: inline-flex;
+  gap: 0.375rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.lform__editing {
+  color: var(--brass);
+}

@@ -8,6 +8,7 @@
 0003_rls.sql                 RLS 有効化とポリシー
 0004_session_ledger_sync.sql セッション → 台帳の自動起票トリガ
 0005_seed.sql                施設設定・固定費・参加者マスタ・過去3ヶ月のダミー
+0006_ledger_write_for_members.sql  台帳の記帳・編集・削除を6人全員に開放
 ```
 
 Supabase ダッシュボードの **SQL Editor** に上から順に貼って実行するのが最短。

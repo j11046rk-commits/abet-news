@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   createLedgerEntry,
   deleteFixedCost,
   deleteLedgerEntry,
   postFixedCosts,
+  updateLedgerEntry,
   upsertFixedCost,
 } from "./actions";
 import { parseYen, yen } from "@/lib/money";
@@ -32,7 +33,9 @@ export default function LedgerClient({
   currentYm: string;
 }) {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -42,6 +45,33 @@ export default function LedgerClient({
   const [category, setCategory] = useState("rent");
   const [amount, setAmount] = useState(0);
   const [memo, setMemo] = useState("");
+
+  function reset() {
+    setEditingId(null);
+    setOpen(false);
+    setEntryDate(fmtDate(nowJst()));
+    setDirection("expense");
+    setCategory("rent");
+    setAmount(0);
+    setMemo("");
+  }
+
+  /** 行の「編集」を押したらフォームを開いて値を流し込む */
+  function startEdit(e: LedgerEntry) {
+    setEditingId(e.id);
+    setEntryDate(e.entry_date);
+    setDirection(e.direction);
+    setCategory(e.category);
+    setAmount(e.amount_yen);
+    setMemo(e.memo ?? "");
+    setOpen(true);
+    setError(null);
+    setFlash(null);
+    // 一覧の下の方の行を編集するとき、フォームは画面外の上で開く。連れて行く。
+    requestAnimationFrame(() =>
+      formRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+    );
+  }
 
   const categories = direction === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
@@ -55,13 +85,15 @@ export default function LedgerClient({
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const res = await createLedgerEntry({ entryDate, direction, category, amountYen: amount, memo });
+    const input = { entryDate, direction, category, amountYen: amount, memo };
+    const res = editingId
+      ? await updateLedgerEntry(editingId, input)
+      : await createLedgerEntry(input);
     setBusy(false);
     if (!res.ok) return setError(res.error);
-    setAmount(0);
-    setMemo("");
-    setOpen(false);
-    setFlash("記帳しました");
+    const wasEditing = Boolean(editingId);
+    reset();
+    setFlash(wasEditing ? "更新しました" : "記帳しました");
     router.refresh();
   }
 
@@ -70,6 +102,8 @@ export default function LedgerClient({
     const res = await deleteLedgerEntry(id);
     setBusy(false);
     if (!res.ok) return setError(res.error);
+    if (editingId === id) reset();
+    setFlash("削除しました");
     router.refresh();
   }
 
@@ -85,7 +119,7 @@ export default function LedgerClient({
 
   return (
     <>
-      {isOwner && unposted.length > 0 ? (
+      {unposted.length > 0 ? (
         <div className="notice lsum__post">
           <p>
             今月ぶんの固定費が {unposted.length}件 未計上です（
@@ -104,9 +138,9 @@ export default function LedgerClient({
         <span className="label">Entries — {entries.length}</span>
       </div>
 
-      {isOwner ? (
-        open ? (
-          <form className="surface rform" onSubmit={submit}>
+      {open ? (
+        <form className="surface rform" onSubmit={submit} ref={formRef}>
+          {editingId ? <p className="label lform__editing">編集中</p> : null}
             <div className="rform__row2">
               <div>
                 <label className="field-label" htmlFor="l-date">
@@ -188,21 +222,20 @@ export default function LedgerClient({
               />
             </div>
 
-            <div className="rform__actions">
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? "記帳中" : "記帳する"}
-              </button>
-              <button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>
-                やめる
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button className="btn block" onClick={() => setOpen(true)}>
-            記帳する
-          </button>
-        )
-      ) : null}
+          <div className="rform__actions">
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? "保存中" : editingId ? "更新する" : "記帳する"}
+            </button>
+            <button type="button" className="btn" onClick={reset} disabled={busy}>
+              やめる
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn block" onClick={() => setOpen(true)}>
+          記帳する
+        </button>
+      )}
 
       {entries.length === 0 ? (
         <p className="empty">まだ記帳がありません。</p>
@@ -213,7 +246,7 @@ export default function LedgerClient({
               <th>日付</th>
               <th>カテゴリ</th>
               <th className="ta-r">金額</th>
-              {isOwner ? <th /> : null}
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -223,16 +256,19 @@ export default function LedgerClient({
                 <td>
                   {categoryJa(e.direction, e.category)}
                   {e.memo ? <span className="micro"> · {e.memo}</span> : null}
-                  {e.session_id ? <span className="micro"> · 卓から自動</span> : null}
+
                 </td>
                 <td className={`ta-r amount${e.direction === "expense" ? " is-expense" : ""}`}>
                   {e.direction === "expense" ? `−${yen(e.amount_yen)}` : yen(e.amount_yen)}
                 </td>
-                {isOwner ? (
-                  <td className="ta-r">
-                    {e.session_id ? (
-                      <span className="micro">—</span>
-                    ) : (
+                <td className="ta-r">
+                  {e.session_id ? (
+                    <span className="micro">卓から</span>
+                  ) : (
+                    <span className="ltable__ops">
+                      <button className="btn btn-sm" disabled={busy} onClick={() => startEdit(e)}>
+                        編集
+                      </button>
                       <button
                         className="btn btn-sm btn-danger"
                         disabled={busy}
@@ -240,9 +276,9 @@ export default function LedgerClient({
                       >
                         削除
                       </button>
-                    )}
-                  </td>
-                ) : null}
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

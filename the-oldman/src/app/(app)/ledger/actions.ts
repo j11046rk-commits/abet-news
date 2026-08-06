@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOwner } from "@/lib/auth";
+import { requireOwner, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDate, nowJst } from "@/lib/time";
 import type { LedgerDirection } from "@/lib/types";
@@ -21,8 +21,9 @@ function revalidateAll() {
   revalidatePath("/");
 }
 
+/** 記帳は6人全員ができる。会計を一人に属人化させないため（SPEC §1 G4）。 */
 export async function createLedgerEntry(input: LedgerInput): Promise<Result> {
-  const owner = await requireOwner();
+  const me = await requireProfile();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.entryDate)) return { ok: false, error: "日付を選んでください。" };
   if (!input.category) return { ok: false, error: "カテゴリを選んでください。" };
@@ -36,7 +37,7 @@ export async function createLedgerEntry(input: LedgerInput): Promise<Result> {
     category: input.category,
     amount_yen: input.amountYen,
     memo: input.memo.trim() || null,
-    created_by: owner.id,
+    created_by: me.id,
   });
 
   if (error) return { ok: false, error: "記帳できませんでした。" };
@@ -44,10 +45,48 @@ export async function createLedgerEntry(input: LedgerInput): Promise<Result> {
   return { ok: true };
 }
 
-export async function deleteLedgerEntry(id: string): Promise<Result> {
-  await requireOwner();
+/**
+ * 編集も6人全員。他人が起票した行も直せる。
+ * セッション由来の行（session_id あり）はここでは触れない — RLS でも弾いている。
+ */
+export async function updateLedgerEntry(id: string, input: LedgerInput): Promise<Result> {
+  await requireProfile();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.entryDate)) return { ok: false, error: "日付を選んでください。" };
+  if (!input.category) return { ok: false, error: "カテゴリを選んでください。" };
+  if (!Number.isInteger(input.amountYen) || input.amountYen < 0)
+    return { ok: false, error: "金額を入力してください。" };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("ledger_entries").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("ledger_entries")
+    .update({
+      entry_date: input.entryDate,
+      direction: input.direction,
+      category: input.category,
+      amount_yen: input.amountYen,
+      memo: input.memo.trim() || null,
+    })
+    .eq("id", id)
+    .is("session_id", null)
+    .select("id");
+
+  if (error) return { ok: false, error: "更新できませんでした。" };
+  if (!data || data.length === 0)
+    return { ok: false, error: "この行は編集できません（卓から自動で起票された行です）。" };
+
+  revalidateAll();
+  return { ok: true };
+}
+
+export async function deleteLedgerEntry(id: string): Promise<Result> {
+  await requireProfile();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ledger_entries")
+    .delete()
+    .eq("id", id)
+    .is("session_id", null);
   if (error) return { ok: false, error: "削除できませんでした。" };
   revalidateAll();
   return { ok: true };
@@ -59,7 +98,7 @@ export async function deleteLedgerEntry(id: string): Promise<Result> {
  * 同月・同カテゴリ・同名の行が既にあればスキップするので、二度押しても増えない。
  */
 export async function postFixedCosts(): Promise<{ ok: boolean; posted: number; error?: string }> {
-  const owner = await requireOwner();
+  const me = await requireProfile();
   const supabase = await createClient();
 
   const { data: costs } = await supabase.from("fixed_costs").select("*").eq("is_active", true);
@@ -85,7 +124,7 @@ export async function postFixedCosts(): Promise<{ ok: boolean; posted: number; e
       category: categoryOf(c.name),
       amount_yen: c.amount_yen,
       memo: c.name,
-      created_by: owner.id,
+      created_by: me.id,
     }));
 
   if (rows.length === 0) return { ok: true, posted: 0 };
@@ -103,7 +142,7 @@ function categoryOf(name: string): string {
   return "other";
 }
 
-/* ── 固定費マスタ ───────────────────────────────────────────────────── */
+/* ── 固定費マスタ（owner のみ。毎月の金額の定義を変える操作のため）─────── */
 
 export async function upsertFixedCost(input: {
   id?: string;

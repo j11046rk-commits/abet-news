@@ -27,7 +27,7 @@ export default async function LedgerPage() {
       <header className="page">
         <h1 className="display">台帳</h1>
         <p className="dim page__lead">
-          全員が読めます。記帳と固定費の設定はオーナーのみ。
+          6人全員が読めて、記帳・編集できます。固定費の設定だけオーナーが行います。
         </p>
       </header>
 
