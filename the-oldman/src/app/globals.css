@@ -512,12 +512,17 @@ textarea.field {
   gap: 1rem;
   max-width: 62rem;
   margin: 0 auto;
-  padding: 1.5rem 1.125rem 0.875rem;
+  /*
+   * ホーム画面アプリでは画面が上端いっぱいまで描かれる（viewportFit: cover）。
+   * ノッチ・ステータスバーのぶんを env() で空けないと、チェックイン等の
+   * ボタンがインカメの裏に隠れる。Safari 内では inset は 0 なので影響しない。
+   */
+  padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1.125rem 0.875rem;
 }
 
 @media (min-width: 768px) {
   .masthead {
-    padding: 2rem 2rem 1rem;
+    padding: calc(2rem + env(safe-area-inset-top, 0px)) 2rem 1rem;
   }
 }
 
@@ -689,7 +694,9 @@ textarea.field {
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  padding: 2.5rem 1.25rem;
+  /* ログイン画面も同じ理由でノッチのぶんを空ける */
+  padding: calc(2.5rem + env(safe-area-inset-top, 0px)) 1.25rem
+    calc(2.5rem + env(safe-area-inset-bottom, 0px));
   isolation: isolate;
   background-color: var(--ink);
   background-image: url("/images/gate-portrait.jpg");
@@ -1341,7 +1348,7 @@ textarea.field {
  * それでも足りないほど画面が短い端末のために overflow は残す。
  */
 .cal__scroll {
-  height: calc(100dvh - 20.5rem);
+  height: calc(100dvh - 20.5rem - env(safe-area-inset-top, 0px));
   min-height: 17rem;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1349,7 +1356,7 @@ textarea.field {
 
 @media (min-width: 768px) {
   .cal__scroll {
-    height: calc(100dvh - 16rem);
+    height: calc(100dvh - 16rem - env(safe-area-inset-top, 0px));
     min-height: 24rem;
   }
 }
