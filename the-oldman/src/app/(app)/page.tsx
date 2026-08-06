@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AnimatedYen from "@/components/AnimatedYen";
 import Visits from "@/components/Visits";
 import WhiskyGauge from "@/components/WhiskyGauge";
 import WeekStrip from "@/components/WeekStrip";
@@ -136,7 +137,11 @@ export default async function Top() {
         ) : (
           <>
             <p className="recovery__lead">
-              あと <span className="recovery__amount amount">{yen(vault.shortfall)}</span>
+              {/* 注がれるほど残りは減る。目標額から不足額まで、液面と同じ呼吸で下がる。 */}
+              あと{" "}
+              <span className="recovery__amount amount">
+                <AnimatedYen from={vault.target} to={vault.shortfall} />
+              </span>
             </p>
             <ul className="recovery__list">
               {vault.avgRake && vault.sessionsNeeded ? (
