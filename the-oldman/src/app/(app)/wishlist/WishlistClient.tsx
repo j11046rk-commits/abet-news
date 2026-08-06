@@ -3,8 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { createWishlistItem, deleteWishlistItem, setWishlistBought } from "./actions";
+import { extOf, shrinkImage } from "@/lib/image";
 import { yen } from "@/lib/money";
+import { createClient } from "@/lib/supabase/client";
 import type { WishlistItemView } from "@/lib/types";
+
+const MAX_BYTES = 12 * 1024 * 1024;
 
 /**
  * ほしい物リスト。
@@ -15,14 +19,18 @@ import type { WishlistItemView } from "@/lib/types";
 export default function WishlistClient({
   items,
   names,
+  meId,
 }: {
   items: WishlistItemView[];
   names: Record<string, string>;
+  /** 画像の置き場所は自分のフォルダに切る。 */
+  meId: string;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -33,18 +41,76 @@ export default function WishlistClient({
   function close() {
     setOpen(false);
     setPreview(null);
+    setStage(null);
     formRef.current?.reset();
   }
 
+  /**
+   * 画像はブラウザで縮めてから、直接バケットへ上げる。
+   *
+   * Server Action に File を渡すと、本文上限（既定 1MB）に当たって
+   * スマホの写真がそもそも通らない。通っても スマホ→サーバ→バケット と
+   * 同じバイト列を2回運ぶことになる。縮めて直接送れば、その両方が消える。
+   */
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = new FormData(e.currentTarget);
     setBusy(true);
     setError(null);
-    const res = await createWishlistItem(new FormData(e.currentTarget));
-    setBusy(false);
-    if (!res.ok) return setError(res.error);
-    close();
-    router.refresh();
+
+    let uploaded: string | null = null;
+    try {
+      const file = form.get("image");
+      if (file instanceof File && file.size > 0) {
+        if (file.size > MAX_BYTES) {
+          setBusy(false);
+          return setError("画像が大きすぎます。");
+        }
+
+        setStage("画像を準備中");
+        const small = await shrinkImage(file);
+
+        setStage("画像を送信中");
+        const supabase = createClient();
+        const path = `${meId}/${crypto.randomUUID()}.${extOf(small.type)}`;
+        const up = await supabase.storage
+          .from("wishlist")
+          .upload(path, small, { contentType: small.type, upsert: false });
+        if (up.error) {
+          setBusy(false);
+          setStage(null);
+          return setError("画像を保存できませんでした。");
+        }
+        uploaded = path;
+      }
+
+      setStage("保存中");
+      const raw = String(form.get("amount") ?? "").replace(/[^\d]/g, "");
+      const res = await createWishlistItem({
+        title: String(form.get("title") ?? ""),
+        amountYen: raw ? Number(raw) : null,
+        note: String(form.get("note") ?? ""),
+        imagePath: uploaded,
+      });
+
+      if (!res.ok) {
+        // 行が作れなかったのに画像だけ残ると、誰からも辿れないゴミになる
+        if (uploaded) await createClient().storage.from("wishlist").remove([uploaded]);
+        setBusy(false);
+        setStage(null);
+        return setError(res.error);
+      }
+
+      setBusy(false);
+      close();
+      router.refresh();
+    } catch {
+      // ここで拾わないと、ボタンが「保存中」のまま二度と戻らない
+      if (uploaded) await createClient().storage.from("wishlist").remove([uploaded]);
+      setBusy(false);
+      setStage(null);
+      setError("保存できませんでした。通信の状態を確かめてもう一度お試しください。");
+    }
   }
 
   async function toggle(i: WishlistItemView) {
@@ -111,7 +177,7 @@ export default function WishlistClient({
               id="w-img"
               name="image"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="field wish__file"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -122,13 +188,13 @@ export default function WishlistClient({
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={preview} alt="" className="wish__preview" />
             ) : (
-              <p className="micro">商品ページのスクリーンショットでも構いません。5MBまで。</p>
+              <p className="micro">商品ページのスクリーンショットでも構いません。送る前に縮めます。</p>
             )}
           </div>
 
           <div className="rform__actions">
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "保存中" : "追加する"}
+              {busy ? (stage ?? "保存中") : "追加する"}
             </button>
             <button type="button" className="btn" onClick={close} disabled={busy}>
               やめる

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "リスト — The Oldmans" };
 export const dynamic = "force-dynamic";
 
 export default async function WishlistPage() {
-  const [, items, profiles] = await Promise.all([
+  const [me, items, profiles] = await Promise.all([
     requireProfile(),
     getWishlist(),
     getProfiles(),
@@ -25,6 +25,7 @@ export default async function WishlistPage() {
       <WishlistClient
         items={items}
         names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
+        meId={me.id}
       />
     </>
   );
