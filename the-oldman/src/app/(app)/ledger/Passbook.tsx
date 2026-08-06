@@ -86,9 +86,13 @@ export default function Passbook({
                 <td className="pb__c-date amount">{Number(r.entry_date.slice(8))}</td>
                 <td className="pb__c-name">
                   {r.memo?.trim() || categoryJa(r.direction, r.category)}
+                  {/*
+                    出どころを添える。レーキは名目に「レーキ」と出ているので何も足さない。
+                    足すと、通帳のいちばん多い行に毎回同じ字が並ぶだけになる。
+                  */}
                   <span className="pb__by">
                     {r.session_id
-                      ? "卓"
+                      ? ""
                       : r.fixed_cost_id
                         ? "自動"
                         : r.advance_id

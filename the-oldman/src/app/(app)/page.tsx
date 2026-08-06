@@ -97,7 +97,7 @@ export default async function Top() {
 
       {/* いちばん多い操作。ゲージのすぐ下、金額を読んだ流れで押せる位置に置く。 */}
       <Link href="/sessions?new=1" className="btn btn-primary block record">
-        卓を記録する
+        レーキを記録する
       </Link>
 
       <section className={`recovery${reached ? " is-reached" : ""}`}>
@@ -130,7 +130,7 @@ export default async function Top() {
                   の開催で達成
                 </li>
               ) : (
-                <li className="dim">まだ平均レーキを計算できません。卓を記録してください。</li>
+                <li className="dim">まだ平均レーキを計算できません。レーキを記録してください。</li>
               )}
               <li>
                 今月残り <span className="amount">{vault.daysLeft}</span> 日

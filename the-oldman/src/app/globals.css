@@ -2672,6 +2672,11 @@ tr.is-off {
   color: var(--smoke);
 }
 
+/* 中身が無い行では余計な行間を作らない */
+.pb__by:empty {
+  display: none;
+}
+
 .pb__by {
   display: block;
   font-size: var(--fs-micro);
