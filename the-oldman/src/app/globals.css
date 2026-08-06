@@ -832,6 +832,32 @@ textarea.field {
   letter-spacing: 0.2em;
 }
 
+/*
+ * 予約フォームの用途だけ、日本語のあとに英字コードが並ぶ。
+ * 2列に組むと「プライベート」が入りきらず折り返して、その行だけ height が
+ * 伸びてチェックの位置が上下にずれていた。文字を1段下げて1行に収める。
+ * 当たり判定の高さ（.check の 2.5rem）は変えない。
+ */
+.rform__purposes--code {
+  /* 列の間を詰めたぶんを、1行に収めるための幅にまわす */
+  column-gap: 0.75rem;
+}
+
+.rform__purposes--code .check {
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.rform__purposes--code .check > span {
+  font-size: var(--fs-label);
+}
+
+.rform__purposes--code .rform__code {
+  font-size: var(--fs-micro);
+  /* バッジと同じ字送り。0.2em だと PRIVATE が数px はみ出す */
+  letter-spacing: 0.14em;
+}
+
 /* 貸切は明示的な選択。用途タグの「プライベート」と混同させない */
 .rform__exclusive {
   border-top: 1px solid var(--brass-hairline);
