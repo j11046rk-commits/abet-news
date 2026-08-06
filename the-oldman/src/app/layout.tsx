@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bodoni_Moda, IBM_Plex_Mono, Inter, Noto_Sans_JP, Shippori_Mincho } from "next/font/google";
+import { Bodoni_Moda, Inter, Noto_Sans_JP, Shippori_Mincho } from "next/font/google";
 import "./globals.css";
 
 const bodoni = Bodoni_Moda({
@@ -29,13 +29,6 @@ const notoJp = Noto_Sans_JP({
   display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--f-mono",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL("https://the-oldmans.vercel.app"),
   title: "The Oldmans",
@@ -62,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="ja"
-      className={`${bodoni.variable} ${shippori.variable} ${inter.variable} ${notoJp.variable} ${plexMono.variable}`}
+      className={`${bodoni.variable} ${shippori.variable} ${inter.variable} ${notoJp.variable}`}
     >
       <body>{children}</body>
     </html>

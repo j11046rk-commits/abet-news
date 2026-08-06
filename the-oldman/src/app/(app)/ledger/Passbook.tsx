@@ -11,7 +11,7 @@ import { categoryJa, type PassbookRow } from "@/lib/types";
  * ・残高は古い順に積み上げてから並べ替える。表示の向きで数字は変わらない
  * ・いちばん下に前月繰越、いちばん上に当月計
  * ・入金と出金は別の列。同じ列に符号で混ぜない
- * ・数字は等幅で右揃え。桁が縦に揃わないと通帳にならない
+ * ・数字は桁幅を揃えて右揃え。桁が縦に揃わないと通帳にならない
  */
 export default function Passbook({
   ym,
