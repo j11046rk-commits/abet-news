@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReservationForm from "@/components/ReservationForm";
 import { yen } from "@/lib/money";
-import { OPEN_TABLE_HOURS, pairTables, rakeStartedOn, tableSpan } from "@/lib/tables";
+import { pairTables, rakeStartedOn, tableSpan } from "@/lib/tables";
 import { DAY_START_HOUR, addDaysJst, clockLabel, dayWindow, fmt, fmtDate, fmtDateJa, fmtTime, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 import VisitEditor from "@/components/VisitEditor";
 import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib/types";

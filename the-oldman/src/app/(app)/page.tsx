@@ -14,6 +14,7 @@ import {
   getSessionsBetween,
 } from "@/lib/queries";
 import {
+  DAY_START_HOUR,
   addDaysJst,
   fmtDate,
   fmtDateJa,
@@ -29,6 +30,11 @@ export const dynamic = "force-dynamic";
 export default async function Top() {
   const weekStart = fmtDate(startOfWeekJst(nowJst()));
   const weekEnd = fmtDate(addDaysJst(startOfWeekJst(nowJst()), 7));
+  /*
+   * 一日の切れ目は深夜4時（DAY_START_HOUR）。週の最終日の夜は翌週月曜の
+   * 4時まで続くので、取得を0時で切ると日曜25時に始めた卓が拾えない。
+   */
+  const weekEndFetch = jstHourToIso(weekEnd, DAY_START_HOUR);
 
   const [
     me,
@@ -43,8 +49,8 @@ export default async function Top() {
     requireProfile(),
     getVault(),
     getSessions(3),
-    getReservationsBetween(jstHourToIso(weekStart, 0), jstHourToIso(weekEnd, 0)),
-    getSessionsBetween(jstHourToIso(weekStart, 0), jstHourToIso(weekEnd, 0)),
+    getReservationsBetween(jstHourToIso(weekStart, 0), weekEndFetch),
+    getSessionsBetween(jstHourToIso(weekStart, 0), weekEndFetch),
     getProfiles(),
     getOpenCheckIns(),
     getRecentCheckIns(8),

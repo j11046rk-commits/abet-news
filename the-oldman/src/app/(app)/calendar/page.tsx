@@ -7,7 +7,7 @@ import {
   getReservationsBetween,
   getSessionsBetween,
 } from "@/lib/queries";
-import { addDaysJst, fmtDate, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
+import { DAY_START_HOUR, addDaysJst, fmtDate, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 
 export const metadata: Metadata = { title: "カレンダー — The Oldmans" };
 export const dynamic = "force-dynamic";
@@ -28,9 +28,10 @@ export default async function CalendarPage({
       : fmtDate(startOfWeekJst(new Date(`${anchor}T00:00:00+09:00`)));
   const span = view === "month" ? 42 : 15;
 
+  // 最終日の夜は翌日の4時（DAY_START_HOUR）まで続く。0時で切ると深夜開始の卓が落ちる。
   const rangeEnd = jstHourToIso(
     fmtDate(addDaysJst(new Date(`${rangeStart}T00:00:00+09:00`), span)),
-    0,
+    DAY_START_HOUR,
   );
 
   const [profile, reservations, visits, sessions, profiles] = await Promise.all([
