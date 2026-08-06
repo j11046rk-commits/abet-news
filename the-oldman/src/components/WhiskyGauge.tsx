@@ -123,7 +123,7 @@ export default function WhiskyGauge({ saved, target }: { saved: number; target: 
       </div>
 
       <div className="whisky__figures">
-        <p className="label">今月の運営収入</p>
+        <p className="label">今月の運営積立金</p>
         <p className="whisky__amount">{yen(saved)}</p>
         <p className="whisky__target micro">
           目標 {yen(target)} · {Math.round(ratio * 100)}%
