@@ -21,10 +21,10 @@ export default function WeekStrip({
       {days.map((d) => {
         const dayStart = new Date(jstHourToIso(d, 0)).getTime();
         const dayEnd = new Date(jstHourToIso(d, 24)).getTime();
+        // 1回の開催は1つだけ出す。深夜2時までの卓を翌日にも出すと、2回あったように見える。
         const items = reservations.filter((r) => {
           const s = new Date(r.starts_at).getTime();
-          const e = new Date(r.ends_at).getTime();
-          return e > dayStart && s < dayEnd;
+          return s >= dayStart && s < dayEnd;
         });
 
         return (
@@ -38,18 +38,7 @@ export default function WeekStrip({
               ) : (
                 items.map((r) => {
                   const m = purposeMeta(r.purposes[0]);
-                  /*
-                   * 数字だけだと人数にも件数にも見えるので、時刻として読める形で出す。
-                   * 日をまたいだ予約の続きは、始まりが前日なので終わり側を出す
-                   * （前日から翌日まで通しの日は、その日いっぱい埋まっている）。
-                   */
-                  const startsToday = new Date(r.starts_at).getTime() >= dayStart;
-                  const endsToday = new Date(r.ends_at).getTime() <= dayEnd;
-                  const label = startsToday
-                    ? fmtTime(r.starts_at)
-                    : endsToday
-                      ? `〜${fmtTime(r.ends_at)}`
-                      : "終日";
+                  // 数字だけだと人数にも件数にも見えるので、時刻として読める形で出す
                   return (
                     <span
                       key={r.id}
@@ -61,7 +50,7 @@ export default function WeekStrip({
                       }}
                       title={`${names[r.created_by] ?? "メンバー"} ${fmtTime(r.starts_at)}–${fmtTime(r.ends_at)}`}
                     >
-                      {label}
+                      {fmtTime(r.starts_at)}
                     </span>
                   );
                 })

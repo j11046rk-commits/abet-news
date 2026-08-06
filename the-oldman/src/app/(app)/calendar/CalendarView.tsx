@@ -21,6 +21,7 @@ type Segment = {
   lane: number;
   lanes: number;
   continues: boolean; // 翌日に続く
+  head: boolean; // この日に始まった（前日から続いている側は false）
 };
 
 /** 滞在の1本。予約と同じ時間軸に、細い帯として並べる。 */
@@ -156,6 +157,7 @@ function segmentsForDay(reservations: Reservation[], date: string): Segment[] {
         fromHour: Math.round((from - dayStart) / 3600_000),
         toHour: Math.round((to - dayStart) / 3600_000),
         continues: e > dayEnd,
+        head: s >= dayStart,
       };
     })
     .filter((x): x is Omit<Segment, "lane" | "lanes"> => x !== null)
@@ -639,7 +641,7 @@ function Block({
 
   return (
     <button
-      className={`cal__block${seg.r.is_exclusive ? " is-exclusive" : ""}`}
+      className={`cal__block${seg.r.is_exclusive ? " is-exclusive" : ""}${seg.head ? "" : " is-tail"}`}
       style={{
         top: seg.fromHour * ROW + 1,
         height: (seg.toHour - seg.fromHour) * ROW - 2,
@@ -656,10 +658,19 @@ function Block({
         onPick(seg.r);
       }}
     >
-      <span className="cal__blockname">{name}</span>
-      <span className="cal__blockpurpose">{main.en}</span>
-      {/* この夜のレーキ。予約と卓は同じ開催なので、帯を分けずにここへ入れる。 */}
-      {rake > 0 ? <span className="cal__blockrake amount">{yen(rake)}</span> : null}
+      {/*
+        名前・用途・金額は始まった側にだけ。前日から続いている側にも書くと、
+        同じ開催が2件あるように見える。時間軸の上なので枠だけは残す
+        — 消すと、深夜まで続いた卓が24時で終わったことになってしまう。
+      */}
+      {seg.head ? (
+        <>
+          <span className="cal__blockname">{name}</span>
+          <span className="cal__blockpurpose">{main.en}</span>
+          {/* この夜のレーキ。予約と卓は同じ開催なので、帯を分けずにここへ入れる。 */}
+          {rake > 0 ? <span className="cal__blockrake amount">{yen(rake)}</span> : null}
+        </>
+      ) : null}
       {rest.length > 0 ? (
         <span className="cal__stripes" aria-hidden>
           {rest.map((p) => (
@@ -709,7 +720,8 @@ function MonthGrid({
       </div>
       <div className="mcal__grid">
         {days.map((d) => {
-          const segs = segmentsForDay(reservations, d);
+          // 1回の開催は1本だけ。深夜まで続いた予約を翌日にも出すと、2件あったように見える。
+          const segs = segmentsForDay(reservations, d).filter((s) => s.head);
           const outside = d.slice(0, 7) !== anchorMonth;
           return (
             <div key={d} className={`mcal__cell${outside ? " is-outside" : ""}${d === today ? " is-today" : ""}`}>

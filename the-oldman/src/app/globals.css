@@ -3273,3 +3273,12 @@ tr.is-off {
   border-top: 1px solid var(--brass-hairline);
   color: var(--brass);
 }
+
+/*
+ * 前日から続いている側の帯。名前も用途も持たないので、面を薄くして
+ * 「これは続き」だと分かるようにする。枠を消さないのは、消すと深夜まで
+ * 続いた開催が24時で終わったことになるため。
+ */
+.cal__block.is-tail {
+  opacity: 0.45;
+}
