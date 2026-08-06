@@ -60,7 +60,13 @@ export default function Nav({
     <>
       <header className="masthead">
         <Link href="/" className="masthead__brand">
-          <span className="masthead__name">{facilityName}</span>
+          <span className="masthead__name">
+            {facilityName}
+            {/* アイコンと同じ、真鍮のピリオド。名前はここで言い切る。 */}
+            <span className="brand-dot" aria-hidden>
+              .
+            </span>
+          </span>
           <span className="masthead__sub">MATSUYAMA · EST. 2026</span>
         </Link>
         <button

@@ -3543,3 +3543,8 @@ tr.is-off {
     transform: scaleX(1);
   }
 }
+
+/* 銘の締めのピリオド。アイコンと同じ真鍮 */
+.brand-dot {
+  color: var(--brass);
+}

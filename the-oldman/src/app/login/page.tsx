@@ -20,7 +20,12 @@ export default async function LoginPage({
     <div className="gate">
       <div className="gate__inner">
         <header className="gate__head">
-          <h1 className="gate__title">The Oldmans</h1>
+          <h1 className="gate__title">
+            The Oldmans
+            <span className="brand-dot" aria-hidden>
+              .
+            </span>
+          </h1>
           <p className="micro gate__sub">MATSUYAMA · MEMBERS ONLY</p>
         </header>
 
