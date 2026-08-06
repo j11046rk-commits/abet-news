@@ -100,12 +100,25 @@ export type ExclusiveHours = {
 
 /* ── 用途 ────────────────────────────────────────────────────────────── */
 
-export const PURPOSES: { value: ReservationPurpose; ja: string; en: string; color: string }[] = [
-  { value: "poker", ja: "ポーカー", en: "POKER", color: "var(--brass)" },
-  { value: "meeting", ja: "ミーティング", en: "MEETING", color: "var(--smoke)" },
-  { value: "private", ja: "プライベート", en: "PRIVATE", color: "var(--claret)" },
-  { value: "lodging", ja: "宿泊", en: "LODGING", color: "var(--pine)" },
-  { value: "other", ja: "その他", en: "OTHER", color: "var(--ash)" },
+/**
+ * color  = 面（ブロック・スウォッチ）に使う色
+ * ink    = その色で塗りつぶしたときに載せる文字色
+ * text   = ink 背景の上に極小の大文字ラベルとして置くときの色。
+ *          claret / pine / ash はそのままでは暗すぎて読めないため、同じ色相を明るくした値を使う。
+ */
+export const PURPOSES: {
+  value: ReservationPurpose;
+  ja: string;
+  en: string;
+  color: string;
+  onFill: string;
+  text: string;
+}[] = [
+  { value: "poker",    ja: "ポーカー",       en: "POKER",   color: "var(--brass)",  onFill: "var(--ink)",   text: "var(--brass)" },
+  { value: "meeting",  ja: "ミーティング",   en: "MEETING", color: "var(--smoke)",  onFill: "var(--ink)",   text: "var(--smoke)" },
+  { value: "private",  ja: "プライベート",   en: "PRIVATE", color: "var(--claret)", onFill: "var(--paper)", text: "#A2606A" },
+  { value: "lodging",  ja: "宿泊",           en: "LODGING", color: "var(--pine)",   onFill: "var(--paper)", text: "#7E948A" },
+  { value: "other",    ja: "その他",         en: "OTHER",   color: "var(--ash)",    onFill: "var(--paper)", text: "#8A8177" },
 ];
 
 export const purposeMeta = (p: ReservationPurpose) =>

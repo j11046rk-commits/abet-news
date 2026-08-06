@@ -86,3 +86,12 @@ export const jstHourOf = (iso: string, baseDate?: string): number => {
 };
 
 export const WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"];
+
+/** ISO → JST の時（0..23） */
+export const jstHour = (iso: string): number => toJst(iso).getHours();
+
+/** 予約の終了時刻を、開始日の 1..24 時として返す（翌0時は 24） */
+export const jstEndHourOnStartDate = (startIso: string, endIso: string): number => {
+  const h = jstHour(endIso);
+  return fmtDate(startIso) === fmtDate(endIso) ? h : h === 0 ? 24 : h + 24;
+};
