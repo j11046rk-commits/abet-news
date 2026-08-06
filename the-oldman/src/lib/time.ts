@@ -85,6 +85,29 @@ export const jstHourOf = (iso: string, baseDate?: string): number => {
   return h;
 };
 
+/**
+ * 一日の切れ目。深夜4時。
+ *
+ * この施設が動くのは夜で、卓は翌1時2時まで続くことが多い。
+ * 0時で切ると「20:00〜翌1:00」の一晩がカレンダー上で2日に割れて、
+ * ひと晩の開催が2件あるように見える。4時で切れば、ふつうの夜は
+ * まるごと1つの列に収まる。4:00〜27:59 を「その日」として扱う。
+ */
+export const DAY_START_HOUR = 4;
+
+/** その「日」の範囲（4:00〜翌4:00）をミリ秒で返す */
+export const dayWindow = (date: string): [number, number] => [
+  new Date(jstHourToIso(date, DAY_START_HOUR)).getTime(),
+  new Date(jstHourToIso(date, DAY_START_HOUR + 24)).getTime(),
+];
+
+/** その時刻が属する「日」。4時より前は前日の夜として扱う。 */
+export const nightOf = (iso: string | Date): string =>
+  fmtDate(new Date(new Date(iso).getTime() - DAY_START_HOUR * 3600_000));
+
+/** カレンダーの時刻表記。24時を超えたぶんは 24:00〜27:00 として出す。 */
+export const clockLabel = (hour: number): string => `${String(hour).padStart(2, "0")}:00`;
+
 export const WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"];
 
 /** ISO → JST の時（0..23） */

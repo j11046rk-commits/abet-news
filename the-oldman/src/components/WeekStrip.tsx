@@ -1,6 +1,6 @@
 import { yen } from "@/lib/money";
 import { pairTables, rakeStartedOn } from "@/lib/tables";
-import { addDaysJst, fmt, fmtDate, fmtTime, jstHourToIso } from "@/lib/time";
+import { addDaysJst, dayWindow, fmt, fmtDate, fmtTime } from "@/lib/time";
 import { purposeMeta, type Reservation, type Session } from "@/lib/types";
 
 /** 今週の予約と卓を曜日ごとの横並びで。ダッシュボードの最後の段。 */
@@ -28,8 +28,8 @@ export default function WeekStrip({
   return (
     <div className="wstrip">
       {days.map((d) => {
-        const dayStart = new Date(jstHourToIso(d, 0)).getTime();
-        const dayEnd = new Date(jstHourToIso(d, 24)).getTime();
+        // 一日の切れ目はカレンダーと同じ深夜4時。翌1時の卓は前の晩に数える。
+        const [dayStart, dayEnd] = dayWindow(d);
         const startedToday = (iso: string) => {
           const t = new Date(iso).getTime();
           return t >= dayStart && t < dayEnd;
