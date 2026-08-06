@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { createWishlistItem, deleteWishlistItem, setWishlistBought } from "./actions";
+import {
+  createWishlistItem,
+  deleteWishlistItem,
+  setWishlistBought,
+  updateWishlistItem,
+} from "./actions";
 import { extOf, shrinkImage } from "@/lib/image";
 import { yen } from "@/lib/money";
 import { createClient } from "@/lib/supabase/client";
@@ -29,23 +34,35 @@ export default function WishlistClient({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [open, setOpen] = useState(false);
+  /** null = 閉じている / "new" = 追加 / 行 = その行を直す */
+  const [open, setOpen] = useState<"new" | WishlistItemView | null>(null);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  /** 直すときに、いま付いている画像を外したか。 */
+  const [dropImage, setDropImage] = useState(false);
   /** タップで開いた拡大表示。サムネイルは56pxしかなく、中身が読めないため。 */
   const [zoom, setZoom] = useState<WishlistItemView | null>(null);
 
+  const editing = open !== "new" ? open : null;
   const wanted = items.filter((i) => !i.bought_at);
   const bought = items.filter((i) => i.bought_at);
   const total = wanted.reduce((s, i) => s + (i.amount_yen ?? 0), 0);
 
   function close() {
-    setOpen(false);
+    setOpen(null);
     setPreview(null);
     setStage(null);
+    setDropImage(false);
     formRef.current?.reset();
+  }
+
+  function edit(i: WishlistItemView) {
+    setError(null);
+    setPreview(null);
+    setDropImage(false);
+    setOpen(i);
   }
 
   /**
@@ -89,12 +106,18 @@ export default function WishlistClient({
 
       setStage("保存中");
       const raw = String(form.get("amount") ?? "").replace(/[^\d]/g, "");
-      const res = await createWishlistItem({
+      const common = {
         title: String(form.get("title") ?? ""),
         amountYen: raw ? Number(raw) : null,
         note: String(form.get("note") ?? ""),
-        imagePath: uploaded,
-      });
+      };
+      const res = editing
+        ? await updateWishlistItem(editing.id, {
+            ...common,
+            // 上げ直したならその新しいパス、外したなら null、どちらでもなければ触らない
+            imagePath: uploaded ?? (dropImage ? null : undefined),
+          })
+        : await createWishlistItem({ ...common, imagePath: uploaded });
 
       if (!res.ok) {
         // 行が作れなかったのに画像だけ残ると、誰からも辿れないゴミになる
@@ -142,13 +165,21 @@ export default function WishlistClient({
       {error ? <p className="err">{error}</p> : null}
 
       {open ? (
-        <form className="surface rform" onSubmit={submit} ref={formRef}>
+        // 直すときは行ごとに別のフォームとして作り直す。前の行の値が残らないようにする。
+        <form className="surface rform" onSubmit={submit} ref={formRef} key={editing?.id ?? "new"}>
           <div className="rform__row2">
             <div>
               <label className="field-label" htmlFor="w-title">
                 名称
               </label>
-              <input id="w-title" name="title" className="field" required placeholder="チップケース" />
+              <input
+                id="w-title"
+                name="title"
+                className="field"
+                required
+                placeholder="チップケース"
+                defaultValue={editing?.title ?? ""}
+              />
             </div>
             <div>
               <label className="field-label" htmlFor="w-amt">
@@ -161,6 +192,7 @@ export default function WishlistClient({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 placeholder="0"
+                defaultValue={editing?.amount_yen ?? ""}
               />
             </div>
           </div>
@@ -169,7 +201,13 @@ export default function WishlistClient({
             <label className="field-label" htmlFor="w-note">
               備考（任意）
             </label>
-            <input id="w-note" name="note" className="field" placeholder="URL やサイズなど" />
+            <input
+              id="w-note"
+              name="note"
+              className="field"
+              placeholder="URL やサイズなど"
+              defaultValue={editing?.note ?? ""}
+            />
           </div>
 
           <div>
@@ -185,19 +223,32 @@ export default function WishlistClient({
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 setPreview(f ? URL.createObjectURL(f) : null);
+                if (f) setDropImage(false);
               }}
             />
             {preview ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={preview} alt="" className="wish__preview" />
+            ) : editing?.image_url && !dropImage ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={editing.image_url} alt="" className="wish__preview" />
+                <button type="button" className="btn btn-sm" onClick={() => setDropImage(true)}>
+                  画像を外す
+                </button>
+              </>
             ) : (
-              <p className="micro">商品ページのスクリーンショットでも構いません。送る前に縮めます。</p>
+              <p className="micro">
+                {dropImage
+                  ? "保存すると画像は外れます。"
+                  : "商品ページのスクリーンショットでも構いません。送る前に縮めます。"}
+              </p>
             )}
           </div>
 
           <div className="rform__actions">
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? (stage ?? "保存中") : "追加する"}
+              {busy ? (stage ?? "保存中") : editing ? "保存する" : "追加する"}
             </button>
             <button type="button" className="btn" onClick={close} disabled={busy}>
               やめる
@@ -205,7 +256,7 @@ export default function WishlistClient({
           </div>
         </form>
       ) : (
-        <button className="btn block" onClick={() => setOpen(true)}>
+        <button className="btn block" onClick={() => setOpen("new")}>
           ほしい物を追加
         </button>
       )}
@@ -247,13 +298,21 @@ export default function WishlistClient({
                   <span className="adv__box" aria-hidden />
                   <span className="micro">購入済</span>
                 </label>
-                <button
-                  className="btn btn-sm btn-danger"
-                  disabled={busy}
-                  onClick={() => remove(i.id)}
-                >
-                  削除
-                </button>
+                <span className="wish__ops">
+                  {/* 直せるのは自分が挙げたものだけ。他人の言い分は書き換えない。 */}
+                  {i.created_by === meId ? (
+                    <button className="btn btn-sm" disabled={busy} onClick={() => edit(i)}>
+                      編集
+                    </button>
+                  ) : null}
+                  <button
+                    className="btn btn-sm btn-danger"
+                    disabled={busy}
+                    onClick={() => remove(i.id)}
+                  >
+                    削除
+                  </button>
+                </span>
               </span>
             </li>
           ))}

@@ -5,14 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReservationForm from "@/components/ReservationForm";
 import { yen } from "@/lib/money";
+import { OPEN_TABLE_HOURS, pairTables, rakeStartedOn, tableSpan } from "@/lib/tables";
 import { addDaysJst, fmt, fmtDate, fmtDateJa, fmtTime, jstHourToIso, nowJst, startOfMonthJst, startOfWeekJst } from "@/lib/time";
 import VisitEditor from "@/components/VisitEditor";
 import { purposeMeta, type CheckIn, type Reservation, type Session } from "@/lib/types";
 
 const ROW = 34; // 1時間の高さ(px)
-
-/** 終了時刻が入っていない卓の、見た目上の長さ（時間）。 */
-const OPEN_TABLE_HOURS = 1;
 
 type Segment = {
   r: Reservation;
@@ -87,54 +85,13 @@ function visitsForDay(visits: CheckIn[], date: string): VisitSeg[] {
     .sort((a, b) => a.fromHour - b.fromHour);
 }
 
-/** その卓が占める時間。終了が空なら仮の長さで見る。 */
-function tableSpan(s: Session): [number, number] {
-  const st = new Date(s.started_at).getTime();
-  return [st, s.ended_at ? new Date(s.ended_at).getTime() : st + OPEN_TABLE_HOURS * 3600_000];
-}
-
-/**
- * 予約と卓を「同じ開催」に束ねる。
- *
- * 施設は1部屋しかないので、時間が重なっている予約と卓は同じ夜のこと。
- * 別々に描くと、1回の開催が2つ入っているように見える。
- * 束ねた卓は予約の帯の中に金額として出し、単独の印は描かない。
- */
-function pairTables(reservations: Reservation[], sessions: Session[]) {
-  const byReservation = new Map<string, Session[]>();
-  const paired = new Set<string>();
-
-  for (const s of sessions) {
-    const [ss, se] = tableSpan(s);
-    const r = reservations.find(
-      (x) => new Date(x.starts_at).getTime() < se && new Date(x.ends_at).getTime() > ss,
-    );
-    if (!r) continue;
-    byReservation.set(r.id, [...(byReservation.get(r.id) ?? []), s]);
-    paired.add(s.id);
-  }
-
-  return {
-    byReservation,
-    /** どの予約にも紐づかない卓。単独の印として描く。 */
-    loose: sessions.filter((s) => !paired.has(s.id)),
-  };
-}
-
-/**
- * その日に始まった卓のレーキ合計。
- *
- * 日をまたぐ予約は帯が2日に分かれるので、始まった日のぶんだけ数える。
- * 両日に出すと同じレーキを2回数えることになる。
- */
-function rakeStartedOn(list: Session[] | undefined, date: string): number {
-  if (!list?.length) return 0;
-  const dayStart = new Date(jstHourToIso(date, 0)).getTime();
-  const dayEnd = new Date(jstHourToIso(date, 24)).getTime();
-  return list.reduce((n, s) => {
-    const t = new Date(s.started_at).getTime();
-    return t >= dayStart && t < dayEnd ? n + s.rake_yen : n;
-  }, 0);
+/** その日に始まった卓のレーキ合計。 */
+function rakeOnDay(list: Session[] | undefined, date: string): number {
+  return rakeStartedOn(
+    list,
+    new Date(jstHourToIso(date, 0)).getTime(),
+    new Date(jstHourToIso(date, 24)).getTime(),
+  );
 }
 
 const dayKey = (d: Date) => fmtDate(d);
@@ -567,7 +524,7 @@ function WeekGrid({
                   key={`${s.r.id}-${d}`}
                   seg={s}
                   name={names[s.r.created_by] ?? "メンバー"}
-                  rake={rakeStartedOn(byReservation.get(s.r.id), d)}
+                  rake={rakeOnDay(byReservation.get(s.r.id), d)}
                   onPick={onPick}
                 />
               ))}
