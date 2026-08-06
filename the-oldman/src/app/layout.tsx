@@ -37,9 +37,18 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://the-oldman.vercel.app"),
   title: "The Oldman",
   description: "会員制プライベートクラブの運営ダッシュボード",
   robots: { index: false, follow: false },
+  // 真鍮のカジキの刻印。タブとホーム画面のアイコン。
+  icons: { icon: "/images/icon-192.png", apple: "/images/apple-touch-icon.png" },
+  // LINE等でURLを共有したときのカード。真っ黒なカードになるのを防ぐ。
+  openGraph: {
+    title: "The Oldman",
+    description: "MATSUYAMA · MEMBERS ONLY",
+    images: ["/images/ogp.jpg"],
+  },
 };
 
 export const viewport: Viewport = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import {
   createSession,
   deleteSession,
@@ -10,21 +10,14 @@ import {
 } from "@/app/(app)/sessions/actions";
 import { parseYen, yen } from "@/lib/money";
 import { fmtDate, fmtTime } from "@/lib/time";
-import { GAME_TYPES, type GameType, type Player, type Session } from "@/lib/types";
-
-/** よく使う金額。数字キーパッドを叩く回数を減らすためのクイックチップ。 */
-const CHIPS = [1000, 3000, 5000, 10000];
+import type { Session } from "@/lib/types";
 
 export default function SessionForm({
-  players,
   editing,
-  editingPlayerIds,
   onDone,
   onCancel,
 }: {
-  players: Player[];
   editing?: Session | null;
-  editingPlayerIds?: string[];
   onDone?: () => void;
   onCancel?: () => void;
 }) {
@@ -33,64 +26,21 @@ export default function SessionForm({
   const [date, setDate] = useState(editing ? fmtDate(editing.started_at) : fmtDate(new Date()));
   const [startTime, setStartTime] = useState(editing ? fmtTime(editing.started_at) : "20:00");
   const [endTime, setEndTime] = useState(editing?.ended_at ? fmtTime(editing.ended_at) : "");
-  const [gameType, setGameType] = useState<GameType>(editing?.game_type ?? "cash");
   const [rake, setRake] = useState(editing?.rake_yen ?? 0);
+  const [headcount, setHeadcount] = useState(editing?.headcount ?? 4);
   const [note, setNote] = useState(editing?.note ?? "");
-
-  const [picked, setPicked] = useState<string[]>(editingPlayerIds ?? []);
-  const [guests, setGuests] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
-
-  const matches = useMemo(() => {
-    const q = query.trim();
-    if (!q) return [];
-    return players
-      .filter((p) => p.name.includes(q) && !picked.includes(p.id))
-      .slice(0, 6);
-  }, [query, players, picked]);
-
-  const exactExists = useMemo(
-    () => players.some((p) => p.name === query.trim()) || guests.includes(query.trim()),
-    [query, players, guests],
-  );
-
-  function addPlayer(id: string) {
-    setPicked((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    setQuery("");
-    searchRef.current?.focus();
-  }
-
-  function addGuest() {
-    const name = query.trim();
-    if (!name) return;
-    setGuests((prev) => (prev.includes(name) ? prev : [...prev, name]));
-    setQuery("");
-    searchRef.current?.focus();
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
 
-    const input: SessionInput = {
-      date,
-      startTime,
-      endTime,
-      gameType,
-      rakeYen: rake,
-      note,
-      playerIds: picked,
-      newGuests: guests,
-    };
-
+    const input: SessionInput = { date, startTime, endTime, rakeYen: rake, headcount, note };
     const res = editing ? await updateSession(editing.id, input) : await createSession(input);
+
     setBusy(false);
     if (!res.ok) return setError(res.error);
 
@@ -108,11 +58,9 @@ export default function SessionForm({
     onDone?.();
   }
 
-  const headcount = picked.length + guests.length;
-
   return (
     <form onSubmit={submit} className="rform">
-      {/* 金額を最初に置く。卓が終わった直後に打ち込みたいのはこれ。 */}
+      {/* 卓が終わった直後に打ち込みたいのは金額。最初に、いちばん大きく。 */}
       <div>
         <label className="field-label" htmlFor="s-rake">
           レーキ合計
@@ -127,21 +75,6 @@ export default function SessionForm({
           placeholder="0"
           autoComplete="off"
         />
-        <div className="sform__chips">
-          {CHIPS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="btn btn-sm"
-              onClick={() => setRake((v) => v + c)}
-            >
-              +{c.toLocaleString("ja-JP")}
-            </button>
-          ))}
-          <button type="button" className="btn btn-sm" onClick={() => setRake(0)}>
-            クリア
-          </button>
-        </div>
         <p className="micro sform__preview amount">{yen(rake)}</p>
       </div>
 
@@ -160,21 +93,20 @@ export default function SessionForm({
           />
         </div>
         <div>
-          <label className="field-label" htmlFor="s-type">
-            種目
+          <label className="field-label" htmlFor="s-head">
+            参加人数
           </label>
-          <select
-            id="s-type"
-            className="field"
-            value={gameType}
-            onChange={(e) => setGameType(e.target.value as GameType)}
-          >
-            {GAME_TYPES.map((g) => (
-              <option key={g.value} value={g.value}>
-                {g.ja}
-              </option>
-            ))}
-          </select>
+          <input
+            id="s-head"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={30}
+            className="field field-num"
+            value={headcount}
+            onChange={(e) => setHeadcount(Math.max(1, Number(e.target.value) || 1))}
+            required
+          />
         </div>
       </div>
 
@@ -206,78 +138,6 @@ export default function SessionForm({
             onChange={(e) => setEndTime(e.target.value)}
           />
         </div>
-      </div>
-
-      <div>
-        <label className="field-label" htmlFor="s-player">
-          参加者{headcount > 0 ? ` — ${headcount}名` : ""}
-        </label>
-
-        {headcount > 0 ? (
-          <ul className="sform__picked">
-            {picked.map((id) => (
-              <li key={id}>
-                <button
-                  type="button"
-                  className="badge badge-brass sform__chip"
-                  onClick={() => setPicked((prev) => prev.filter((x) => x !== id))}
-                >
-                  {byId.get(id)?.name ?? "?"} ×
-                </button>
-              </li>
-            ))}
-            {guests.map((g) => (
-              <li key={g}>
-                <button
-                  type="button"
-                  className="badge badge-outline sform__chip"
-                  onClick={() => setGuests((prev) => prev.filter((x) => x !== g))}
-                >
-                  {g} ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        <input
-          id="s-player"
-          ref={searchRef}
-          className="field"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            // IME 変換確定の Enter で誤送信させない
-            if (e.nativeEvent.isComposing) return;
-            if (matches.length > 0) addPlayer(matches[0].id);
-            else if (!exactExists) addGuest();
-          }}
-          placeholder="名前で検索"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
-
-        {query.trim() ? (
-          <ul className="sform__matches">
-            {matches.map((p) => (
-              <li key={p.id}>
-                <button type="button" className="sform__match" onClick={() => addPlayer(p.id)}>
-                  {p.name}
-                </button>
-              </li>
-            ))}
-            {!exactExists ? (
-              <li>
-                <button type="button" className="sform__match is-new" onClick={addGuest}>
-                  「{query.trim()}」を新規ゲストとして追加
-                </button>
-              </li>
-            ) : null}
-          </ul>
-        ) : null}
       </div>
 
       <div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Nav from "@/components/Nav";
 import { requireProfile } from "@/lib/auth";
+import { getMyOpenCheckIn } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { Settings } from "@/lib/types";
 
@@ -11,11 +12,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (profile.must_change_password) redirect("/password");
 
   const supabase = await createClient();
-  const { data: settings } = await supabase
-    .from("settings")
-    .select("*")
-    .eq("id", true)
-    .maybeSingle<Settings>();
+  const [{ data: settings }, openCheckIn] = await Promise.all([
+    supabase.from("settings").select("*").eq("id", true).maybeSingle<Settings>(),
+    getMyOpenCheckIn(profile.id),
+  ]);
 
   return (
     <>
@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         facilityName={settings?.facility_name ?? "The Oldman"}
         displayName={profile.display_name}
         isOwner={profile.role === "owner"}
+        isCheckedIn={openCheckIn !== null}
       />
       <main className="shell">{children}</main>
     </>

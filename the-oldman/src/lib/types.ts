@@ -1,5 +1,4 @@
 export type UserRole = "owner" | "member";
-export type GameType = "cash" | "tournament" | "other";
 export type ReservationPurpose = "poker" | "meeting" | "private" | "lodging" | "other";
 export type LedgerDirection = "income" | "expense";
 
@@ -14,22 +13,23 @@ export type Profile = {
   joined_on: string;
 };
 
-export type Player = {
-  id: string;
-  name: string;
-  profile_id: string | null;
-  created_at: string;
-};
-
 export type Session = {
   id: string;
   started_at: string;
   ended_at: string | null;
-  game_type: GameType;
   rake_yen: number;
+  headcount: number;
   note: string | null;
   created_by: string | null;
   created_at: string;
+};
+
+/** 施設への出入り。checked_out_at が null の行が「いま滞在中」。 */
+export type CheckIn = {
+  id: string;
+  profile_id: string;
+  checked_in_at: string;
+  checked_out_at: string | null;
 };
 
 export type Reservation = {
@@ -123,15 +123,6 @@ export const PURPOSES: {
 
 export const purposeMeta = (p: ReservationPurpose) =>
   PURPOSES.find((x) => x.value === p) ?? PURPOSES[4];
-
-export const GAME_TYPES: { value: GameType; ja: string }[] = [
-  { value: "cash", ja: "キャッシュ" },
-  { value: "tournament", ja: "トーナメント" },
-  { value: "other", ja: "その他" },
-];
-
-export const gameTypeJa = (g: GameType) =>
-  GAME_TYPES.find((x) => x.value === g)?.ja ?? "その他";
 
 /* ── 台帳カテゴリ ────────────────────────────────────────────────────── */
 

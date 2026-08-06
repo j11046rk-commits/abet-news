@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AccountAdmin from "./AccountAdmin";
 import ExclusiveHoursTable from "./ExclusiveHoursTable";
 import { requireProfile } from "@/lib/auth";
-import { getExclusiveHours, getPlayers, getPlayerStats, getProfiles } from "@/lib/queries";
+import { getExclusiveHours, getProfiles } from "@/lib/queries";
 import { fmtDate, fmtYm, nowJst } from "@/lib/time";
 import { yen } from "@/lib/money";
 
@@ -10,22 +10,15 @@ export const metadata: Metadata = { title: "メンバー — The Oldman" };
 export const dynamic = "force-dynamic";
 
 export default async function MembersPage() {
-  const [me, profiles, players, stats, hours] = await Promise.all([
+  const [me, profiles, hours] = await Promise.all([
     requireProfile(),
     getProfiles(),
-    getPlayers(),
-    getPlayerStats(),
     getExclusiveHours(),
   ]);
 
   const now = nowJst();
   const thisMonth = fmtYm(now);
   const thisYear = fmtDate(now).slice(0, 4);
-
-  const owners = profiles.filter((p) => p.role === "owner");
-  const playerByProfile = new Map(players.filter((p) => p.profile_id).map((p) => [p.profile_id!, p]));
-
-  const guests = players.filter((p) => !p.profile_id);
 
   return (
     <>
@@ -34,34 +27,28 @@ export default async function MembersPage() {
       </header>
 
       <div className="rule">
-        <span className="label">Owners — {owners.length}</span>
+        <span className="label">Members — {profiles.length}</span>
       </div>
 
       <table className="table">
         <thead>
           <tr>
             <th>名前</th>
+            <th>ロール</th>
             <th className="ta-r">出資額</th>
-            <th className="ta-r">参加</th>
-            <th className="ta-r">直近</th>
           </tr>
         </thead>
         <tbody>
-          {owners.map((o) => {
-            const pl = playerByProfile.get(o.id);
-            const st = pl ? stats.get(pl.id) : undefined;
-            return (
-              <tr key={o.id}>
-                <td>
-                  {o.display_name}
-                  {o.id === me.id ? <span className="micro"> — あなた</span> : null}
-                </td>
-                <td className="ta-r amount">{yen(o.investment_yen)}</td>
-                <td className="ta-r amount">{st?.count ?? 0}</td>
-                <td className="ta-r amount">{st?.last ? fmtDate(st.last) : "—"}</td>
-              </tr>
-            );
-          })}
+          {profiles.map((p) => (
+            <tr key={p.id} className={p.is_active ? undefined : "is-off"}>
+              <td>
+                {p.display_name}
+                {p.id === me.id ? <span className="micro"> — あなた</span> : null}
+              </td>
+              <td className="micro">{p.role === "owner" ? "オーナー" : "メンバー"}</td>
+              <td className="ta-r amount">{yen(p.investment_yen)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
@@ -71,45 +58,6 @@ export default async function MembersPage() {
         thisMonth={thisMonth}
         thisYear={thisYear}
       />
-
-      <div className="rule">
-        <span className="label">Players — {players.length}</span>
-      </div>
-
-      <p className="dim">ゲストを含む参加者マスタです。セッションの記録から自動で増えます。</p>
-
-      <table className="table">
-        <thead>
-          <tr>
-            <th>名前</th>
-            <th className="ta-r">参加</th>
-            <th className="ta-r">直近</th>
-          </tr>
-        </thead>
-        <tbody>
-          {players.length === 0 ? (
-            <tr>
-              <td colSpan={3} className="empty">
-                まだ参加者がいません。
-              </td>
-            </tr>
-          ) : (
-            players.map((p) => {
-              const st = stats.get(p.id);
-              return (
-                <tr key={p.id}>
-                  <td>
-                    {p.name}
-                    {p.profile_id ? <span className="micro"> — アカウントあり</span> : null}
-                  </td>
-                  <td className="ta-r amount">{st?.count ?? 0}</td>
-                  <td className="ta-r amount">{st?.last ? fmtDate(st.last) : "—"}</td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
 
       {me.role === "owner" ? (
         <AccountAdmin
@@ -126,7 +74,7 @@ export default async function MembersPage() {
         />
       ) : (
         <p className="micro members__foot">
-          アカウントの発行とパスワードの再発行はオーナーが行います。 ゲスト {guests.length}名。
+          アカウントの発行とパスワードの再発行はオーナーが行います。
         </p>
       )}
     </>

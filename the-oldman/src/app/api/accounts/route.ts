@@ -72,17 +72,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "プロフィールを作成できませんでした。" }, { status: 400 });
   }
 
-  // 参加者マスタにも追加しておく（同名があれば紐づけ直す）
-  const { data: player } = await admin
-    .from("players")
-    .select("id")
-    .eq("name", displayName)
-    .maybeSingle();
-  if (player) {
-    await admin.from("players").update({ profile_id: created.user.id }).eq("id", player.id);
-  } else {
-    await admin.from("players").insert({ name: displayName, profile_id: created.user.id });
-  }
 
   return NextResponse.json({ ok: true, login_id: loginId, password });
 }

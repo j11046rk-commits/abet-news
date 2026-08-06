@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import CheckInButton from "@/components/CheckInButton";
 
 type Item = { href: string; ja: string; en: string };
 
 const ITEMS: Item[] = [
-  { href: "/", ja: "積立", en: "VAULT" },
+  { href: "/", ja: "TOP", en: "TOP" },
   { href: "/reservations", ja: "予約", en: "BOOK" },
   { href: "/calendar", ja: "カレンダー", en: "CAL" },
   { href: "/sessions", ja: "セッション", en: "TABLE" },
@@ -19,10 +20,12 @@ export default function Nav({
   facilityName,
   displayName,
   isOwner,
+  isCheckedIn,
 }: {
   facilityName: string;
   displayName: string;
   isOwner: boolean;
+  isCheckedIn: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -49,12 +52,10 @@ export default function Nav({
         </Link>
         <div className="masthead__right">
           <span className="micro masthead__who">{displayName}</span>
-          {/* 記録するボタンは常時アクセスできる位置に置く。マストヘッドを sticky にしている。 */}
-          <Link href="/sessions?new=1" className="btn btn-sm btn-primary">
-            記録する
-          </Link>
+          {/* チェックインはどのタブからでも押せるよう、sticky なマストヘッドに置く */}
+          <CheckInButton isIn={isCheckedIn} />
           <button className="btn btn-sm" onClick={signOut} disabled={busy}>
-            退出
+            ログアウト
           </button>
         </div>
       </header>
