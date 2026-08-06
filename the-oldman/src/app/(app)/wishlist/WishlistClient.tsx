@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createWishlistItem, deleteWishlistItem, setWishlistBought } from "./actions";
 import { extOf, shrinkImage } from "@/lib/image";
 import { yen } from "@/lib/money";
@@ -33,6 +34,8 @@ export default function WishlistClient({
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  /** タップで開いた拡大表示。サムネイルは56pxしかなく、中身が読めないため。 */
+  const [zoom, setZoom] = useState<WishlistItemView | null>(null);
 
   const wanted = items.filter((i) => !i.bought_at);
   const bought = items.filter((i) => i.bought_at);
@@ -214,8 +217,14 @@ export default function WishlistClient({
           {[...wanted, ...bought].map((i) => (
             <li key={i.id} className={`wish__item${i.bought_at ? " is-done" : ""}`}>
               {i.image_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={i.image_url} alt="" className="wish__thumb" loading="lazy" />
+                <button
+                  className="wish__zoombtn"
+                  onClick={() => setZoom(i)}
+                  aria-label={`${i.title} の画像を大きく見る`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={i.image_url} alt="" className="wish__thumb" loading="lazy" />
+                </button>
               ) : (
                 <span className="wish__thumb is-empty" aria-hidden />
               )}
@@ -250,6 +259,47 @@ export default function WishlistClient({
           ))}
         </ul>
       )}
+
+      {zoom?.image_url ? (
+        <Lightbox item={zoom} onClose={() => setZoom(null)} />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * 画像の拡大表示。
+ *
+ * サムネイルは56pxしかなく、商品ページのスクリーンショットだと何も読めない。
+ * どこを押しても閉じる — 見るためだけの一枚に、閉じ方を考えさせない。
+ */
+function Lightbox({ item, onClose }: { item: WishlistItemView; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // 端末の戻る操作と Esc で閉じられるようにする
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={item.image_url ?? ""} alt={item.title} className="lightbox__img" />
+      <p className="lightbox__cap micro">
+        {item.title}
+        {item.amount_yen ? ` · ${yen(item.amount_yen)}` : ""}
+      </p>
+      <button className="btn btn-sm lightbox__close" onClick={onClose}>
+        閉じる
+      </button>
+    </div>,
+    document.body,
   );
 }
