@@ -1780,3 +1780,173 @@ textarea.field {
   margin-top: 0.375rem;
   font-size: var(--fs-body);
 }
+
+/* ── 台帳 ───────────────────────────────────────────────────────────── */
+
+.lsum {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.lsum > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  border-top: 1px solid var(--brass-hairline);
+  padding-top: 0.5rem;
+}
+
+.lsum__num {
+  font-size: 1.0625rem;
+  color: var(--brass);
+}
+
+.lsum__num.is-expense,
+.amount.is-expense {
+  color: #a2606a;
+}
+
+.lsum__warn,
+.lsum__post,
+.lsum__flash {
+  margin-top: 1rem;
+}
+
+.lsum__post {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* 月次推移 — 自作SVG。軸は下辺1本、グリッドは描かない。 */
+.chart {
+  margin: 0;
+}
+
+.chart__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart__axis {
+  stroke: var(--brass-hairline);
+  stroke-width: 1;
+}
+
+.chart__zero {
+  stroke: rgb(90 32 40 / 0.6);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.chart__income {
+  fill: var(--brass);
+  opacity: 0.85;
+}
+
+.chart__expense {
+  fill: var(--claret);
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 1.25;
+  opacity: 0.85;
+}
+
+.chart__dot {
+  fill: var(--paper);
+}
+
+.chart__tick {
+  fill: var(--smoke);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* 目盛を振らない代わりに、棒のスケール上限だけを1つ置く */
+.chart__scale {
+  margin-top: 0.25rem;
+}
+
+.chart__key {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.chart__keyitem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.chart__swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.chart__swatch--income {
+  background: var(--brass);
+}
+
+.chart__swatch--expense {
+  background: var(--claret);
+}
+
+.chart__swatch--line {
+  height: 2px;
+  width: 12px;
+  background: var(--paper);
+}
+
+.chart__latest {
+  margin-left: auto;
+  color: var(--brass);
+}
+
+.ltable__date {
+  white-space: nowrap;
+  color: var(--smoke);
+}
+
+.ltable td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.fixedadd {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.fixedadd .btn {
+  grid-column: span 2;
+}
+
+@media (min-width: 640px) {
+  .fixedadd {
+    grid-template-columns: 2fr 1fr 1fr auto;
+  }
+
+  .fixedadd .btn {
+    grid-column: auto;
+  }
+}
+
+tr.is-off {
+  opacity: 0.5;
+}
