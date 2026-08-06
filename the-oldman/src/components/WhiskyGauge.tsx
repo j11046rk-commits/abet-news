@@ -40,7 +40,7 @@ const TAPER = { left: 0.095, right: 0.92 };
  * 同じファイル名のまま中身だけ替えると、ホーム画面アプリが古い絵を掴んだままになる。
  * 絵を描き直したらここを上げる。
  */
-const V = "3";
+const V = "4";
 
 export default function WhiskyGauge({ saved, target }: { saved: number; target: number }) {
   const ratio = target > 0 ? Math.max(0, Math.min(1, saved / target)) : 0;

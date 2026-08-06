@@ -248,7 +248,6 @@ export default function CalendarView({
           today={today}
           reservations={reservations}
           visits={visits}
-          onPickVisit={setVisit}
           meId={meId}
           names={names}
           onPickDay={(d) => go(d, "week")}
@@ -488,7 +487,6 @@ function MonthGrid({
   today,
   reservations,
   visits,
-  onPickVisit,
   meId,
   names,
   onPickDay,
@@ -499,7 +497,6 @@ function MonthGrid({
   today: string;
   reservations: Reservation[];
   visits: CheckIn[];
-  onPickVisit: (c: CheckIn) => void;
   meId: string;
   names: Record<string, string>;
   onPickDay: (d: string) => void;
@@ -541,18 +538,21 @@ function MonthGrid({
                 {segs.length > 4 ? <span className="micro">+{segs.length - 4}</span> : null}
               </div>
 
-              {/* 実際に人がいた日には、日付の下に小さく人数を出す。 */}
+              {/*
+                実際に人がいた日の印。
+                数えるのは「その日いた人の数」— 同じ人が出入りを繰り返しても1人。
+                滞在の本数を足すと、休憩で出入りしただけの日が大人数の日に見える。
+                連れがいた場合は最も多かったときの人数を足す。
+                押すとその日の週表示へ移る（日付の数字と同じふるまい）。
+              */}
               {(() => {
                 const vs = visitsForDay(visits, d);
                 if (vs.length === 0) return null;
-                const heads = vs.reduce((n, v) => n + (v.c.headcount || 1), 0);
+                const members = new Set(vs.map((v) => v.c.profile_id)).size;
+                const guests = Math.max(0, ...vs.map((v) => (v.c.headcount || 1) - 1));
                 return (
-                  <button
-                    className="mcal__visits micro"
-                    onClick={() => onPickVisit(vs[0].c)}
-                    title="滞在の記録"
-                  >
-                    {heads}名
+                  <button className="mcal__visits micro" onClick={() => onPickDay(d)}>
+                    滞在 {members + guests}人
                   </button>
                 );
               })()}

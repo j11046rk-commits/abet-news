@@ -3023,6 +3023,7 @@ tr.is-off {
   opacity: 1;
 }
 
+/* その日いた人の数。押すとその日の週表示へ。 */
 .mcal__visits {
   display: block;
   margin-top: 0.125rem;
@@ -3031,6 +3032,8 @@ tr.is-off {
   background: none;
   color: var(--brass);
   cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
 }
 
 /* いま何をしているか。名前の下に小さく添える。 */
