@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Advance,
@@ -19,7 +20,7 @@ import type {
 import { METERED_CATEGORIES } from "@/lib/types";
 
 /** 施設設定。行が無い場合も画面を落とさないよう既定値を返す。 */
-export async function getSettings(): Promise<Settings> {
+export const getSettings = cache(async function getSettings(): Promise<Settings> {
   const supabase = await createClient();
   const { data } = await supabase.from("settings").select("*").eq("id", true).maybeSingle<Settings>();
   return (
@@ -32,9 +33,9 @@ export async function getSettings(): Promise<Settings> {
       utilities_alert_from: "2026-09",
     }
   );
-}
+});
 
-export async function getProfiles(): Promise<Profile[]> {
+export const getProfiles = cache(async function getProfiles(): Promise<Profile[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
@@ -43,7 +44,7 @@ export async function getProfiles(): Promise<Profile[]> {
     .order("sort_order", { ascending: true })
     .order("login_id", { ascending: true });
   return (data ?? []) as Profile[];
-}
+});
 
 export async function getProfileMap(): Promise<Map<string, Profile>> {
   return new Map((await getProfiles()).map((p) => [p.id, p]));
@@ -101,7 +102,7 @@ export async function getSessions(limit = 60): Promise<Session[]> {
   return (data ?? []) as Session[];
 }
 
-export async function getSessionStats(): Promise<SessionStats> {
+export const getSessionStats = cache(async function getSessionStats(): Promise<SessionStats> {
   const supabase = await createClient();
   const { data } = await supabase.from("v_session_stats").select("*").maybeSingle<SessionStats>();
   return (
@@ -114,7 +115,7 @@ export async function getSessionStats(): Promise<SessionStats> {
       last_session_at: null,
     }
   );
-}
+});
 
 /* ── 台帳 ───────────────────────────────────────────────────────────── */
 
@@ -129,11 +130,11 @@ export async function getLedgerEntries(limit = 200): Promise<LedgerEntry[]> {
   return (data ?? []) as LedgerEntry[];
 }
 
-export async function getMonthlySummary(): Promise<MonthlySummary[]> {
+export const getMonthlySummary = cache(async function getMonthlySummary(): Promise<MonthlySummary[]> {
   const supabase = await createClient();
   const { data } = await supabase.from("v_monthly_summary").select("*").order("ym");
   return (data ?? []) as MonthlySummary[];
-}
+});
 
 /**
  * 通帳の1ヶ月ぶん。古い順に並べ、前月末の残高から積み上げた残高を各行に載せる。
