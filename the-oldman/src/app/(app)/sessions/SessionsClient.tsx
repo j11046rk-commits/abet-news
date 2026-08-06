@@ -51,7 +51,10 @@ export default function SessionsClient({
       </div>
 
       {sessions.length === 0 ? (
-        <p className="empty">まだ記録がありません。今夜の卓から始めましょう。</p>
+        <div className="emptyshot">
+          <img src="/images/empty-table.jpg" alt="" className="emptyshot__img" />
+          <p className="empty">まだ記録がありません。今夜の卓から始めましょう。</p>
+        </div>
       ) : (
         <ul className="slist">
           {sessions.map((s) =>
