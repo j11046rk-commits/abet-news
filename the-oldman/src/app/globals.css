@@ -634,12 +634,58 @@ textarea.field {
 
 /* ── ゲート（ログイン / パスワード変更）─────────────────────────────── */
 
+/*
+ * ログイン画面の背景。
+ * 写真は置かない。上手側の低い位置に真鍮のランプが1つあり、
+ * 光がすぐ減衰して下2/3が --ink に沈む、という状態だけを重ねる。
+ * 画像を使わないので重量ゼロ、どの画面幅でも構図が崩れない。
+ */
 .gate {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
   padding: 2.5rem 1.25rem;
+  isolation: isolate;
+}
+
+.gate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    /* 灯りの芯 */
+    radial-gradient(38% 22% at 78% 13%, rgb(198 160 92 / 0.3), transparent 68%),
+    /* 部屋に広がる暖かい滲み */
+    radial-gradient(85% 52% at 70% 8%, rgb(176 141 79 / 0.14), transparent 72%),
+    /* 革のサーフェスがかすかに照り返す */
+    radial-gradient(120% 60% at 50% 0%, rgb(26 21 18 / 0.9), transparent 60%),
+    /* 下は沈める */
+    linear-gradient(180deg, transparent 30%, var(--ink) 78%),
+    var(--ink);
+}
+
+/* 光をよぎる煙 — 1本だけ、ごく薄く */
+.gate::after {
+  content: "";
+  position: absolute;
+  top: -12%;
+  right: -20%;
+  width: 90%;
+  height: 62%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(
+    196deg,
+    transparent 42%,
+    rgb(232 225 211 / 0.05) 50%,
+    transparent 58%
+  );
+  filter: blur(18px);
 }
 
 .gate__inner {
