@@ -4,53 +4,38 @@ import MonthlyChart from "@/components/MonthlyChart";
 import { requireProfile } from "@/lib/auth";
 import { getVault } from "@/lib/dashboard";
 import { yen } from "@/lib/money";
-import { getFixedCosts, getLedgerEntries, getMonthlySummary } from "@/lib/queries";
+import { getFixedCosts, getLedgerEntries, getMonthlySummary, getProfiles } from "@/lib/queries";
 import { fmtYm, nowJst } from "@/lib/time";
 
 export const metadata: Metadata = { title: "台帳 — The Oldman" };
 export const dynamic = "force-dynamic";
 
 export default async function LedgerPage() {
-  const [profile, entries, monthly, fixedCosts, vault] = await Promise.all([
+  const [profile, entries, monthly, fixedCosts, vault, profiles] = await Promise.all([
     requireProfile(),
     getLedgerEntries(),
     getMonthlySummary(),
     getFixedCosts(),
     getVault(),
+    getProfiles(),
   ]);
 
   const ym = fmtYm(nowJst());
   const current = monthly.find((m) => m.ym === ym);
+  const balance = current?.balance_yen ?? vault.carryover;
 
   return (
     <>
-      <header className="page">
-        <h1 className="display">台帳</h1>
-        <p className="dim page__lead">
-          6人全員が読めて、記帳・編集できます。固定費の設定だけオーナーが行います。
+      {/* 台帳を開いていちばん知りたいのは残高。だから最初に、いちばん大きく。 */}
+      <section className="balance">
+        <p className="label">残高</p>
+        <p className={`balance__num${balance < 0 ? " is-negative" : ""}`}>
+          {balance < 0 ? `−${yen(Math.abs(balance))}` : yen(balance)}
         </p>
-      </header>
-
-      <div className="rule">
-        <span className="label">Ledger — {ym.replace("-", " / ")}</span>
-      </div>
-
-      <div className="lsum">
-        <div>
-          <span className="label">今月の収入</span>
-          <span className="lsum__num amount">{yen(current?.income_yen ?? 0)}</span>
-        </div>
-        <div>
-          <span className="label">今月の支出</span>
-          <span className="lsum__num amount is-expense">{yen(current?.expense_yen ?? 0)}</span>
-        </div>
-        <div>
-          <span className="label">累計残高</span>
-          <span className={`lsum__num amount${(current?.balance_yen ?? 0) < 0 ? " is-expense" : ""}`}>
-            {yen(current?.balance_yen ?? vault.carryover)}
-          </span>
-        </div>
-      </div>
+        <p className="micro balance__sub">
+          今月分の収入 {yen(current?.income_yen ?? 0)} · 支出 {yen(current?.expense_yen ?? 0)}
+        </p>
+      </section>
 
       {vault.breakEvenMonth ? (
         <p className="notice notice-strong lsum__warn">
@@ -69,6 +54,7 @@ export default async function LedgerPage() {
         entries={entries}
         fixedCosts={fixedCosts}
         currentYm={ym}
+        names={Object.fromEntries(profiles.map((p) => [p.id, p.display_name]))}
       />
     </>
   );

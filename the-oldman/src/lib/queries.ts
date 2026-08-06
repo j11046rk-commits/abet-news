@@ -4,8 +4,8 @@ import type {
   ExclusiveHours,
   FixedCost,
   LedgerEntry,
+  CheckIn,
   MonthlySummary,
-  Player,
   Profile,
   Reservation,
   Session,
@@ -40,12 +40,6 @@ export async function getProfiles(): Promise<Profile[]> {
 
 export async function getProfileMap(): Promise<Map<string, Profile>> {
   return new Map((await getProfiles()).map((p) => [p.id, p]));
-}
-
-export async function getPlayers(): Promise<Player[]> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("players").select("*").order("name");
-  return (data ?? []) as Player[];
 }
 
 /** 期間内の予約。カレンダー用。 */
@@ -115,28 +109,6 @@ export async function getSessionStats(): Promise<SessionStats> {
   );
 }
 
-/** セッションIDごとの参加者名 */
-export async function getSessionPlayerNames(sessionIds: string[]): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>();
-  if (sessionIds.length === 0) return map;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("session_players")
-    .select("session_id, players(name)")
-    .in("session_id", sessionIds);
-
-  type Row = { session_id: string; players: { name: string } | { name: string }[] | null };
-  for (const row of (data ?? []) as unknown as Row[]) {
-    const list = map.get(row.session_id) ?? [];
-    const p = row.players;
-    if (Array.isArray(p)) p.forEach((x) => x?.name && list.push(x.name));
-    else if (p?.name) list.push(p.name);
-    map.set(row.session_id, list);
-  }
-  return map;
-}
-
 /* ── 台帳 ───────────────────────────────────────────────────────────── */
 
 export async function getLedgerEntries(limit = 200): Promise<LedgerEntry[]> {
@@ -175,22 +147,39 @@ export async function getExclusiveHours(): Promise<ExclusiveHours[]> {
   }));
 }
 
-/** 参加者ごとの参加回数と直近参加日 */
-export async function getPlayerStats(): Promise<Map<string, { count: number; last: string | null }>> {
+
+/* ── チェックイン ───────────────────────────────────────────────────── */
+
+/** いま施設にいる人（滞在中の行） */
+export async function getOpenCheckIns(): Promise<CheckIn[]> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("session_players")
-    .select("player_id, sessions(started_at)");
+    .from("check_ins")
+    .select("*")
+    .is("checked_out_at", null)
+    .order("checked_in_at", { ascending: true });
+  return (data ?? []) as CheckIn[];
+}
 
-  type Row = { player_id: string; sessions: { started_at: string } | { started_at: string }[] | null };
-  const map = new Map<string, { count: number; last: string | null }>();
+/** 直近の出入り */
+export async function getRecentCheckIns(limit = 12): Promise<CheckIn[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("check_ins")
+    .select("*")
+    .order("checked_in_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as CheckIn[];
+}
 
-  for (const row of (data ?? []) as unknown as Row[]) {
-    const s = Array.isArray(row.sessions) ? row.sessions[0] : row.sessions;
-    const cur = map.get(row.player_id) ?? { count: 0, last: null };
-    cur.count += 1;
-    if (s?.started_at && (!cur.last || s.started_at > cur.last)) cur.last = s.started_at;
-    map.set(row.player_id, cur);
-  }
-  return map;
+/** 自分がいま滞在中かどうか */
+export async function getMyOpenCheckIn(profileId: string): Promise<CheckIn | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("check_ins")
+    .select("*")
+    .eq("profile_id", profileId)
+    .is("checked_out_at", null)
+    .maybeSingle<CheckIn>();
+  return data ?? null;
 }

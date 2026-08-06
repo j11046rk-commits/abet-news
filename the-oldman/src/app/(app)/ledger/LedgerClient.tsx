@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   createLedgerEntry,
-  deleteFixedCost,
   deleteLedgerEntry,
   postFixedCosts,
   updateLedgerEntry,
@@ -26,11 +25,14 @@ export default function LedgerClient({
   entries,
   fixedCosts,
   currentYm,
+  names,
 }: {
   isOwner: boolean;
   entries: LedgerEntry[];
   fixedCosts: FixedCost[];
   currentYm: string;
+  /** profile_id → 表示名 */
+  names: Record<string, string>;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -75,7 +77,7 @@ export default function LedgerClient({
 
   const categories = direction === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  // 当月ぶんの固定費が未計上かどうか（memo に固定費名が入っているかで判定）
+  // 今月分の固定費が未計上かどうか（memo に固定費名が入っているかで判定）
   const postedNames = new Set(
     entries.filter((e) => e.entry_date.startsWith(currentYm)).map((e) => e.memo),
   );
@@ -122,7 +124,7 @@ export default function LedgerClient({
       {unposted.length > 0 ? (
         <div className="notice lsum__post">
           <p>
-            今月ぶんの固定費が {unposted.length}件 未計上です（
+            今月分の固定費が {unposted.length}件 未計上です（
             {yen(unposted.reduce((s, c) => s + c.amount_yen, 0))}）。
           </p>
           <button className="btn btn-sm" onClick={post} disabled={busy}>
@@ -240,49 +242,40 @@ export default function LedgerClient({
       {entries.length === 0 ? (
         <p className="empty">まだ記帳がありません。</p>
       ) : (
-        <table className="table ltable">
-          <thead>
-            <tr>
-              <th>日付</th>
-              <th>カテゴリ</th>
-              <th className="ta-r">金額</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((e) => (
-              <tr key={e.id}>
-                <td className="amount ltable__date">{e.entry_date.slice(5)}</td>
-                <td>
-                  {categoryJa(e.direction, e.category)}
-                  {e.memo ? <span className="micro"> · {e.memo}</span> : null}
-
-                </td>
-                <td className={`ta-r amount${e.direction === "expense" ? " is-expense" : ""}`}>
-                  {e.direction === "expense" ? `−${yen(e.amount_yen)}` : yen(e.amount_yen)}
-                </td>
-                <td className="ta-r">
-                  {e.session_id ? (
-                    <span className="micro">卓から</span>
-                  ) : (
-                    <span className="ltable__ops">
-                      <button className="btn btn-sm" disabled={busy} onClick={() => startEdit(e)}>
-                        編集
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        disabled={busy}
-                        onClick={() => remove(e.id)}
-                      >
-                        削除
-                      </button>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="lrows">
+          {entries.map((e) => (
+            <li key={e.id} className="lrow">
+              <span className="lrow__date amount">{e.entry_date.slice(5)}</span>
+              <span className="lrow__cat">
+                {categoryJa(e.direction, e.category)}
+                {e.memo ? <span className="micro"> · {e.memo}</span> : null}
+              </span>
+              <span className={`lrow__amt amount${e.direction === "expense" ? " is-expense" : ""}`}>
+                {e.direction === "expense" ? `−${yen(e.amount_yen)}` : yen(e.amount_yen)}
+              </span>
+              <span className="micro lrow__by">
+                {e.created_by ? (names[e.created_by] ?? "—") : "—"}
+                {e.session_id ? " · 卓から" : ""}
+              </span>
+              <span className="lrow__ops">
+                {e.session_id ? null : (
+                  <>
+                    <button className="btn btn-sm" disabled={busy} onClick={() => startEdit(e)}>
+                      編集
+                    </button>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      disabled={busy}
+                      onClick={() => remove(e.id)}
+                    >
+                      削除
+                    </button>
+                  </>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
 
       <FixedCosts costs={fixedCosts} isOwner={isOwner} />
@@ -290,103 +283,52 @@ export default function LedgerClient({
   );
 }
 
+/**
+ * 毎月かかる費用は家賃だけ。金額と計上日をその場で直せるようにする。
+ * 追加・削除は置かない（1件しかないものにボタンを増やさない）。
+ */
 function FixedCosts({ costs, isOwner }: { costs: FixedCost[]; isOwner: boolean }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState(0);
-  const [day, setDay] = useState(27);
-  const [error, setError] = useState<string | null>(null);
+  const rent = costs.find((c) => c.name === "家賃") ?? costs[0];
 
-  async function add(e: React.FormEvent) {
+  const [amount, setAmount] = useState(rent?.amount_yen ?? 80000);
+  const [day, setDay] = useState(rent?.billing_day ?? 27);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const res = await upsertFixedCost({ name, amountYen: amount, billingDay: day, isActive: true });
+    const res = await upsertFixedCost({
+      id: rent?.id,
+      name: "家賃",
+      amountYen: amount,
+      billingDay: day,
+      isActive: true,
+    });
     setBusy(false);
     if (!res.ok) return setError(res.error);
-    setName("");
-    setAmount(0);
+    setFlash("保存しました");
     router.refresh();
   }
-
-  async function remove(id: string) {
-    setBusy(true);
-    const res = await deleteFixedCost(id);
-    setBusy(false);
-    if (!res.ok) return setError(res.error);
-    router.refresh();
-  }
-
-  const total = costs.filter((c) => c.is_active).reduce((s, c) => s + c.amount_yen, 0);
 
   return (
     <>
       <div className="rule">
-        <span className="label">Fixed costs</span>
+        <span className="label">Rent</span>
       </div>
 
       <p className="dim">
-        毎月かかる費用です。合計 <span className="amount">{yen(total)}</span> / 月。
+        毎月かかる費用です。台帳には「計上する」を押したときに載ります。
       </p>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th className="ta-r">金額</th>
-            <th className="ta-r">計上日</th>
-            {isOwner ? <th /> : null}
-          </tr>
-        </thead>
-        <tbody>
-          {costs.length === 0 ? (
-            <tr>
-              <td colSpan={isOwner ? 4 : 3} className="empty">
-                固定費が登録されていません。
-              </td>
-            </tr>
-          ) : (
-            costs.map((c) => (
-              <tr key={c.id} className={c.is_active ? undefined : "is-off"}>
-                <td>{c.name}</td>
-                <td className="ta-r amount">{yen(c.amount_yen)}</td>
-                <td className="ta-r amount">{c.billing_day}日</td>
-                {isOwner ? (
-                  <td className="ta-r">
-                    <button
-                      className="btn btn-sm btn-danger"
-                      disabled={busy}
-                      onClick={() => remove(c.id)}
-                    >
-                      削除
-                    </button>
-                  </td>
-                ) : null}
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-
       {isOwner ? (
-        <form className="fixedadd" onSubmit={add}>
-          <div>
-            <label className="field-label" htmlFor="f-name">
-              名称
-            </label>
-            <input
-              id="f-name"
-              className="field"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="家賃"
-              required
-            />
-          </div>
+        <form className="rentform" onSubmit={save}>
           <div>
             <label className="field-label" htmlFor="f-amt">
-              金額
+              家賃
             </label>
             <input
               id="f-amt"
@@ -395,9 +337,9 @@ function FixedCosts({ costs, isOwner }: { costs: FixedCost[]; isOwner: boolean }
               pattern="[0-9]*"
               value={amount === 0 ? "" : String(amount)}
               onChange={(e) => setAmount(Math.max(0, parseYen(e.target.value)))}
-              placeholder="0"
               required
             />
+            <p className="micro amount">{yen(amount)}</p>
           </div>
           <div>
             <label className="field-label" htmlFor="f-day">
@@ -412,13 +354,21 @@ function FixedCosts({ costs, isOwner }: { costs: FixedCost[]; isOwner: boolean }
               value={day}
               onChange={(e) => setDay(Math.min(28, Math.max(1, Number(e.target.value) || 1)))}
             />
+            <p className="micro">毎月この日付で計上します</p>
           </div>
           <button type="submit" className="btn" disabled={busy}>
-            追加
+            {busy ? "保存中" : "保存する"}
           </button>
-          {error ? <p className="err">{error}</p> : null}
         </form>
-      ) : null}
+      ) : (
+        <p className="rentview">
+          <span className="rentview__num amount">{yen(rent?.amount_yen ?? 0)}</span>
+          <span className="micro">毎月 {rent?.billing_day ?? 27} 日に計上</span>
+        </p>
+      )}
+
+      {error ? <p className="err">{error}</p> : null}
+      {flash ? <p className="notice">{flash}</p> : null}
     </>
   );
 }

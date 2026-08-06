@@ -530,9 +530,18 @@ textarea.field {
 }
 
 .masthead__sub {
+  display: none;
   font-size: var(--fs-micro);
   letter-spacing: 0.28em;
   color: var(--smoke);
+  white-space: nowrap;
+}
+
+/* ボタンが2つ並ぶので、狭い画面では副題を出さない */
+@media (min-width: 560px) {
+  .masthead__sub {
+    display: block;
+  }
 }
 
 .masthead__right {
@@ -1420,130 +1429,171 @@ textarea.field {
   padding: 0.25rem 0.125rem;
 }
 
-/* ── 積立ゲージ（シグネチャー要素・DESIGN.md §5）──────────────────────── */
+/* ── 積立ゲージ：ロックグラスに注がれるウイスキー（DESIGN.md §5）────── */
 
-.vault {
+.whisky {
   display: flex;
   align-items: stretch;
-  gap: 1.5rem;
-  padding: 1.5rem 0 0.5rem;
+  gap: 1.25rem;
+  padding: 1.25rem 0 0.5rem;
 }
 
 @media (min-width: 560px) {
-  .vault {
+  .whisky {
     gap: 2.5rem;
   }
+}
 
-  .vault__glass {
-    width: 120px;
-    height: 320px;
+.whisky__svg {
+  flex: none;
+  width: 146px;
+  height: 150px;
+  overflow: visible;
+}
+
+@media (min-width: 560px) {
+  .whisky__svg {
+    width: 182px;
+    height: 187px;
   }
 }
 
-.vault__glass {
-  position: relative;
-  flex: none;
-  width: 96px;
-  height: 260px;
-  border: 1px solid var(--brass);
-  border-radius: var(--radius-edge);
-  overflow: hidden;
-  background: linear-gradient(180deg, rgb(176 141 79 / 0.04), transparent 40%);
-  transition: border-color 400ms var(--ease);
+/* 液面が目標の高さまで上がる。瓶が傾き終わってから動き出す。 */
+.whisky__liquid {
+  transition: transform 1900ms cubic-bezier(0.22, 0.68, 0.3, 1) 700ms;
 }
 
-/* 目標到達で外周の真鍮リングが静かに点灯する。点滅させない。 */
-.vault__glass::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border: 1px solid var(--brass);
-  border-radius: 1px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 400ms var(--ease);
+/* 液面のさざなみ。派手にしない。 */
+.whisky__wave {
+  overflow: visible;
+  animation: wg-drift 5.5s linear infinite;
 }
 
-.vault__glass.is-reached::after {
-  opacity: 0.55;
-}
-
-.vault__liquid {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(180deg, #b08d4f, #8a6b33);
-  transition: height 900ms var(--ease);
-}
-
-.vault__wave {
-  position: absolute;
-  top: -11px;
-  left: 0;
-  width: 200%;
-  height: 12px;
-  fill: #b08d4f;
-  animation: vault-drift 4.2s linear infinite;
-}
-
-.vault__wave--back {
-  opacity: 0.55;
-  animation-duration: 6.4s;
-  animation-direction: reverse;
-}
-
-@keyframes vault-drift {
+@keyframes wg-drift {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-40px);
   }
+}
+
+/* 瓶：右上から傾いて入り、注ぎ終わったら戻る */
+.whisky__bottle {
+  transform-origin: 176px 96px;
+  animation: wg-bottle 3400ms cubic-bezier(0.3, 0.7, 0.3, 1) 1 forwards;
+}
+
+@keyframes wg-bottle {
+  0% {
+    transform: translate(58px, -78px) rotate(4deg);
+    opacity: 0;
+  }
+  14% {
+    transform: translate(8px, -10px) rotate(108deg);
+    opacity: 1;
+  }
+  22%,
+  70% {
+    transform: translate(0, 0) rotate(126deg);
+    opacity: 1;
+  }
+  86% {
+    transform: translate(14px, -18px) rotate(70deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(58px, -78px) rotate(4deg);
+    opacity: 0;
+  }
+}
+
+/* 注がれる一本の筋 */
+.whisky__pour {
+  stroke-dasharray: 130;
+  stroke-dashoffset: 130;
+  opacity: 0;
+  animation: wg-pour 3400ms linear 1 forwards;
+}
+
+@keyframes wg-pour {
+  0%,
+  19% {
+    opacity: 0;
+    stroke-dashoffset: 130;
+  }
+  26% {
+    opacity: 0.95;
+    stroke-dashoffset: 0;
+  }
+  68% {
+    opacity: 0.95;
+    stroke-dashoffset: 0;
+  }
+  78%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 氷は注ぎ終わりに合わせて浮かび上がる */
+.whisky__ice {
+  opacity: 0;
+  animation: wg-ice 900ms ease-out 2300ms 1 forwards;
+}
+
+@keyframes wg-ice {
+  to {
+    opacity: 1;
+  }
+}
+
+/* 目標到達でグラスの縁が静かに点灯する */
+.whisky.is-reached .whisky__svg {
+  filter: none;
+}
+
+.whisky.is-reached path[stroke="rgb(176 141 79 / .55)"] {
+  stroke: var(--brass);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vault__wave {
-    animation: none;
-    transform: none;
-  }
-
-  .vault__wave--back {
-    display: none;
-  }
-
-  .vault__liquid {
+  .whisky__liquid {
     transition: none;
   }
+
+  .whisky__wave,
+  .whisky__ice {
+    animation: none;
+    opacity: 1;
+  }
+
+  /* 瓶と注ぎの演出は出さない */
+  .whisky__bottle,
+  .whisky__pour {
+    display: none;
+  }
 }
 
-.vault__ticks i {
-  position: absolute;
-  right: 0;
-  width: 8px;
-  height: 1px;
-  background: var(--brass-hairline-strong);
-}
-
-.vault__figures {
+.whisky__figures {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   min-width: 0;
 }
 
-.vault__amount {
+.whisky__amount {
   font-family: var(--font-display);
   font-size: var(--fs-hero);
   line-height: 0.95;
   letter-spacing: -0.03em;
   color: var(--paper);
   margin: 0.25rem 0 0.5rem;
-  /* 桁の途中で折り返させない */
   white-space: nowrap;
 }
 
-.vault__target {
+.whisky__target {
   letter-spacing: 0.1em;
 }
 
@@ -2052,4 +2102,215 @@ tr.is-off {
 
 .lform__editing {
   color: var(--brass);
+}
+
+/* ── いま施設に誰がいるか（TOPの最上段）──────────────────────────────── */
+
+.now {
+  padding-top: 0.25rem;
+}
+
+.now__rule {
+  margin-top: 1rem;
+}
+
+.now__count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.now__num {
+  font-size: 2rem;
+  color: var(--brass);
+  line-height: 1;
+}
+
+.now__unit {
+  font-size: var(--fs-body);
+}
+
+.now__empty {
+  line-height: 1.8;
+}
+
+.now__list {
+  list-style: none;
+  padding: 0;
+  margin: 0.625rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.5rem;
+}
+
+.now__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  border: 1px solid var(--brass-hairline);
+  border-radius: var(--radius-edge);
+  padding: 0.2rem 0.5rem;
+}
+
+.now__name {
+  font-size: 0.8125rem;
+  color: var(--paper);
+}
+
+/* ── 直近の利用状況 ─────────────────────────────────────────────────── */
+
+.visits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.visits__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.visits__date {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.visits__name {
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visits__dur {
+  color: var(--brass);
+  min-width: 3.5rem;
+  text-align: right;
+}
+
+/* ── 台帳の残高（最上段）────────────────────────────────────────────── */
+
+.balance {
+  padding: 1.25rem 0 0.25rem;
+  border-bottom: 1px solid var(--brass-hairline);
+  margin-bottom: 0.5rem;
+}
+
+.balance__num {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 13vw, 5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+  margin: 0.25rem 0 0.5rem;
+  white-space: nowrap;
+}
+
+.balance__num.is-negative {
+  color: #a2606a;
+}
+
+.balance__sub {
+  letter-spacing: 0.06em;
+  padding-bottom: 0.75rem;
+}
+
+.ltable__by {
+  color: var(--smoke);
+  white-space: nowrap;
+}
+
+.scard__by {
+  color: var(--smoke);
+}
+
+/* ── 家賃（固定費）──────────────────────────────────────────────────── */
+
+.rentform {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+
+.rentform .btn {
+  grid-column: span 2;
+  justify-self: start;
+}
+
+@media (min-width: 640px) {
+  .rentform {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+
+  .rentform .btn {
+    grid-column: auto;
+  }
+}
+
+.rentview {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.rentview__num {
+  font-size: 1.25rem;
+  color: var(--brass);
+}
+
+/* 台帳の明細 — 狭い画面で表が潰れるので2段の行にする */
+.lrows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lrow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "date cat amt"
+    "by   by  ops";
+  align-items: baseline;
+  gap: 0.25rem 0.625rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid rgb(176 141 79 / 0.12);
+}
+
+.lrow__date {
+  grid-area: date;
+  color: var(--smoke);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.lrow__cat {
+  grid-area: cat;
+  min-width: 0;
+}
+
+.lrow__amt {
+  grid-area: amt;
+  font-size: 0.9375rem;
+  color: var(--brass);
+  white-space: nowrap;
+}
+
+.lrow__by {
+  grid-area: by;
+}
+
+.lrow__ops {
+  grid-area: ops;
+  display: flex;
+  gap: 0.375rem;
+  justify-content: flex-end;
 }
