@@ -5,11 +5,15 @@ import { can } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
 import {
   deriveBusinessDay,
+  getAllProfiles,
   getMonthlySalesTarget,
   getMonthSales,
+  getMonthShifts,
   getMonthSummaries,
   getSettings,
+  getShiftPublication,
 } from "@/lib/queries";
+import { surname } from "@/lib/staff";
 import {
   fmtMonthJa,
   fmtYm,
@@ -39,12 +43,16 @@ export default async function SalesPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [sales, monthlyTarget, summaries, settings] = await Promise.all([
-    getMonthSales(ym),
-    getMonthlySalesTarget(ym),
-    getMonthSummaries(ym),
-    getSettings(),
-  ]);
+  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles] =
+    await Promise.all([
+      getMonthSales(ym),
+      getMonthlySalesTarget(ym),
+      getMonthSummaries(ym),
+      getSettings(),
+      getMonthShifts(ym),
+      getShiftPublication(ym),
+      getAllProfiles(),
+    ]);
 
   const { from, to } = monthRange(ym);
   const days: SalesBoardDay[] = [];
@@ -64,6 +72,23 @@ export default async function SalesPage({
     });
   }
 
+  // 達成貢献⭐：達成した日に出勤していた人に星（確定シフト×達成日・店主承認の案C）
+  const shiftEligible = profiles
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer");
+  const stars = new Map<string, number>(shiftEligible.map(({ p }) => [p.id, 0]));
+  if (shiftsPublishedAt) {
+    for (const d of days) {
+      if (d.target == null || d.actual == null || d.actual < d.target) continue;
+      for (const id of shiftMap.get(d.date) ?? []) {
+        if (stars.has(id)) stars.set(id, (stars.get(id) ?? 0) + 1);
+      }
+    }
+  }
+  const contrib = shiftEligible
+    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i, stars: stars.get(p.id) ?? 0 }))
+    .sort((a, b) => b.stars - a.stars);
+
   return (
     <>
       <header className="appbar">
@@ -80,7 +105,14 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
-        <SalesBoard key={ym} days={days} today={today} monthlyTarget={monthlyTarget} />
+        <SalesBoard
+          key={ym}
+          days={days}
+          today={today}
+          monthlyTarget={monthlyTarget}
+          contrib={contrib}
+          shiftsPublished={!!shiftsPublishedAt}
+        />
 
         {can(me.role, "sales.write") ? (
           <p className="micro" style={{ textAlign: "center" }}>

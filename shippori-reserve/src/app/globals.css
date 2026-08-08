@@ -718,6 +718,128 @@ textarea.field {
 .salesgoal__meta strong {
   color: var(--text);
 }
+
+/* A: 達成のお祝い */
+.cheer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.8rem;
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  animation: cheer-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cheer strong {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.cheer__streak {
+  font-weight: 600;
+  color: var(--seal);
+}
+.cheer--month {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.2rem;
+  background: color-mix(in srgb, var(--gold) 12%, var(--bg-2));
+}
+.cheer__big {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  color: var(--gold);
+}
+@keyframes cheer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.4rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A: 紙吹雪 */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti__p {
+  position: absolute;
+  top: -3vh;
+  border-radius: 2px;
+  opacity: 0.9;
+  animation: confetti-fall 2.6s ease-in forwards;
+}
+@keyframes confetti-fall {
+  to {
+    transform: translateY(108vh) rotate(560deg);
+    opacity: 0.5;
+  }
+}
+
+/* D: 月間目標への道のりゲージ */
+.gauge {
+  margin: 0.55rem 0 0.1rem;
+}
+.gauge__bar {
+  position: relative;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-dim) 18%, transparent);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.gauge__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 55%, var(--bg-2)), var(--gold));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gauge--grown .gauge__fill {
+  transform: scaleX(1);
+}
+.gauge__fill--full {
+  background: linear-gradient(90deg, var(--gold), var(--gold-soft));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 60%, transparent);
+}
+.gauge__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--text-dim) 45%, transparent);
+}
+.gauge__tick--on {
+  background: var(--gold);
+}
+.gauge__marks {
+  position: relative;
+  height: 1rem;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+.gauge__marks span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+.gauge__marks span:nth-child(1) {
+  left: 25%;
+}
+.gauge__marks span:nth-child(2) {
+  left: 50%;
+}
+.gauge__marks span:nth-child(3) {
+  left: 75%;
+}
+.gauge__mark--on {
+  color: var(--gold);
+}
 .salesnum--hit {
   color: var(--gold);
 }
