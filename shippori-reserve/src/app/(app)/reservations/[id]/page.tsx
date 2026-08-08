@@ -11,6 +11,7 @@ import {
   getProfileNames,
   getReservation,
   getSeatUnits,
+  getSeatUsage,
 } from "@/lib/queries";
 import { fmt, fmtDateJa, startLabel } from "@/lib/time";
 import { updateReservation } from "../actions";
@@ -29,8 +30,9 @@ export default async function ReservationDetailPage({
   const reservation = await getReservation(id);
   if (!reservation) notFound();
 
-  const [day, courses, seatUnits, names] = await Promise.all([
+  const [day, usage, courses, seatUnits, names] = await Promise.all([
     getDailySummary(reservation.biz_date),
+    getSeatUsage(reservation.biz_date, reservation.id),
     getCourses(),
     getSeatUnits(),
     getProfileNames(),
@@ -147,6 +149,7 @@ export default async function ReservationDetailPage({
             <ReservationForm
               reservation={reservation}
               initialDay={day}
+              initialUsage={usage}
               defaultDate={reservation.biz_date}
               courses={courses}
               seatUnits={seatUnits}

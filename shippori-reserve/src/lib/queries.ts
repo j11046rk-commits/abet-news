@@ -9,6 +9,7 @@ import {
   DEFAULT_STAY_MIN,
   FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
+import { computeSeatUsage } from "@/lib/seats";
 import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
 import type {
   BusinessDay,
@@ -17,6 +18,7 @@ import type {
   Profile,
   Reservation,
   SeatUnit,
+  SeatUsage,
 } from "@/lib/types";
 
 /** settings テーブルをキーバリューのまま返す（1リクエスト1回） */
@@ -162,6 +164,11 @@ export async function getMonthShifts(ym: string): Promise<Map<string, string[]>>
     else map.set(row.biz_date as string, [row.profile_id as string]);
   }
   return map;
+}
+
+/** その日の席の埋まり具合。予約フォームが選択可否の判定に使う。 */
+export async function getSeatUsage(date: string, excludeId?: string): Promise<SeatUsage> {
+  return computeSeatUsage(await getReservationsByDate(date), excludeId);
 }
 
 /** その日のシフト（profile_id の配列） */

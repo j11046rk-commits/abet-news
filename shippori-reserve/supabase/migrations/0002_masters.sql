@@ -16,13 +16,13 @@ create table if not exists seat_units (
   note        text
 );
 
--- 合計36席（site/data/site.json の記載と一致）
+-- 合計36席（site/data/site.json の記載と一致）。表記は店主指定（2026-08-08）。
 insert into seat_units (code, name, area, capacity, is_shared, is_joinable, sort_order) values
-  ('C',  'カウンター',     'counter', 10, true,  false, 10),
-  ('T1', 'テーブル席1',    'table',    6, false, true,  20),
-  ('T2', 'テーブル席2',    'table',    6, false, true,  30),
-  ('T3', 'テーブル席3',    'table',    6, false, true,  40),
-  ('P1', '掘りごたつ個室', 'private',  8, false, true,  50)
+  ('C',  'カウンター', 'counter', 10, true,  false, 10),
+  ('T1', 'T1',         'table',    6, false, true,  20),
+  ('T2', 'T2',         'table',    6, false, true,  30),
+  ('T3', 'T3',         'table',    6, false, true,  40),
+  ('P1', '和室',       'private',  8, false, true,  50)
 on conflict (code) do nothing;
 
 create table if not exists courses (

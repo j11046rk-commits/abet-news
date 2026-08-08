@@ -3,14 +3,17 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SELECTABLE_SOURCES } from "@/lib/constants";
+import { isSeatFull, NO_SEAT } from "@/lib/seats";
 import { fmtDateJa, isoToMinutes, minutesToLabel } from "@/lib/time";
-import type { Course, DailySummary, Reservation, SeatUnit } from "@/lib/types";
+import type { Course, DailySummary, Reservation, SeatUnit, SeatUsage } from "@/lib/types";
 import type { ActionResult, ReservationInput } from "@/app/(app)/reservations/actions";
 
 type Props = {
   /** 編集なら既存の予約。新規なら undefined。 */
   reservation?: Reservation;
   initialDay: DailySummary;
+  /** その日の席の埋まり具合（編集時は自分のぶんを除いたもの） */
+  initialUsage: SeatUsage;
   courses: Course[];
   seatUnits: SeatUnit[];
   /** 新規登録時の日付。暦の＋から来た日が入る。タップすればOSのピッカーで変えられる。 */
@@ -23,9 +26,6 @@ const PARTY_CHIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 /** ボタンで選べる受け始めは 20:30 まで（店主指定）。それ以降はプルダウンで。 */
 const LAST_CHIP_MIN = 1230;
 
-/** 席の「指定なし」。選ばれたことが分かるよう文字列で保存する。 */
-const NO_SEAT = "指定なし";
-
 /**
  * 予約登録。電話を受けながら親指だけで入力し終えることが全て。
  * 1画面に収まる密度に寄せてある（form-dense）。項目を足すときはよく考えること。
@@ -33,6 +33,7 @@ const NO_SEAT = "指定なし";
 export default function ReservationForm({
   reservation,
   initialDay,
+  initialUsage,
   courses,
   seatUnits,
   defaultDate,
@@ -43,6 +44,7 @@ export default function ReservationForm({
 
   const [bizDate, setBizDate] = useState(reservation?.biz_date ?? defaultDate);
   const [day, setDay] = useState<DailySummary>(initialDay);
+  const [usage, setUsage] = useState<SeatUsage>(initialUsage);
   const [startMin, setStartMin] = useState<number>(
     reservation ? isoToMinutes(reservation.biz_date, reservation.starts_at) : initialDay.open_min,
   );
@@ -75,19 +77,24 @@ export default function ReservationForm({
     if (bizDate === day.biz_date) return;
     let cancelled = false;
 
-    fetch(`/api/days/${bizDate}`)
+    const exclude = reservation ? `?exclude=${reservation.id}` : "";
+    fetch(`/api/days/${bizDate}${exclude}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: DailySummary | null) => {
+      .then((d: (DailySummary & { usage?: SeatUsage }) | null) => {
         if (cancelled || !d) return;
         setDay(d);
+        const u = d.usage ?? { taken: [], counter_used: 0 };
+        setUsage(u);
         setStartMin((m) => (m < d.open_min || m > d.close_min - 30 ? d.open_min : m));
+        // 変えた先の日で埋まっている席は選択から外す
+        setSeats((prev) => prev.filter((s) => s === NO_SEAT || !u.taken.includes(s)));
       })
       .catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, [bizDate, day.biz_date]);
+  }, [bizDate, day.biz_date, reservation]);
 
   /** イベント営業日は席ではなく定員で見る。自分の予約ぶんは二重に数えない。 */
   const alreadyCounted = editing && reservation?.biz_date === bizDate ? reservation.party_size : 0;
@@ -135,6 +142,18 @@ export default function ReservationForm({
     }
     if (!isEvent && seats.length === 0) {
       setError("席を選んでください（「指定なし」も選べます）。");
+      return;
+    }
+    const counter = seatUnits.find((u) => u.is_shared);
+    if (
+      !isEvent &&
+      counter &&
+      seats.includes(counter.name) &&
+      usage.counter_used + partySize > counter.capacity
+    ) {
+      setError(
+        `カウンターの残りが足りません（残り ${Math.max(0, counter.capacity - usage.counter_used)} 席）。`,
+      );
       return;
     }
 
@@ -224,14 +243,15 @@ export default function ReservationForm({
             </button>
           ))}
           {lateSlots.length > 0 ? (
+            /* 20:45 の枠に置く「それ以降」。押すとスクロール式で選べる。 */
             <select
               className="field"
-              style={{ width: "auto", minHeight: "2.15rem" }}
+              style={{ width: "auto", minHeight: "1.95rem", padding: "0.1rem 0.5rem" }}
               value={lateSlots.includes(startMin) ? startMin : ""}
               onChange={(e) => e.target.value && setStartMin(Number(e.target.value))}
               aria-label="20:30より後の時刻"
             >
-              <option value="">20:30より後 ▾</option>
+              <option value="">それ以降 ▾</option>
               {lateSlots.map((m) => (
                 <option key={m} value={m}>
                   {minutesToLabel(m)}
@@ -337,20 +357,29 @@ export default function ReservationForm({
             ) : null}
           </label>
           <div className="chips">
-            {seatUnits.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                className="chip"
-                aria-pressed={seats.includes(u.name)}
-                onClick={() => pickSeat(u.name)}
-              >
-                {u.name}
-                <span className="micro" style={{ marginLeft: "0.3rem" }}>
-                  {u.capacity}
-                </span>
-              </button>
-            ))}
+            {seatUnits.map((u) => {
+              const full = isSeatFull(u, usage, partySize);
+              const selected = seats.includes(u.name);
+              return (
+                <button
+                  key={u.id}
+                  type="button"
+                  className="chip"
+                  aria-pressed={selected}
+                  disabled={full && !selected}
+                  onClick={() => pickSeat(u.name)}
+                >
+                  {u.name}
+                  <span className="micro" style={{ marginLeft: "0.3rem" }}>
+                    {u.is_shared
+                      ? `残${Math.max(0, u.capacity - usage.counter_used)}`
+                      : full
+                        ? "済"
+                        : u.capacity}
+                  </span>
+                </button>
+              );
+            })}
             <button
               type="button"
               className="chip"

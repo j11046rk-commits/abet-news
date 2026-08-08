@@ -135,6 +135,18 @@ export type Course = {
   is_active: boolean;
 };
 
+/**
+ * その日の席の埋まり具合。
+ * Phase 1 は時間帯の重なりまでは見ない——1晩1組の前提で「その日に予約がある席は埋まり」。
+ * カウンターだけは相席なので、人数の合計で見る。
+ */
+export type SeatUsage = {
+  /** 埋まっている専有席の名前（T1・和室 など） */
+  taken: string[];
+  /** カウンターに入っている人数の合計 */
+  counter_used: number;
+};
+
 export type Shift = {
   biz_date: string;
   profile_id: string;

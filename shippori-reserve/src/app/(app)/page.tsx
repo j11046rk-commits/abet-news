@@ -2,6 +2,7 @@ import Link from "next/link";
 import ScrollTo from "@/components/ScrollTo";
 import { requirePermission } from "@/lib/auth";
 import { SOURCE_SHORT } from "@/lib/constants";
+import { computeSeatUsage, isSeatFull, seatShort } from "@/lib/seats";
 import { chipColors, surname } from "@/lib/staff";
 import {
   deriveBusinessDay,
@@ -9,6 +10,7 @@ import {
   getMonthReservations,
   getMonthShifts,
   getMonthSummaries,
+  getSeatUnits,
   getSettings,
 } from "@/lib/queries";
 import {
@@ -45,11 +47,12 @@ export default async function MonthPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [summaries, resvMap, shiftMap, profiles, settings] = await Promise.all([
+  const [summaries, resvMap, shiftMap, profiles, seatUnits, settings] = await Promise.all([
     getMonthSummaries(ym),
     getMonthReservations(ym),
     getMonthShifts(ym),
     getAllProfiles(),
+    getSeatUnits(),
     getSettings(),
   ]);
 
@@ -87,6 +90,7 @@ export default async function MonthPage({
           const shiftIds = shiftMap.get(date) ?? [];
           const dow = weekdayOf(date);
           const guests = summaries.get(date)?.guest_count ?? 0;
+          const usage = computeSeatUsage(rows);
 
           const rowCls = [
             "mrow",
@@ -131,6 +135,24 @@ export default async function MonthPage({
                     ＋
                   </Link>
                 </div>
+
+                {/* 席の空き状況。予約がある日だけ出す（無い日は全部空いている）。 */}
+                {day.mode === "normal" && rows.length > 0 ? (
+                  <div className="seatstrip" aria-label="席の空き状況">
+                    {seatUnits.map((u) => {
+                      const full = isSeatFull(u, usage, 1);
+                      return (
+                        <span
+                          key={u.id}
+                          className={`seatchip ${full ? "seatchip--full" : ""}`}
+                        >
+                          {seatShort(u)}
+                          {u.is_shared ? ` ${usage.counter_used}/${u.capacity}` : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
 
                 {rows.map((r) => {
                   const off = r.status === "cancelled" || r.status === "no_show";

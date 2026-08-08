@@ -701,6 +701,36 @@ textarea.field {
   font-variant-numeric: tabular-nums;
 }
 
+/* 席の空き状況ストリップ。空いている席は金、埋まった席は沈めて打ち消す。 */
+.seatstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.seatchip {
+  font-size: 0.66rem;
+  line-height: 1.6;
+  padding: 0 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+  border-radius: 5px;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.seatchip--full {
+  border-color: var(--line);
+  color: var(--text-dim);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 埋まっていて選べない席のチップ */
+.chip:disabled {
+  opacity: 0.35;
+  text-decoration: line-through;
+  cursor: default;
+}
+
 /* ── 予約登録（1画面に収める密度）── */
 .form-dense {
   gap: 0.5rem;

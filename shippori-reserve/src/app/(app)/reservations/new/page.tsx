@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ReservationForm from "@/components/ReservationForm";
 import { requirePermission } from "@/lib/auth";
-import { getCourses, getDailySummary, getSeatUnits } from "@/lib/queries";
+import { getCourses, getDailySummary, getSeatUnits, getSeatUsage } from "@/lib/queries";
 import { todayBizDate } from "@/lib/time";
 import { createReservation } from "../actions";
 
@@ -21,8 +21,9 @@ export default async function NewReservationPage({
   const sp = await searchParams;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.d ?? "") ? sp.d! : todayBizDate();
 
-  const [day, courses, seatUnits] = await Promise.all([
+  const [day, usage, courses, seatUnits] = await Promise.all([
     getDailySummary(date),
+    getSeatUsage(date),
     getCourses(),
     getSeatUnits(),
   ]);
@@ -39,6 +40,7 @@ export default async function NewReservationPage({
       <div className="wrap">
         <ReservationForm
           initialDay={day}
+          initialUsage={usage}
           defaultDate={date}
           courses={courses}
           seatUnits={seatUnits}

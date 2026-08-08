@@ -15,21 +15,21 @@ export const SOURCES: {
   short: string;
 }[] = [
   { value: "phone", label: "電話", short: "電話" },
+  // enum の 'other' を「スタッフ連絡」（スタッフへの直接連絡）として使う（店主指定 2026-08-08）
+  { value: "other", label: "スタッフ連絡", short: "スタッフ" },
   { value: "line", label: "公式LINE", short: "LINE" },
-  { value: "instagram_dm", label: "Instagram DM", short: "IG" },
+  { value: "instagram_dm", label: "DM", short: "DM" },
   { value: "web_form", label: "ホームページ", short: "HP" },
   { value: "owner_direct", label: "オーナー直接", short: "直通" },
   { value: "walk_in", label: "当日飛び込み", short: "飛込" },
-  { value: "other", label: "その他", short: "他" },
 ];
 
 /**
- * 予約登録フォームに並べる流入元。
- * 「当日飛び込み」「オーナー直接」は店主判断で外した（2026-08-08）。
- * enum とバッジ表示には残る（過去データ・公開フォームのため）。
+ * 予約登録フォームに並べる流入元。この4つ・この順（店主指定 2026-08-08）。
+ * ホームページ（web_form）は Phase 3 の公開フォームから自動で入る値なので、手入力には出さない。
  */
-export const SELECTABLE_SOURCES = SOURCES.filter(
-  (s) => s.value !== "walk_in" && s.value !== "owner_direct",
+export const SELECTABLE_SOURCES = (["phone", "other", "line", "instagram_dm"] as const).map(
+  (v) => SOURCES.find((s) => s.value === v)!,
 );
 
 export const SOURCE_LABEL: Record<ReservationSource, string> = Object.fromEntries(
