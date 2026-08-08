@@ -4,92 +4,68 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
-import { isRequestWindowOpen, REQUEST_DEADLINE_DAY, requestTargetYm } from "@/lib/shifts";
 
+const YM_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ShiftActionResult = { ok: true } | { ok: false; error: string };
 
+/** DB関数が raise した日本語メッセージを取り出す（無ければ汎用文言） */
+const rpcError = (message: string | undefined, fallback: string): string => {
+  if (!message) return fallback;
+  const jp = message.match(/[ぁ-んァ-ヶ一-龠][^\n]*/);
+  return jp ? jp[0] : fallback;
+};
+
 /**
- * 確定シフトを入れる・外す（店長・オーナーのみ）。
- * オーナー3名はシフトに入らないので、対象にできない。
+ * 希望シフトの提出（一般スタッフ）。
+ * 締切・対象月・自分の分だけ、の検査と月まるごとの置き換えは
+ * DB関数 submit_month_requests が1トランザクションで行う。
  */
-export async function toggleConfirmedShift(
-  date: string,
-  profileId: string,
-): Promise<ShiftActionResult> {
+export async function submitMyRequests(ym: string, dates: string[]): Promise<ShiftActionResult> {
   const me = await requireProfile();
-  if (!can(me.role, "shift.write")) return { ok: false, error: "権限がありません。" };
-  if (!DATE_RE.test(date)) return { ok: false, error: "日付が不正です。" };
+  if (!can(me.role, "shiftrequest.write")) return { ok: false, error: "権限がありません。" };
+  if (!YM_RE.test(ym)) return { ok: false, error: "月が不正です。" };
+  if (dates.some((d) => !DATE_RE.test(d))) return { ok: false, error: "日付が不正です。" };
 
   const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_month_requests", {
+    p_ym: ym,
+    p_dates: dates,
+  });
 
-  const { data: target } = await supabase
-    .from("profiles")
-    .select("role, is_active")
-    .eq("id", profileId)
-    .maybeSingle<{ role: string; is_active: boolean }>();
-  if (!target || !target.is_active) return { ok: false, error: "対象のスタッフが見つかりません。" };
-  if (target.role === "owner") return { ok: false, error: "オーナーはシフトに入りません。" };
+  if (error) return { ok: false, error: rpcError(error.message, "保存できませんでした。") };
 
-  const { data: existing } = await supabase
-    .from("shifts")
-    .select("profile_id")
-    .eq("biz_date", date)
-    .eq("profile_id", profileId)
-    .maybeSingle();
-
-  const { error } = existing
-    ? await supabase.from("shifts").delete().eq("biz_date", date).eq("profile_id", profileId)
-    : await supabase
-        .from("shifts")
-        .insert({ biz_date: date, profile_id: profileId, created_by: me.id });
-
-  if (error) return { ok: false, error: "変更できませんでした。" };
-
-  revalidatePath("/");
   revalidatePath("/shifts");
-  revalidatePath(`/day/${date}`);
   return { ok: true };
 }
 
 /**
- * 自分の希望シフトを出す・取り下げる（一般スタッフのみ）。
- * 対象は翌月分だけ。毎月25日を過ぎると締め切り。
+ * シフトの確定（店長・オーナー）。
+ * 月まるごとの置き換えと「確定」の記録は DB関数 confirm_month_shifts が
+ * 1トランザクションで行う。途中失敗で確定シフトが消えることはない。
  */
-export async function toggleMyRequest(date: string): Promise<ShiftActionResult> {
+export async function confirmMonthShifts(
+  ym: string,
+  assignments: { date: string; profile_id: string }[],
+): Promise<ShiftActionResult> {
   const me = await requireProfile();
-  if (!can(me.role, "shiftrequest.write")) return { ok: false, error: "権限がありません。" };
-  if (!DATE_RE.test(date)) return { ok: false, error: "日付が不正です。" };
-
-  if (date.slice(0, 7) !== requestTargetYm()) {
-    return { ok: false, error: "希望を出せるのは来月分だけです。" };
-  }
-  if (!isRequestWindowOpen()) {
-    return {
-      ok: false,
-      error: `来月分の提出は毎月${REQUEST_DEADLINE_DAY}日で締め切りです。変更は店長に伝えてください。`,
-    };
+  if (!can(me.role, "shift.write")) return { ok: false, error: "権限がありません。" };
+  if (!YM_RE.test(ym)) return { ok: false, error: "月が不正です。" };
+  if (assignments.some((a) => !DATE_RE.test(a.date))) {
+    return { ok: false, error: "日付が不正です。" };
   }
 
   const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("shift_requests")
-    .select("profile_id")
-    .eq("biz_date", date)
-    .eq("profile_id", me.id)
-    .maybeSingle();
+  const { error } = await supabase.rpc("confirm_month_shifts", {
+    p_ym: ym,
+    p_assignments: assignments,
+  });
 
-  const { error } = existing
-    ? await supabase
-        .from("shift_requests")
-        .delete()
-        .eq("biz_date", date)
-        .eq("profile_id", me.id)
-    : await supabase.from("shift_requests").insert({ biz_date: date, profile_id: me.id });
+  if (error) return { ok: false, error: rpcError(error.message, "保存できませんでした。") };
 
-  if (error) return { ok: false, error: "変更できませんでした。" };
-
+  revalidatePath("/");
   revalidatePath("/shifts");
+  revalidatePath("/day/[date]", "page");
   return { ok: true };
 }

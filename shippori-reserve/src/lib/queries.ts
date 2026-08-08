@@ -190,6 +190,27 @@ export async function getMonthShiftRequests(ym: string): Promise<Map<string, str
   return map;
 }
 
+/** 月の希望提出の記録（profile_id → 提出日時） */
+export async function getShiftSubmissions(ym: string): Promise<Map<string, string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("shift_request_submissions")
+    .select("profile_id, submitted_at")
+    .eq("ym", ym);
+  return new Map((data ?? []).map((r) => [r.profile_id as string, r.submitted_at as string]));
+}
+
+/** その月のシフトが確定（公開）済みか。確定日時を返す。未確定なら null。 */
+export async function getShiftPublication(ym: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("shift_publications")
+    .select("published_at")
+    .eq("ym", ym)
+    .maybeSingle<{ published_at: string }>();
+  return data?.published_at ?? null;
+}
+
 /** その日のシフト（profile_id の配列） */
 export async function getShiftProfileIds(date: string): Promise<string[]> {
   const supabase = await createClient();

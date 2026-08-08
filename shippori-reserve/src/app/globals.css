@@ -779,6 +779,78 @@ textarea.field {
 }
 
 /* ── シフト表 ── */
+
+/* 希望提出用の月カレンダー（自分の入れる日にチェック） */
+.sgrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.sgrid__head {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  padding-bottom: 0.2rem;
+}
+.scell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  min-height: 3.2rem;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+.scell--closed {
+  opacity: 0.45;
+  cursor: default;
+}
+.scell:disabled {
+  cursor: default;
+}
+.scell__day {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-family: var(--font-serif);
+}
+.scell__mark {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/* 出勤日数。スクロールしても常に見える。 */
+.countbar {
+  position: sticky;
+  top: 4.4rem; /* アプリバー（2行タイトル）の高さぶん下げる */
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 確定ボタン。リストの下でも指の届く位置に留まる。 */
+.confirmbar {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 0.6rem);
+  z-index: 15;
+  padding: 0.6rem;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .shiftboard {
   display: flex;
   flex-direction: column;

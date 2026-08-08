@@ -136,6 +136,11 @@ export default function ReservationForm({
   function submit() {
     setError(null);
 
+    // 日付を変えた直後で、その日の営業設定（イベント日かどうか等）が届く前は保存しない
+    if (bizDate !== day.biz_date) {
+      setError("日付の情報を読み込んでいます。もう一度押してください。");
+      return;
+    }
     if (!name.trim()) {
       setError("お名前を入力してください。");
       return;
@@ -159,13 +164,14 @@ export default function ReservationForm({
 
     const input: ReservationInput = {
       biz_date: bizDate,
-      start_min: startMin,
+      // イベント日は時刻を取らない＝開店時刻で記録する
+      start_min: isEvent ? day.open_min : startMin,
       party_size: partySize,
       customer_name: name,
       phone,
       source,
       seat_note: isEvent ? "" : seats.join("＋"),
-      course_id: courseId,
+      course_id: isEvent ? "" : courseId,
       memo,
     };
 
@@ -235,7 +241,9 @@ export default function ReservationForm({
         </p>
       </div>
 
-      {/* 3. 時刻 ─ 15分刻みで20:30まで。それ以降はプルダウンで。 */}
+      {/* 3. 時刻 ─ 15分刻みで20:30まで。それ以降はプルダウンで。
+          イベント営業日は相席の入れ替えなし＝時刻を取らない（店主指定）。 */}
+      {!isEvent ? (
       <div>
         <label className="field-label">
           時刻<span className="req">必須</span>
@@ -271,6 +279,7 @@ export default function ReservationForm({
           ) : null}
         </div>
       </div>
+      ) : null}
 
       {/* 4. 人数 ─ チップ＋ステッパー。数字を打たせない。 */}
       <div>
@@ -402,26 +411,28 @@ export default function ReservationForm({
         </div>
       ) : null}
 
-      {/* 8. コース（飲み放題の有無はコース側に含まれている） */}
-      <div>
-        <label className="field-label" htmlFor="course">
-          コース（任意）
-        </label>
-        <select
-          id="course"
-          className="field"
-          value={courseId ?? ""}
-          onChange={(e) => setCourseId(e.target.value)}
-        >
-          <option value="">指定なし</option>
-          {courses.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.price_yen ? `（${c.price_yen.toLocaleString()}円）` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* 8. コース（飲み放題の有無はコース側に含まれている）。イベント日は出さない。 */}
+      {!isEvent ? (
+        <div>
+          <label className="field-label" htmlFor="course">
+            コース（任意）
+          </label>
+          <select
+            id="course"
+            className="field"
+            value={courseId ?? ""}
+            onChange={(e) => setCourseId(e.target.value)}
+          >
+            <option value="">指定なし</option>
+            {courses.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.price_yen ? `（${c.price_yen.toLocaleString()}円）` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       {/* 9. メモ（アレルギー・お祝いなどもここへ） */}
       <div>

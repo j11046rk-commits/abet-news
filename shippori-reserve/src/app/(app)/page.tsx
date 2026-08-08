@@ -14,6 +14,7 @@ import {
   getMonthSummaries,
   getSeatUnits,
   getSettings,
+  getShiftPublication,
 } from "@/lib/queries";
 import {
   fmtMonthJa,
@@ -49,15 +50,20 @@ export default async function MonthPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [summaries, resvMap, shiftMap, profiles, seatUnits, courses, settings] = await Promise.all([
-    getMonthSummaries(ym),
-    getMonthReservations(ym),
-    getMonthShifts(ym),
-    getAllProfiles(),
-    getSeatUnits(),
-    getCourses(),
-    getSettings(),
-  ]);
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings] =
+    await Promise.all([
+      getMonthSummaries(ym),
+      getMonthReservations(ym),
+      getMonthShifts(ym),
+      getShiftPublication(ym),
+      getAllProfiles(),
+      getSeatUnits(),
+      getCourses(),
+      getSettings(),
+    ]);
+
+  // シフトは店長が「確定」した月だけ暦に出す（組みかけの下書きを見せない）
+  const shiftMap = shiftsPublishedAt ? shiftMapRaw : new Map<string, string[]>();
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const colorIndex = new Map(profiles.map((p, i) => [p.id, i]));

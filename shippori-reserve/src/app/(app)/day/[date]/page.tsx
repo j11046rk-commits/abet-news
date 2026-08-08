@@ -12,6 +12,7 @@ import {
   getDailySummary,
   getReservationsByDate,
   getShiftProfileIds,
+  getShiftPublication,
 } from "@/lib/queries";
 import { fmtDateShort, shiftDate, startLabel, todayBizDate } from "@/lib/time";
 
@@ -28,13 +29,18 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [summary, reservations, shiftIds, profiles, courses] = await Promise.all([
-    getDailySummary(date),
-    getReservationsByDate(date),
-    getShiftProfileIds(date),
-    getAllProfiles(),
-    getCourses(),
-  ]);
+  const [summary, reservations, shiftIdsRaw, shiftsPublishedAt, profiles, courses] =
+    await Promise.all([
+      getDailySummary(date),
+      getReservationsByDate(date),
+      getShiftProfileIds(date),
+      getShiftPublication(date.slice(0, 7)),
+      getAllProfiles(),
+      getCourses(),
+    ]);
+
+  // シフトは店長が「確定」した月だけ表示する
+  const shiftIds = shiftsPublishedAt ? shiftIdsRaw : [];
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
@@ -128,7 +134,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             </div>
           ) : (
             <p className="micro" style={{ margin: 0 }}>
-              まだ決まっていません。
+              まだ確定していません。
             </p>
           )}
         </section>

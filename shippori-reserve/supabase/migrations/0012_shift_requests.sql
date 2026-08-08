@@ -24,18 +24,15 @@ on conflict do nothing;
 
 alter table shift_requests enable row level security;
 revoke all on shift_requests from anon;
-grant select, insert, delete on shift_requests to authenticated;
+-- 読み取りのみ。書き込みは 0014 の submit_month_requests（security definer）だけが行う。
+-- テーブルへの直接書き込みを許すと、締切（毎月25日）をAPI直叩きで素通りできてしまう。
+grant select on shift_requests to authenticated;
 
 drop policy if exists shift_requests_select on shift_requests;
 create policy shift_requests_select on shift_requests
   for select to authenticated using (is_active_user());
 
--- ★ 自分の行しか書けない。他人の希望を出したり消したりはDBが拒否する。
 drop policy if exists shift_requests_write on shift_requests;
-create policy shift_requests_write on shift_requests
-  for all to authenticated
-  using (profile_id = auth.uid() and has_permission('shiftrequest.write'))
-  with check (profile_id = auth.uid() and has_permission('shiftrequest.write'));
 
 drop trigger if exists shift_requests_audit on shift_requests;
 create trigger shift_requests_audit
