@@ -100,7 +100,6 @@ export default async function ReservationsPage({
                   <ReservationCard
                     key={r.id}
                     reservation={r}
-                    showActions={false}
                     registrar={r.created_by ? (names.get(r.created_by) ?? null) : null}
                   />
                 ))}

@@ -694,6 +694,55 @@ textarea.field {
   white-space: nowrap;
 }
 
+/* 曜日の下に出す、その日の合計予約人数 */
+.mrow__guests {
+  font-size: 0.68rem;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 予約登録（1画面に収める密度）── */
+.form-dense {
+  gap: 0.6rem;
+}
+.form-dense .field-label {
+  margin-bottom: 0.25rem;
+}
+.form-dense .chip {
+  min-height: 2.15rem;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.88rem;
+}
+.form-dense .chip--num {
+  min-width: 2.55rem;
+}
+.form-dense .field {
+  min-height: 2.5rem;
+  padding: 0.45rem 0.8rem;
+}
+.form-dense textarea.field {
+  min-height: 3.2rem;
+}
+
+/* 日付。タップするとOSのピッカー（スクロール式）が開く。 */
+.datefield {
+  font-family: var(--font-serif);
+  color: var(--gold-soft);
+  font-size: 1.02rem;
+  letter-spacing: 0.04em;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.stepper__num {
+  min-width: 3.1rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ───────────────────────── シフトチップ ───────────────────────── */
 
 .shiftchip {

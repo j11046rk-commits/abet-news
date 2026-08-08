@@ -47,7 +47,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     }));
 
   const flagged = reservations
-    .map((r) => ({ r, reason: attentionReason(r, summary.mode) }))
+    .map((r) => ({ r, reason: attentionReason(r) }))
     .filter((x) => x.reason);
   const active = reservations.filter((r) => ACTIVE_STATUSES.includes(r.status));
   const isEvent = summary.mode === "event";
@@ -109,14 +109,6 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               <span className="summary__label">席</span>
             </div>
           )}
-          {summary.tentative_count > 0 ? (
-            <div className="summary__item">
-              <span className="summary__num" style={{ color: "var(--seal)" }}>
-                {summary.tentative_count}
-              </span>
-              <span className="summary__label">仮予約</span>
-            </div>
-          ) : null}
         </section>
 
         <ShiftEditor date={date} staff={staff} canEdit={can(me.role, "shift.write")} />
@@ -154,7 +146,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               <ReservationCard
                 key={r.id}
                 reservation={r}
-                attention={attentionReason(r, summary.mode)}
+                attention={attentionReason(r)}
                 registrar={r.created_by ? (names.get(r.created_by) ?? null) : null}
               />
             ))

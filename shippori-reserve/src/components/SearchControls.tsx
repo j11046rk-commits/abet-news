@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { SELECTABLE_SOURCES, STATUSES } from "@/lib/constants";
+import { SELECTABLE_SOURCES } from "@/lib/constants";
 
 const PERIODS = [
   { value: "today", label: "今日" },
@@ -19,7 +19,6 @@ export default function SearchControls() {
   const [q, setQ] = useState(params.get("q") ?? "");
 
   const period = params.get("period") ?? "week";
-  const status = params.get("status") ?? "";
   const source = params.get("source") ?? "";
 
   function apply(patch: Record<string, string>) {
@@ -64,20 +63,6 @@ export default function SearchControls() {
       </div>
 
       <div className="row" style={{ gap: "0.5rem" }}>
-        <select
-          className="field"
-          value={status}
-          onChange={(e) => apply({ status: e.target.value })}
-          aria-label="状態でしぼる"
-        >
-          <option value="">状態：すべて</option>
-          {STATUSES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-
         <select
           className="field"
           value={source}

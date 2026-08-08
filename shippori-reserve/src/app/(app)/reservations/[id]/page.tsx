@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReservationForm from "@/components/ReservationForm";
 import StatusPanel from "@/components/StatusPanel";
-import { SourceBadge, StatusBadge } from "@/components/Badges";
+import { SourceBadge } from "@/components/Badges";
 import { requireProfile } from "@/lib/auth";
-import { can, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
+import { can, SOURCE_LABEL } from "@/lib/constants";
 import {
   getCourses,
   getDailySummary,
@@ -57,8 +57,9 @@ export default async function ReservationDetailPage({
         <section className="card">
           <div className="row" style={{ flexWrap: "wrap", marginBottom: "0.6rem" }}>
             <SourceBadge source={reservation.source} />
-            <StatusBadge status={reservation.status} />
-            <span className="badge">{STATUS_LABEL[reservation.status]}</span>
+            {reservation.status === "cancelled" ? (
+              <span className="badge badge--cancelled">キャンセル</span>
+            ) : null}
           </div>
 
           <dl className="kv">
@@ -136,7 +137,11 @@ export default async function ReservationDetailPage({
 
         {editable ? (
           <>
-            <StatusPanel id={reservation.id} status={reservation.status} />
+            <StatusPanel
+              id={reservation.id}
+              cancelled={reservation.status === "cancelled"}
+              cancelReason={reservation.cancel_reason}
+            />
 
             <h2 className="section-title">内容を変更する</h2>
             <ReservationForm

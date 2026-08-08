@@ -86,6 +86,7 @@ export default async function MonthPage({
           const rows = resvMap.get(date) ?? [];
           const shiftIds = shiftMap.get(date) ?? [];
           const dow = weekdayOf(date);
+          const guests = summaries.get(date)?.guest_count ?? 0;
 
           const rowCls = [
             "mrow",
@@ -105,6 +106,7 @@ export default async function MonthPage({
                 >
                   {WEEKDAY_JA[dow]}
                 </span>
+                {guests > 0 ? <span className="mrow__guests">{guests}名</span> : null}
               </Link>
 
               <div className="mrow__body">
@@ -143,9 +145,6 @@ export default async function MonthPage({
                         {r.customer_name}
                         <span className="muted"> 様 {r.party_size}名</span>
                       </span>
-                      {r.status === "tentative" ? (
-                        <span className="badge badge--tentative">仮</span>
-                      ) : null}
                       {r.seat_note ? <span className="muted">{r.seat_note}</span> : null}
                       <span className="mline__reg">{registrar(r)}</span>
                     </Link>
