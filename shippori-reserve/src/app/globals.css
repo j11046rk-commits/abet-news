@@ -1,0 +1,687 @@
+@import "tailwindcss";
+
+/*
+ * 色は公式サイト（site/src/styles/global.css）の濃紺×木目をそのまま借りる。
+ * 同じ店の道具なので、見た目が地続きであることに意味がある。
+ */
+:root {
+  --bg: #111726; /* 濃紺 */
+  --bg-2: #161d30; /* 一段沈んだ背景 */
+  --bg-3: #1e2740; /* カード */
+  --bg-4: #26314f; /* 押した状態・選択中 */
+  --line: #2d3850;
+  --text: #eef1f8;
+  --text-dim: #a9b4c8;
+  --gold: #d2a25c; /* 木目・主アクセント */
+  --gold-soft: #e6c391;
+  --ember: #c47a3d;
+  --seal: #c9603f; /* 差し色（朱） */
+  --beer: #e0a92b; /* イベント営業（ビアホール）の色 */
+  --ok: #5aa87a;
+  --warn: #d8a24a;
+
+  --radius: 10px;
+  --font-serif: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", "YuMincho",
+    "Noto Serif JP", serif;
+  --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP",
+    system-ui, sans-serif;
+
+  /* 下タブの高さ＋ホームインジケータ。コンテンツの下端はここを避ける。 */
+  --tabbar-h: 3.75rem;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* 100vh は Safari のツールバー分ズレる */
+  height: 100dvh;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  /* アプリ内のスクロールに閉じる（引っ張って再読み込みを起こさない） */
+  overscroll-behavior-y: contain;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+a {
+  color: var(--gold-soft);
+  text-decoration: none;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ───────────────────────── レイアウト ───────────────────────── */
+
+.app {
+  min-height: 100dvh;
+  padding-top: calc(var(--safe-t));
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b));
+}
+
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.appbar__title {
+  font-size: 1.02rem;
+  font-family: var(--font-serif);
+  letter-spacing: 0.06em;
+}
+
+.appbar__sub {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.appbar__spacer {
+  margin-left: auto;
+}
+
+.wrap {
+  padding: 1rem;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.micro {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* ───────────────────────── 下タブ ───────────────────────── */
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: color-mix(in srgb, var(--bg-2) 96%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-b);
+}
+
+.tabbar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  height: var(--tabbar-h);
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.tabbar__item[aria-current="page"] {
+  color: var(--gold);
+}
+
+.tabbar__ico {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* ───────────────────────── カード ───────────────────────── */
+
+.card {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+
+.card--flag {
+  border-left: 3px solid var(--seal);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.summary__item {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary__num {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.summary__label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* ───────────────────────── 予約カード ───────────────────────── */
+
+.resv {
+  display: grid;
+  grid-template-columns: 3.6rem 1fr;
+  gap: 0.2rem 0.8rem;
+  align-items: start;
+}
+
+.resv__time {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.1rem;
+}
+
+.resv__name {
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.resv__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.resv__actions {
+  grid-column: 2;
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+/* ───────────────────────── バッジ ───────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge--source {
+  color: var(--gold-soft);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.badge--tentative {
+  color: var(--seal);
+  border-color: color-mix(in srgb, var(--seal) 55%, transparent);
+}
+.badge--confirmed {
+  color: var(--text-dim);
+}
+.badge--seated {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.badge--completed {
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+.badge--cancelled,
+.badge--no_show {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.badge--busy {
+  color: var(--seal);
+  border-color: color-mix(in srgb, var(--seal) 55%, transparent);
+}
+.badge--event {
+  color: var(--beer);
+  border-color: color-mix(in srgb, var(--beer) 55%, transparent);
+}
+.badge--closed {
+  color: var(--text-dim);
+}
+
+/* ───────────────────────── ボタン ───────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.6rem;
+  padding: 0.45em 1.05em;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold), var(--ember));
+  border-color: transparent;
+  color: #1a130b;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  color: var(--gold-soft);
+}
+.btn-ghost:hover {
+  border-color: var(--gold);
+}
+
+.btn-danger {
+  color: var(--seal);
+  border-color: color-mix(in srgb, var(--seal) 45%, transparent);
+}
+
+.btn-sm {
+  min-height: 2.1rem;
+  padding: 0.25em 0.8em;
+  font-size: 0.82rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* 常時見えている「＋ 予約を登録」。親指の位置に置く。 */
+.fab {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(var(--tabbar-h) + var(--safe-b) + 0.9rem);
+  z-index: 25;
+  min-height: 3.1rem;
+  padding: 0 1.3em;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--gold), var(--ember));
+  color: #1a130b;
+  font-weight: 700;
+  font-size: 0.98rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ───────────────────────── フォーム ───────────────────────── */
+
+.field-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.field-label .req {
+  color: var(--seal);
+  margin-left: 0.25rem;
+}
+
+/*
+ * font-size は 16px を下回らせない。
+ * iOS Safari は 16px 未満の入力欄にフォーカスすると勝手に拡大する。
+ */
+.field {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.field:focus {
+  border-color: var(--gold);
+  outline: none;
+}
+
+textarea.field {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  min-height: 2.5rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--gold), var(--ember));
+  border-color: transparent;
+  color: #1a130b;
+  font-weight: 600;
+}
+
+.chip--num {
+  min-width: 2.9rem;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.seg__btn {
+  min-height: 2.4rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.seg__btn[aria-pressed="true"] {
+  background: var(--bg-4);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  min-height: 2.9rem;
+  padding: 0.4rem 0.9rem;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.switch input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--gold);
+}
+
+.err {
+  color: var(--seal);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.notice {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  font-size: 0.86rem;
+}
+
+.notice-strong {
+  border-color: color-mix(in srgb, var(--seal) 55%, transparent);
+  color: var(--gold-soft);
+}
+
+/* ───────────────────────── ログイン ───────────────────────── */
+
+.gate {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-t) + 2rem) 1.2rem calc(var(--safe-b) + 2rem);
+}
+
+.gate__inner {
+  width: 100%;
+  max-width: 21rem;
+}
+
+.gate__title {
+  font-size: 1.7rem;
+  text-align: center;
+}
+
+.gate__sub {
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.6rem;
+}
+
+.gate__foot {
+  margin-top: 2rem;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.brand-dot {
+  color: var(--gold);
+}
+
+/* ───────────────────────── カレンダー ───────────────────────── */
+
+.cal {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal__head {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  padding-bottom: 0.3rem;
+}
+
+.cal__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 3.6rem;
+  padding: 0.3rem 0.1rem;
+  background: var(--bg-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.cal__cell--out {
+  opacity: 0.28;
+}
+.cal__cell--today {
+  border-color: var(--gold);
+}
+.cal__cell--event {
+  background: color-mix(in srgb, var(--beer) 18%, var(--bg-2));
+}
+.cal__cell--closed {
+  background: var(--bg);
+  color: var(--text-dim);
+}
+
+.cal__day {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.86rem;
+}
+
+.cal__guests {
+  font-size: 0.68rem;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal__busy {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--seal);
+}
+
+/* ───────────────────────── 一覧・テーブル ───────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.daygroup {
+  margin-top: 1.2rem;
+}
+
+.daygroup__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.2rem 0.2rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.6rem;
+}
+
+.daygroup__date {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--gold-soft);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 6.2rem 1fr;
+  gap: 0.4rem 0.8rem;
+  font-size: 0.92rem;
+}
+
+.kv dt {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.kv dd {
+  margin: 0;
+}
+
+.section-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  margin: 1.4rem 0 0.6rem;
+}

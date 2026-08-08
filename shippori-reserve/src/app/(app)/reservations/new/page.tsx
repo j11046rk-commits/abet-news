@@ -1,0 +1,53 @@
+import Link from "next/link";
+import ReservationForm from "@/components/ReservationForm";
+import { requirePermission } from "@/lib/auth";
+import { getCourses, getDailySummary, getOwnerContacts, getSeatUnits } from "@/lib/queries";
+import { todayBizDate } from "@/lib/time";
+import { createReservation } from "../actions";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * S4 予約登録。
+ * 電話を受けながら、通話中に入力し終えるのが要件。入力順は電話で聞く順に並べてある。
+ */
+export default async function NewReservationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
+  await requirePermission("reservation.write");
+
+  const sp = await searchParams;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.d ?? "") ? sp.d! : todayBizDate();
+
+  const [day, ownerContacts, courses, seatUnits] = await Promise.all([
+    getDailySummary(date),
+    getOwnerContacts(),
+    getCourses(),
+    getSeatUnits(),
+  ]);
+
+  return (
+    <>
+      <header className="appbar">
+        <Link className="btn btn-sm" href={`/?d=${date}`}>
+          ‹ 戻る
+        </Link>
+        <div className="appbar__title">予約を登録</div>
+      </header>
+
+      <div className="wrap">
+        <ReservationForm
+          initialDay={day}
+          defaultDate={date}
+          ownerContacts={ownerContacts}
+          courses={courses}
+          seatUnits={seatUnits}
+          onSubmit={createReservation}
+        />
+        <div style={{ height: "2rem" }} />
+      </div>
+    </>
+  );
+}
