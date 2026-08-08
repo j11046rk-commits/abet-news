@@ -18,7 +18,7 @@ import {
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
-import { fmtMan } from "@/lib/sales";
+import { fmtYen } from "@/lib/sales";
 import {
   fmtMonthJa,
   fmtYm,
@@ -172,16 +172,16 @@ export default async function MonthPage({
                   </div>
                 ) : null}
 
-                {/* 日毎の売上（目標と実績）。データのある日だけ小さく出す（店主指定）。 */}
+                {/* 日毎の売上（目標と実績）。1円単位で省略なし（店主指定）。 */}
                 {sale && (sale.target_yen || sale.actual_yen != null) ? (
                   <div className="salesline" aria-label="売上の目標と実績">
                     {sale.actual_yen != null ? (
                       <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
-                        実績 {fmtMan(sale.actual_yen)}
+                        実績 {fmtYen(sale.actual_yen)}
                         {saleHit ? "🎯" : ""}
                       </span>
                     ) : null}
-                    {sale.target_yen ? <span>目標 {fmtMan(sale.target_yen)}</span> : null}
+                    {sale.target_yen ? <span>目標 {fmtYen(sale.target_yen)}</span> : null}
                   </div>
                 ) : null}
 

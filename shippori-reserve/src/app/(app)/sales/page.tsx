@@ -3,7 +3,13 @@ import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
-import { deriveBusinessDay, getMonthSales, getMonthSummaries, getSettings } from "@/lib/queries";
+import {
+  deriveBusinessDay,
+  getMonthlySalesTarget,
+  getMonthSales,
+  getMonthSummaries,
+  getSettings,
+} from "@/lib/queries";
 import {
   fmtMonthJa,
   fmtYm,
@@ -33,8 +39,9 @@ export default async function SalesPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [sales, summaries, settings] = await Promise.all([
+  const [sales, monthlyTarget, summaries, settings] = await Promise.all([
     getMonthSales(ym),
+    getMonthlySalesTarget(ym),
     getMonthSummaries(ym),
     getSettings(),
   ]);
@@ -73,7 +80,7 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
-        <SalesBoard key={ym} days={days} today={today} />
+        <SalesBoard key={ym} days={days} today={today} monthlyTarget={monthlyTarget} />
 
         {can(me.role, "sales.write") ? (
           <p className="micro" style={{ textAlign: "center" }}>

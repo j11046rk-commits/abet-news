@@ -185,6 +185,17 @@ export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> 
   return new Map((data ?? []).map((r) => [r.biz_date as string, r as SalesDay]));
 }
 
+/** 月間売上目標（端数なしの正の数字。日毎の合計とは別に持つ） */
+export async function getMonthlySalesTarget(ym: string): Promise<number | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_monthly")
+    .select("target_yen")
+    .eq("ym", ym)
+    .maybeSingle<{ target_yen: number }>();
+  return data?.target_yen ?? null;
+}
+
 /** 1日ぶんの売上（営業日の設定画面が使う） */
 export async function getSalesDay(date: string): Promise<SalesDay | null> {
   const supabase = await createClient();

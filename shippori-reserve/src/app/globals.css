@@ -705,6 +705,19 @@ textarea.field {
   font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
 }
+.salesgoal__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.salesgoal__meta strong {
+  color: var(--text);
+}
 .salesnum--hit {
   color: var(--gold);
 }
@@ -747,17 +760,19 @@ textarea.field {
   line-height: 1;
 }
 .salescell__a {
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   font-weight: 600;
   line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 .salescell__a--hit {
   color: var(--gold);
 }
 .salescell__t {
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   color: var(--text-dim);
   line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .mrow__body {

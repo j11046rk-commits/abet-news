@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { fmtMan, fmtYen } from "@/lib/sales";
+import { fmtYen } from "@/lib/sales";
 
 export type SalesBoardDay = {
   date: string;
@@ -40,50 +40,85 @@ function useCountUp(value: number, ms = 900): number {
   return shown;
 }
 
+/** 達成率。小数点第2位を四捨五入して第1位まで（店主指定） */
+const rate1 = (actual: number, target: number): number => Math.round((actual / target) * 1000) / 10;
+
 /**
- * 売上ボード（グリッドのカレンダー・店主指定でグラフなし）。
- * 上：月間目標／現時点の目標（月初〜今日の日毎目標の累計）／実績と達成率。
- * 下：月のグリッド。各日に目標と実績。タップでその日の詳細へ。
+ * 売上ボード（グリッドのカレンダー）。金額はすべて1円単位で出す（店主指定）。
+ * 月間目標は日毎の合計ではなく、店主が決めた端数なしの数字（sales_monthly）が正。
+ * 達成率・「あと◯円」もその数字がベース。
  */
-export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; today: string }) {
-  const { monthTarget, cumTarget, cumLabel, actualTotal } = useMemo(() => {
-    let monthTarget = 0;
+export default function SalesBoard({
+  days,
+  today,
+  monthlyTarget,
+}: {
+  days: SalesBoardDay[];
+  today: string;
+  monthlyTarget: number | null;
+}) {
+  const { dailySum, cumTarget, cumLabel, actualTotal } = useMemo(() => {
+    let dailySum = 0;
     let cumTarget = 0;
     let actualTotal = 0;
     for (const d of days) {
       if (d.target) {
-        monthTarget += d.target;
+        dailySum += d.target;
         if (d.date <= today) cumTarget += d.target;
       }
       if (d.actual) actualTotal += d.actual;
     }
-    // 今日を含む月なら「8/8までの目標」、過去の月なら月間と同じ、未来の月は 0
     const inMonth = days.some((d) => d.isToday);
     const cumLabel = inMonth
       ? `${Number(today.slice(5, 7))}/${Number(today.slice(8))}までの目標`
       : "現時点の目標";
-    return { monthTarget, cumTarget, cumLabel, actualTotal };
+    return { dailySum, cumTarget, cumLabel, actualTotal };
   }, [days, today]);
 
-  const rate = cumTarget > 0 ? Math.round((actualTotal / cumTarget) * 100) : null;
-  const onPace = rate !== null && rate >= 100;
+  // 月間目標：端数なしの正の数字。無い月だけ日毎の合計で代用する。
+  const monthTarget = monthlyTarget ?? dailySum;
+  const remaining = monthTarget > 0 ? monthTarget - actualTotal : null;
+  const monthRate = monthTarget > 0 ? rate1(actualTotal, monthTarget) : null;
+  const cumRate = cumTarget > 0 ? rate1(actualTotal, cumTarget) : null;
+  const onPace = cumRate !== null && cumRate >= 100;
 
   const shownMonth = useCountUp(monthTarget);
   const shownCum = useCountUp(cumTarget);
   const shownActual = useCountUp(actualTotal);
-  const shownRate = useCountUp(rate ?? 0);
+  const shownRemaining = useCountUp(Math.abs(remaining ?? 0));
+  // 小数1桁の率は「10倍の整数」で数えて 1/10 にして出す
+  const shownMonthRate = useCountUp(Math.round((monthRate ?? 0) * 10));
+  const shownCumRate = useCountUp(Math.round((cumRate ?? 0) * 10));
 
   const lead = days.length > 0 ? days[0].dow : 0;
 
   return (
     <div className="stack">
-      {/* 月間目標。いちばん上に大きく（店主指定）。 */}
-      <section className="card salesgoal">
-        <span className="summary__label">月間売上目標</span>
-        <span className="salesgoal__num">{monthTarget > 0 ? fmtYen(shownMonth) : "—"}</span>
+      {/* 月間目標といまの到達点。いちばん上に大きく（店主指定）。 */}
+      <section className="card">
+        <div className="salesgoal">
+          <span className="summary__label">月間売上目標</span>
+          <span className="salesgoal__num">{monthTarget > 0 ? fmtYen(shownMonth) : "—"}</span>
+        </div>
+        {remaining !== null ? (
+          <p className="salesgoal__meta">
+            {monthRate !== null ? (
+              <span className={monthRate >= 100 ? "salesnum--hit" : undefined}>
+                達成率 {(shownMonthRate / 10).toFixed(1)}%
+              </span>
+            ) : null}
+            {remaining > 0 ? (
+              <span>
+                達成まで あと <strong>{fmtYen(shownRemaining)}</strong>
+              </span>
+            ) : (
+              <span className="salesnum--hit">目標達成🎯 ＋{fmtYen(shownRemaining)}</span>
+            )}
+          </p>
+        ) : null}
       </section>
 
-      {/* 現時点での目標に対する実績 */}
+      {/* 現時点（月初〜今日の日毎目標の累計）に対する実績 */}
       <section className="summary">
         <div className="summary__item">
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
@@ -97,13 +132,13 @@ export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; tod
         </div>
         <div className="summary__item">
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
-            {rate === null ? "—" : `${shownRate}%`}
+            {cumRate === null ? "—" : `${(shownCumRate / 10).toFixed(1)}%`}
           </span>
           <span className="summary__label">現時点の達成率</span>
         </div>
       </section>
 
-      {/* 月のグリッド。各日に目標と実績。 */}
+      {/* 月のグリッド。各日に目標と実績（1円単位）。 */}
       <div className="salesgrid" role="grid" aria-label="日毎の売上目標と実績">
         {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
           <div key={w} className="salesgrid__head">
@@ -120,7 +155,7 @@ export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; tod
               key={d.date}
               href={`/day/${d.date}`}
               className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""}`}
-              aria-label={`${d.day}日 目標${d.target ? fmtMan(d.target) : "なし"} 実績${d.actual != null ? fmtMan(d.actual) : "なし"}`}
+              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 実績${d.actual != null ? fmtYen(d.actual) : "なし"}`}
             >
               <span
                 className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
@@ -132,9 +167,9 @@ export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; tod
               ) : (
                 <>
                   <span className={`salescell__a ${hit ? "salescell__a--hit" : ""}`}>
-                    {d.actual != null ? `${fmtMan(d.actual)}${hit ? "🎯" : ""}` : "ー"}
+                    {d.actual != null ? `${d.actual.toLocaleString()}${hit ? "🎯" : ""}` : "ー"}
                   </span>
-                  <span className="salescell__t">{d.target ? `目標${fmtMan(d.target)}` : ""}</span>
+                  <span className="salescell__t">{d.target ? d.target.toLocaleString() : ""}</span>
                 </>
               )}
             </Link>
@@ -143,7 +178,7 @@ export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; tod
       </div>
 
       <p className="micro" style={{ textAlign: "center", margin: 0 }}>
-        上段＝実績（<span className="salesnum--hit">金色🎯＝目標達成</span>）・下段＝目標。タップでその日の詳細へ。
+        上段＝実績（<span className="salesnum--hit">金色🎯＝目標達成</span>）・下段＝目標（円）。タップでその日の詳細へ。
       </p>
     </div>
   );
