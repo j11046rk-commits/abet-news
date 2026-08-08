@@ -10,6 +10,7 @@ import {
   DEFAULT_STAY_MIN,
 } from "@/lib/constants";
 import { computeSeatUsage, toOccupancies, type SeatOccupancy } from "@/lib/seats";
+import type { SalesDay } from "@/lib/sales";
 import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
 import type {
   BusinessDay,
@@ -177,6 +178,30 @@ export async function getSeatOccupancies(
   excludeId?: string,
 ): Promise<SeatOccupancy[]> {
   return toOccupancies(await getReservationsByDate(date), excludeId);
+}
+
+/** 月ぶんの売上（日付 → 目標と実績）。カレンダーと売上タブが使う。 */
+export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_daily")
+    .select("biz_date, target_yen, actual_yen")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+
+  return new Map((data ?? []).map((r) => [r.biz_date as string, r as SalesDay]));
+}
+
+/** 1日ぶんの売上（営業日の設定画面が使う） */
+export async function getSalesDay(date: string): Promise<SalesDay | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_daily")
+    .select("biz_date, target_yen, actual_yen")
+    .eq("biz_date", date)
+    .maybeSingle<SalesDay>();
+  return data ?? null;
 }
 
 /** 月ぶんの希望シフト（日付 → profile_id の配列）。シフトタブが使う。 */

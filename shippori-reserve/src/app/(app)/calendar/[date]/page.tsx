@@ -2,9 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BusinessDayForm from "@/components/BusinessDayForm";
 import DateJa from "@/components/DateJa";
+import SalesDayForm from "@/components/SalesDayForm";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
-import { getBusinessDay, getDailySummary, getDefaultEventCapacity } from "@/lib/queries";
+import {
+  getBusinessDay,
+  getDailySummary,
+  getDefaultEventCapacity,
+  getSalesDay,
+} from "@/lib/queries";
 import { saveBusinessDay } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +27,11 @@ export default async function BusinessDayPage({
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [day, summary, defaultCapacity] = await Promise.all([
+  const [day, summary, defaultCapacity, sales] = await Promise.all([
     getBusinessDay(date),
     getDailySummary(date),
     getDefaultEventCapacity(),
+    getSalesDay(date),
   ]);
 
   const editable = can(me.role, "businessday.write");
@@ -70,6 +77,8 @@ export default async function BusinessDayPage({
         ) : (
           <p className="micro">営業日を変更する権限がありません。</p>
         )}
+
+        {can(me.role, "sales.write") ? <SalesDayForm key={date} date={date} sales={sales} /> : null}
 
         <div style={{ height: "2rem" }} />
       </div>

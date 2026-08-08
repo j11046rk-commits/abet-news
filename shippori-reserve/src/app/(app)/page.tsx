@@ -11,12 +11,14 @@ import {
   getAllProfiles,
   getCourses,
   getMonthReservations,
+  getMonthSales,
   getMonthShifts,
   getMonthSummaries,
   getSeatUnits,
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
+import { fmtMan } from "@/lib/sales";
 import {
   fmtMonthJa,
   fmtYm,
@@ -51,7 +53,7 @@ export default async function MonthPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings] =
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap] =
     await Promise.all([
       getMonthSummaries(ym),
       getMonthReservations(ym),
@@ -61,6 +63,7 @@ export default async function MonthPage({
       getSeatUnits(),
       getCourses(),
       getSettings(),
+      getMonthSales(ym),
     ]);
 
   // シフトは店長が「確定」した月だけ暦に出す（組みかけの下書きを見せない）
@@ -91,6 +94,9 @@ export default async function MonthPage({
           ›
         </Link>
         <div className="appbar__spacer" />
+        <Link className="btn btn-sm" href="/reservations" aria-label="予約の検索">
+          検索
+        </Link>
         <Link className="btn btn-sm" href="/">
           今月
         </Link>
@@ -104,6 +110,9 @@ export default async function MonthPage({
           const dow = weekdayOf(date);
           const guests = summaries.get(date)?.guest_count ?? 0;
           const usage = computeSeatUsage(rows);
+          const sale = salesMap.get(date);
+          const saleHit =
+            sale?.target_yen != null && sale.actual_yen != null && sale.actual_yen >= sale.target_yen;
 
           const rowCls = [
             "mrow",
@@ -163,6 +172,19 @@ export default async function MonthPage({
                         </span>
                       );
                     })}
+                  </div>
+                ) : null}
+
+                {/* 日毎の売上（目標と実績）。データのある日だけ小さく出す（店主指定）。 */}
+                {sale && (sale.target_yen || sale.actual_yen != null) ? (
+                  <div className="salesline" aria-label="売上の目標と実績">
+                    {sale.actual_yen != null ? (
+                      <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
+                        実績 {fmtMan(sale.actual_yen)}
+                        {saleHit ? "🎯" : ""}
+                      </span>
+                    ) : null}
+                    {sale.target_yen ? <span>目標 {fmtMan(sale.target_yen)}</span> : null}
                   </div>
                 ) : null}
 

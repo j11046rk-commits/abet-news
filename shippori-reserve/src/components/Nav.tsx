@@ -10,11 +10,12 @@ import { usePathname } from "next/navigation";
  * 集計（S10）は Phase 4 の画面なのでまだ並べない。
  * 中身の無いタブを置いておくより、増えたときに足すほうがよい。
  */
+// 今日タブ・予約タブは廃止（店主指定 2026-08-08 その12）。
+// カレンダーで日付をタップ→日別、が基本動線。予約の検索はカレンダー上部から。
 const TABS = [
   { href: "/", label: "カレンダー", icon: "▦" },
-  { href: "/today", label: "今日", icon: "☀︎" },
-  { href: "/reservations", label: "予約", icon: "☰" },
   { href: "/shifts", label: "シフト", icon: "◷" },
+  { href: "/sales", label: "売上", icon: "¥" },
   { href: "/settings", label: "設定", icon: "⚙" },
 ];
 
@@ -23,10 +24,12 @@ export default function Nav() {
 
   const isCurrent = (href: string) =>
     href === "/"
-      ? pathname === "/"
-      : href === "/today"
-        ? pathname === "/today" || pathname.startsWith("/day/")
-        : pathname === href || pathname.startsWith(`${href}/`);
+      ? pathname === "/" ||
+        pathname === "/today" ||
+        pathname.startsWith("/day/") ||
+        pathname.startsWith("/reservations") ||
+        pathname.startsWith("/calendar/")
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav className="tabbar" aria-label="メインナビゲーション">

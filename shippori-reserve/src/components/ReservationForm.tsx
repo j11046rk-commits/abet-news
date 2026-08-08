@@ -437,6 +437,14 @@ export default function ReservationForm({
               {NO_SEAT}
             </button>
           </div>
+          {/* 繁忙日の2名様以下はカウンター優先（店主指定）。止めはしない＝スタッフ判断で通せる。 */}
+          {busyRotation &&
+          partySize <= 2 &&
+          seats.some((s) => seatUnits.some((u) => u.name === s && !u.is_shared)) ? (
+            <p className="warnline" role="alert">
+              ⚠ 繁忙日の2名様以下はカウンター優先です。テーブル・和室は、お客様のたってのご希望のときだけこのまま登録してください（スタッフ判断）。
+            </p>
+          ) : null}
         </div>
       ) : null}
 

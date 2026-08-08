@@ -91,6 +91,7 @@ const ALL_PERMISSIONS: PermissionCode[] = [
   "account.write",
   "audit.read",
   "shift.write",
+  "sales.write",
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {

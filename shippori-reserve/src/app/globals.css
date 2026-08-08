@@ -654,6 +654,131 @@ textarea.field {
   color: #7ea6d9;
 }
 
+/* ── 売上 ── */
+
+/* カレンダー行の目標・実績（席の空き状況の並びに出す小さな文字） */
+.salesline {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.salesline__actual {
+  color: var(--text);
+}
+.salesline__actual--hit {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* 繁忙日の2名様テーブル・和室への注意（止めない・スタッフ判断） */
+.warnline {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--seal);
+}
+
+/* 売上タブの棒グラフ。下からにゅっと伸びる。 */
+.saleschart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11rem;
+}
+.salescol {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  text-decoration: none;
+}
+.salescol__bars {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+}
+.salesbar {
+  width: 45%;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.saleschart--grown .salesbar {
+  transform: scaleY(1);
+}
+.salesbar--target {
+  background: color-mix(in srgb, var(--text-dim) 42%, transparent);
+}
+.salesbar--actual {
+  background: #7ea6d9;
+}
+.salesbar--hit {
+  background: var(--gold);
+}
+.salescol--today .salescol__bars {
+  outline: 1px dashed var(--gold);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+.salescol__day {
+  height: 1rem;
+  font-size: 0.6rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.saleslegend {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  vertical-align: -0.08rem;
+  margin-right: 0.25rem;
+}
+.saleslegend--target {
+  background: color-mix(in srgb, var(--text-dim) 42%, transparent);
+}
+.saleslegend--actual {
+  background: #7ea6d9;
+}
+.saleslegend--hit {
+  background: var(--gold);
+}
+
+.salesnum--hit {
+  color: var(--gold);
+}
+
+.saleslist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.saleslist__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.saleslist__row:last-child {
+  border-bottom: none;
+}
+.saleslist__date {
+  color: inherit;
+  text-decoration: none;
+  font-family: var(--font-serif);
+}
+
 .mrow__body {
   display: flex;
   flex-direction: column;
