@@ -109,6 +109,22 @@ textarea {
   letter-spacing: 0.06em;
 }
 
+/* ヘッダーの徳利マスコット（公式サイトと同じ logo-mark.png） */
+.appbar__logo {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
+  flex: none;
+}
+
+.gate__logo {
+  display: block;
+  width: 4.6rem;
+  height: 4.6rem;
+  object-fit: contain;
+  margin: 0 auto 0.7rem;
+}
+
 .appbar__sub {
   font-size: 0.78rem;
   color: var(--text-dim);
@@ -699,6 +715,39 @@ textarea.field {
   font-size: 0.68rem;
   color: var(--gold-soft);
   font-variant-numeric: tabular-nums;
+}
+
+/* 予約行の下に出すコース・メモ。1行に収まらなければ「全文」で開ける。 */
+.mnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  padding-bottom: 0.1rem;
+}
+.mnote__text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mnote__text--open {
+  white-space: pre-wrap;
+  overflow: visible;
+}
+.mnote__btn {
+  flex: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--gold-soft);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  line-height: 1.7;
+  padding: 0 0.55rem;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 /* 席の空き状況ストリップ。空いている席は金、埋まった席は沈めて打ち消す。 */

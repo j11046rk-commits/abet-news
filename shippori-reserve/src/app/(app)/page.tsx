@@ -1,4 +1,5 @@
 import Link from "next/link";
+import NoteLine from "@/components/NoteLine";
 import ScrollTo from "@/components/ScrollTo";
 import { requirePermission } from "@/lib/auth";
 import { SOURCE_SHORT } from "@/lib/constants";
@@ -7,6 +8,7 @@ import { chipColors, surname } from "@/lib/staff";
 import {
   deriveBusinessDay,
   getAllProfiles,
+  getCourses,
   getMonthReservations,
   getMonthShifts,
   getMonthSummaries,
@@ -47,17 +49,19 @@ export default async function MonthPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [summaries, resvMap, shiftMap, profiles, seatUnits, settings] = await Promise.all([
+  const [summaries, resvMap, shiftMap, profiles, seatUnits, courses, settings] = await Promise.all([
     getMonthSummaries(ym),
     getMonthReservations(ym),
     getMonthShifts(ym),
     getAllProfiles(),
     getSeatUnits(),
+    getCourses(),
     getSettings(),
   ]);
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const colorIndex = new Map(profiles.map((p, i) => [p.id, i]));
+  const courseNames = new Map(courses.map((c) => [c.id, c.name]));
 
   const { from, to } = monthRange(ym);
   const dates: string[] = [];
@@ -70,6 +74,8 @@ export default async function MonthPage({
   return (
     <>
       <header className="appbar">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-mark.png" alt="しっぽり亭" className="appbar__logo" />
         <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, -1))}`} aria-label="前の月">
           ‹
         </Link>
@@ -119,7 +125,6 @@ export default async function MonthPage({
                   {day.mode === "event" ? (
                     <span className="badge badge--event">{day.event_name || "イベント"}</span>
                   ) : null}
-                  {day.is_busy ? <span className="badge badge--busy">繁忙</span> : null}
 
                   {shiftIds.map((id) => (
                     <span key={id} className="shiftchip" style={chipColors(colorIndex.get(id) ?? 0)}>
@@ -156,20 +161,28 @@ export default async function MonthPage({
 
                 {rows.map((r) => {
                   const off = r.status === "cancelled" || r.status === "no_show";
+                  const note = [
+                    r.course_id ? courseNames.get(r.course_id) : null,
+                    r.memo,
+                  ]
+                    .filter(Boolean)
+                    .join("／");
                   return (
-                    <Link
-                      key={r.id}
-                      href={`/reservations/${r.id}`}
-                      className={`mline ${off ? "mline--off" : ""}`}
-                    >
-                      <span className="mline__time">{startLabel(r)}</span>
-                      <span className="mline__name">
-                        {r.customer_name}
-                        <span className="muted"> 様 {r.party_size}名</span>
-                      </span>
-                      {r.seat_note ? <span className="muted">{r.seat_note}</span> : null}
-                      <span className="mline__reg">{registrar(r)}</span>
-                    </Link>
+                    <div key={r.id}>
+                      <Link
+                        href={`/reservations/${r.id}`}
+                        className={`mline ${off ? "mline--off" : ""}`}
+                      >
+                        <span className="mline__time">{startLabel(r)}</span>
+                        <span className="mline__name">
+                          {r.customer_name}
+                          <span className="muted"> 様 {r.party_size}名</span>
+                        </span>
+                        {r.seat_note ? <span className="muted">{r.seat_note}</span> : null}
+                        <span className="mline__reg">{registrar(r)}</span>
+                      </Link>
+                      {note && !off ? <NoteLine text={note} /> : null}
+                    </div>
                   );
                 })}
               </div>

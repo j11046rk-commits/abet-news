@@ -20,6 +20,8 @@ export default async function LoginPage({
     <div className="gate">
       <div className="gate__inner">
         <header>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt="" className="gate__logo" />
           <h1 className="gate__title">
             しっぽり亭 予約管理
             <span className="brand-dot" aria-hidden>
