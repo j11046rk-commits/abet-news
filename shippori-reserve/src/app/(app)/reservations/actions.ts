@@ -3,8 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { getStayMinutes } from "@/lib/queries";
+import {
+  getDailySummary,
+  getReservationsByDate,
+  getSeatUnits,
+  getStayMinutes,
+} from "@/lib/queries";
 import { can, SOURCES, STATUSES } from "@/lib/constants";
+import { computeSeatUsage, NO_SEAT, seatUsageAt, toOccupancies } from "@/lib/seats";
 import { minutesToIso } from "@/lib/time";
 import type { ReservationSource, ReservationStatus } from "@/lib/types";
 
@@ -59,6 +65,50 @@ function validate(input: ReservationInput): string | null {
   return null;
 }
 
+/**
+ * 席の重なりをサーバーでも見る（画面が古いままの保存や同時入力への備え）。
+ * 通常日＝1晩1組。繁忙日＝滞在時間（既定2時間）の重なりだけを見る（席の回転・店主指定）。
+ * イベント日は席を使わないので見ない。
+ */
+async function seatConflictError(
+  input: ReservationInput,
+  excludeId?: string,
+): Promise<string | null> {
+  const seats = (input.seat_note ?? "")
+    .split("＋")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((s) => s !== NO_SEAT);
+  if (seats.length === 0) return null;
+
+  const [day, rows, units, stay] = await Promise.all([
+    getDailySummary(input.biz_date),
+    getReservationsByDate(input.biz_date),
+    getSeatUnits(),
+    getStayMinutes(),
+  ]);
+  if (day.mode === "event") return null;
+
+  const usage = day.is_busy
+    ? seatUsageAt(toOccupancies(rows, excludeId), input.start_min, stay)
+    : computeSeatUsage(rows, excludeId);
+
+  for (const name of seats) {
+    const unit = units.find((u) => u.name === name);
+    if (!unit) continue;
+    if (unit.is_shared) {
+      if (usage.counter_used + input.party_size > unit.capacity) {
+        return `カウンターの残りが足りません（残り ${Math.max(0, unit.capacity - usage.counter_used)} 席）。`;
+      }
+    } else if (usage.taken.includes(name)) {
+      return day.is_busy
+        ? `その時間は「${name}」が埋まっています。時間をずらすか、別の席を選んでください。`
+        : `「${name}」はこの日すでに予約が入っています。`;
+    }
+  }
+  return null;
+}
+
 async function toRow(input: ReservationInput) {
   const stay = await getStayMinutes();
   return {
@@ -94,6 +144,9 @@ export async function createReservation(input: ReservationInput): Promise<Action
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
 
+  const conflict = await seatConflictError(input);
+  if (conflict) return { ok: false, error: conflict };
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("reservations")
@@ -126,6 +179,9 @@ export async function updateReservation(
 
   const invalid = validate(input);
   if (invalid) return { ok: false, error: invalid };
+
+  const conflict = await seatConflictError(input, id);
+  if (conflict) return { ok: false, error: conflict };
 
   const supabase = await createClient();
   const { error } = await supabase
