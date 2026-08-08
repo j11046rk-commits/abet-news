@@ -814,12 +814,14 @@ textarea.field {
   min-height: 1.95rem;
 }
 
-/* 日付。タップするとOSのピッカー（スクロール式）が開く。 */
+/* 日付。タップするとOSのピッカー（スクロール式）が開く。名前と1行に並ぶ幅。 */
 .datefield {
   font-family: var(--font-serif);
   color: var(--gold-soft);
-  font-size: 1.02rem;
-  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  padding-inline: 0.5rem;
+  width: 100%;
 }
 
 .stepper {

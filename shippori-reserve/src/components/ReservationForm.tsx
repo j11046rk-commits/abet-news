@@ -196,36 +196,38 @@ export default function ReservationForm({
         }
       }}
     >
-      {/* 1. お名前 */}
+      {/* 1. お名前と日付 ─ 縦幅の節約のため1行にまとめる。日付はタップでOSのピッカー。 */}
       <div>
-        <label className="field-label" htmlFor="customer_name">
-          お名前<span className="req">必須</span>
-        </label>
-        <div className="row" style={{ gap: "0.5rem" }}>
-          <input
-            id="customer_name"
-            className="field"
-            style={{ flex: 1 }}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <span style={{ whiteSpace: "nowrap" }}>様</span>
+        <div className="row" style={{ alignItems: "flex-end", gap: "0.5rem" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label className="field-label" htmlFor="customer_name">
+              お名前<span className="req">必須</span>
+            </label>
+            <div className="row" style={{ gap: "0.4rem" }}>
+              <input
+                id="customer_name"
+                className="field"
+                style={{ flex: 1, minWidth: 0 }}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <span style={{ whiteSpace: "nowrap" }}>様</span>
+            </div>
+          </div>
+          <div style={{ flex: "0 0 8.2rem" }}>
+            <label className="field-label" htmlFor="biz_date">
+              日付
+            </label>
+            <input
+              id="biz_date"
+              type="date"
+              className="field datefield"
+              value={bizDate}
+              onChange={(e) => e.target.value && setBizDate(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
-
-      {/* 2. 日付 ─ タップするとOSのピッカー（スクロール式）で変えられる */}
-      <div>
-        <label className="field-label" htmlFor="biz_date">
-          日付
-        </label>
-        <input
-          id="biz_date"
-          type="date"
-          className="field datefield"
-          value={bizDate}
-          onChange={(e) => e.target.value && setBizDate(e.target.value)}
-        />
         <p className="micro" style={{ marginTop: "0.25rem" }}>
           {fmtDateJa(bizDate)}・{isEvent ? "イベント営業" : "通常営業"}
           {day.is_busy ? "・繁忙日" : ""}
