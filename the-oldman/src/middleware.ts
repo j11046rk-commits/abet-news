@@ -9,6 +9,16 @@ import { createServerClient } from "@supabase/ssr";
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/manifest.webmanifest"];
 
 export async function middleware(request: NextRequest) {
+  /*
+   * 認証に用が無いパスは、Supabase への往復より前に返す。
+   * ping は数分おきに来る（関数を温めるためだけの呼び出し）ので、
+   * そのたびに auth.getUser を打つのは無駄撃ちになる。
+   */
+  const { pathname: path } = request.nextUrl;
+  if (path === "/api/ping" || path === "/manifest.webmanifest") {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
