@@ -111,9 +111,15 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
 export const can = (role: UserRole, perm: PermissionCode): boolean =>
   ROLE_PERMISSIONS[role].includes(perm);
 
-/** 営業時間の既定値（分。0:00 からの経過分）。全曜日 18:00〜24:00（店主指定） */
+/**
+ * 営業時間の既定値（分。0:00 からの経過分）。
+ * 通常営業＝平日24:00・金土25:00閉店。イベント営業＝18:00〜24:00（店主指定）。
+ */
 export const DEFAULT_OPEN_MIN = 1080; // 18:00
 export const DEFAULT_CLOSE_MIN = 1440; // 24:00
+export const FRI_SAT_CLOSE_MIN = 1500; // 25:00（通常営業の金土）
+export const EVENT_OPEN_MIN = 1080; // 18:00
+export const EVENT_CLOSE_MIN = 1440; // 24:00
 export const DEFAULT_STAY_MIN = 120;
 export const DEFAULT_EVENT_CAPACITY = 36;
 export const TOTAL_SEATS = 36;

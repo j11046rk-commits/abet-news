@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { EVENT_CLOSE_MIN, EVENT_OPEN_MIN } from "@/lib/constants";
 import { minutesToLabel } from "@/lib/time";
 import type { BusinessDay } from "@/lib/types";
 import type { BusinessDayInput, DayResult } from "@/app/(app)/calendar/actions";
@@ -34,6 +35,21 @@ export default function BusinessDayForm({
   const [pending, startTransition] = useTransition();
 
   const switchingToEvent = mode === "event" && day.mode === "normal" && guestCount > 0;
+
+  /**
+   * イベント営業は 18:00〜24:00 が既定（店主指定）。切り替えたときに時間も入れ替える。
+   * 通常営業に戻したら、その日の元の時間（金土は25:00まで）に戻す。
+   */
+  function pickMode(next: "normal" | "event") {
+    setMode(next);
+    if (next === "event") {
+      setOpenMin(EVENT_OPEN_MIN);
+      setCloseMin(EVENT_CLOSE_MIN);
+    } else {
+      setOpenMin(day.open_min);
+      setCloseMin(day.close_min);
+    }
+  }
 
   function submit() {
     setError(null);
@@ -74,7 +90,7 @@ export default function BusinessDayForm({
             type="button"
             className="seg__btn"
             aria-pressed={mode === "normal"}
-            onClick={() => setMode("normal")}
+            onClick={() => pickMode("normal")}
           >
             通常営業（しっぽり）
           </button>
@@ -82,7 +98,7 @@ export default function BusinessDayForm({
             type="button"
             className="seg__btn"
             aria-pressed={mode === "event"}
-            onClick={() => setMode("event")}
+            onClick={() => pickMode("event")}
           >
             イベント営業（ビアホール）
           </button>
