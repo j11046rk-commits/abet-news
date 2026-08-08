@@ -697,6 +697,9 @@ textarea.field {
   font-family: var(--font-serif);
   color: var(--gold-soft);
   font-variant-numeric: tabular-nums;
+  /* コース・メモ行の字下げと揃えるため幅を固定する */
+  width: 3.1rem;
+  flex: none;
 }
 
 .mline__name {
@@ -725,6 +728,8 @@ textarea.field {
   font-size: 0.76rem;
   color: var(--text-dim);
   padding-bottom: 0.1rem;
+  /* 時刻の幅（3.1rem）＋隙間ぶん字下げして、予約名の列から始める */
+  padding-left: 3.55rem;
 }
 .mnote__text {
   flex: 1;
