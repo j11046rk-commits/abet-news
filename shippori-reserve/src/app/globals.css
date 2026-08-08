@@ -703,25 +703,31 @@ textarea.field {
 
 /* ── 予約登録（1画面に収める密度）── */
 .form-dense {
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 .form-dense .field-label {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
+}
+.form-dense .chips {
+  gap: 0.3rem;
 }
 .form-dense .chip {
-  min-height: 2.15rem;
-  padding: 0.15rem 0.7rem;
-  font-size: 0.88rem;
+  min-height: 1.95rem;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.86rem;
 }
 .form-dense .chip--num {
-  min-width: 2.55rem;
+  min-width: 2.35rem;
 }
 .form-dense .field {
-  min-height: 2.5rem;
-  padding: 0.45rem 0.8rem;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.7rem;
 }
 .form-dense textarea.field {
-  min-height: 3.2rem;
+  min-height: 2.6rem;
+}
+.form-dense .btn-sm {
+  min-height: 1.95rem;
 }
 
 /* 日付。タップするとOSのピッカー（スクロール式）が開く。 */
