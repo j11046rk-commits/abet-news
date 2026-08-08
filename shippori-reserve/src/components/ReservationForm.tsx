@@ -187,6 +187,14 @@ export default function ReservationForm({
         e.preventDefault();
         submit();
       }}
+      onFocusCapture={(e) => {
+        // iPhoneのキーボードが入力欄（特に下のほうのメモ）を隠すので、
+        // キーボードが出きったころに欄を画面の真ん中へ寄せる。
+        const t = e.target as HTMLElement;
+        if (t.matches("input, textarea, select")) {
+          setTimeout(() => t.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+        }
+      }}
     >
       {/* 1. お名前 */}
       <div>

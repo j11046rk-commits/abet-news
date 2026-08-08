@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BackButton from "@/components/BackButton";
 import ReservationForm from "@/components/ReservationForm";
 import StatusPanel from "@/components/StatusPanel";
 import { SourceBadge } from "@/components/Badges";
@@ -44,9 +45,7 @@ export default async function ReservationDetailPage({
   return (
     <>
       <header className="appbar">
-        <Link className="btn btn-sm" href={`/day/${reservation.biz_date}`}>
-          ‹ 戻る
-        </Link>
+        <BackButton fallback={`/?m=${reservation.biz_date.slice(0, 7)}`} />
         <div>
           <div className="appbar__title">{reservation.reference}</div>
           <div className="appbar__sub">

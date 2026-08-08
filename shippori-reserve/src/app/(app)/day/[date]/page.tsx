@@ -9,6 +9,7 @@ import { ACTIVE_STATUSES, can, TOTAL_SEATS } from "@/lib/constants";
 import { surname } from "@/lib/staff";
 import {
   getAllProfiles,
+  getCourses,
   getDailySummary,
   getReservationsByDate,
   getShiftProfileIds,
@@ -28,14 +29,16 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [summary, reservations, shiftIds, profiles] = await Promise.all([
+  const [summary, reservations, shiftIds, profiles, courses] = await Promise.all([
     getDailySummary(date),
     getReservationsByDate(date),
     getShiftProfileIds(date),
     getAllProfiles(),
+    getCourses(),
   ]);
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
+  const courseNames = new Map(courses.map((c) => [c.id, c.name]));
   const staff = profiles
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.is_active)
@@ -148,6 +151,9 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
                 reservation={r}
                 attention={attentionReason(r)}
                 registrar={r.created_by ? (names.get(r.created_by) ?? null) : null}
+                note={[r.course_id ? courseNames.get(r.course_id) : null, r.memo]
+                  .filter(Boolean)
+                  .join("／")}
               />
             ))
           )}

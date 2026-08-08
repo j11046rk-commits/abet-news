@@ -1,4 +1,4 @@
-import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import ReservationForm from "@/components/ReservationForm";
 import { requirePermission } from "@/lib/auth";
 import { getCourses, getDailySummary, getSeatUnits, getSeatUsage } from "@/lib/queries";
@@ -31,9 +31,7 @@ export default async function NewReservationPage({
   return (
     <>
       <header className="appbar">
-        <Link className="btn btn-sm" href={`/day/${date}`}>
-          ‹ 戻る
-        </Link>
+        <BackButton fallback={`/day/${date}`} />
         <div className="appbar__title">予約を登録</div>
       </header>
 

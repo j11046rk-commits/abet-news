@@ -141,8 +141,8 @@ export default async function MonthPage({
                   </Link>
                 </div>
 
-                {/* 席の空き状況。予約がある日だけ出す（無い日は全部空いている）。 */}
-                {day.mode === "normal" && rows.length > 0 ? (
+                {/* 席の空き状況。予約の有無にかかわらず常に出す（店主指定）。 */}
+                {day.mode === "normal" ? (
                   <div className="seatstrip" aria-label="席の空き状況">
                     {seatUnits.map((u) => {
                       const full = isSeatFull(u, usage, 1);

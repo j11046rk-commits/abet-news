@@ -7,12 +7,15 @@ export default function ReservationCard({
   reservation: r,
   attention,
   registrar,
+  note,
 }: {
   reservation: Reservation;
   /** 要対応（電話番号なし）なら左に朱の線が入る */
   attention?: string | null;
   /** 受付した人の表示名。「誰が受けた予約か」を一目にするため常に出す */
   registrar?: string | null;
+  /** コース・メモ。タップしなくても読めるよう全文をそのまま出す */
+  note?: string | null;
 }) {
   const cancelled = r.status === "cancelled" || r.status === "no_show";
 
@@ -38,6 +41,11 @@ export default function ReservationCard({
             {r.phone ? <span>{r.phone}</span> : null}
             {registrar ? <span>受付 {registrar}</span> : null}
           </div>
+          {note && !cancelled ? (
+            <p className="micro" style={{ marginTop: "0.25rem", whiteSpace: "pre-wrap" }}>
+              {note}
+            </p>
+          ) : null}
           {attention ? <p className="micro" style={{ color: "var(--seal)" }}>{attention}</p> : null}
         </div>
       </Link>
