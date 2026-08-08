@@ -30,7 +30,8 @@ export type PermissionCode =
   | "stats.read"
   | "settings.write"
   | "account.write"
-  | "audit.read";
+  | "audit.read"
+  | "shift.write";
 
 export type Profile = {
   id: string;
@@ -132,6 +133,13 @@ export type Course = {
   note: string | null;
   sort_order: number;
   is_active: boolean;
+};
+
+export type Shift = {
+  biz_date: string;
+  profile_id: string;
+  created_by: string | null;
+  created_at: string;
 };
 
 export type AuditLog = {

@@ -32,7 +32,7 @@ export default async function BusinessDayPage({
   return (
     <>
       <header className="appbar">
-        <Link className="btn btn-sm" href={`/calendar?m=${date.slice(0, 7)}`}>
+        <Link className="btn btn-sm" href={`/?m=${date.slice(0, 7)}`}>
           ‹ 暦
         </Link>
         <div>
@@ -52,7 +52,7 @@ export default async function BusinessDayPage({
             <span className="summary__label">名</span>
           </div>
           <div className="summary__item">
-            <Link className="btn btn-sm" href={`/?d=${date}`}>
+            <Link className="btn btn-sm" href={`/day/${date}`}>
               この日の予約を見る
             </Link>
           </div>

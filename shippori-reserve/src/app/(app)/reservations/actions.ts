@@ -113,7 +113,7 @@ export async function createReservation(input: ReservationInput): Promise<Action
 
   revalidatePath("/");
   revalidatePath("/reservations");
-  revalidatePath("/calendar");
+  revalidatePath("/day/[date]", "page");
   return { ok: true, id: data.id };
 }
 
@@ -138,7 +138,7 @@ export async function updateReservation(
   revalidatePath("/");
   revalidatePath("/reservations");
   revalidatePath(`/reservations/${id}`);
-  revalidatePath("/calendar");
+  revalidatePath("/day/[date]", "page");
   return { ok: true, id };
 }
 
@@ -175,6 +175,6 @@ export async function setReservationStatus(
   revalidatePath("/");
   revalidatePath("/reservations");
   revalidatePath(`/reservations/${id}`);
-  revalidatePath("/calendar");
+  revalidatePath("/day/[date]", "page");
   return { ok: true, id };
 }

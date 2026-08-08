@@ -86,5 +86,24 @@ from audit_logs where target_table = 'reservations' order by id;
 \echo '───── 11. 流入元別の集計が引ける ─────'
 select source, total, guests from v_source_stats order by source;
 
+\echo '───── 12. シフト：staffは入れられる・外せる／viewerは触れない ─────'
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
+insert into shifts (biz_date, profile_id, created_by)
+values ('2026-08-14', '22222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222');
+select count(*) as staff_shift_rows from shifts where biz_date = '2026-08-14';
+\echo '（1 が正解）'
+
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
+insert into shifts (biz_date, profile_id, created_by)
+values ('2026-08-14', '33333333-3333-3333-3333-333333333333', '33333333-3333-3333-3333-333333333333');
+\echo '（↑ viewer は RLS で拒否されるのが正解）'
+select count(*) as viewer_can_read_shifts from shifts;
+\echo '（viewer も読むのは 1 件見える）'
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
+delete from shifts where biz_date = '2026-08-14' and profile_id = '22222222-2222-2222-2222-222222222222';
+select count(*) as after_delete from shifts where biz_date = '2026-08-14';
+\echo '（外したので 0 が正解）'
+
 reset role;
 \echo '───── 検証おわり ─────'

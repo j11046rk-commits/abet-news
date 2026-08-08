@@ -9,7 +9,7 @@ import {
   DEFAULT_STAY_MIN,
   FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
-import { monthGrid, weekdayOf } from "@/lib/time";
+import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
 import type {
   BusinessDay,
   Course,
@@ -122,6 +122,53 @@ export async function getMonthSummaries(ym: string): Promise<Map<string, DailySu
     .returns<DailySummary[]>();
 
   return new Map((data ?? []).map((d) => [d.biz_date, d]));
+}
+
+/** 月ぶんの予約を日付ごとにまとめて返す。暦（月ビュー）が使う。 */
+export async function getMonthReservations(ym: string): Promise<Map<string, Reservation[]>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reservations")
+    .select("*")
+    .gte("biz_date", from)
+    .lte("biz_date", to)
+    .order("starts_at", { ascending: true })
+    .returns<Reservation[]>();
+
+  const map = new Map<string, Reservation[]>();
+  for (const r of data ?? []) {
+    const list = map.get(r.biz_date);
+    if (list) list.push(r);
+    else map.set(r.biz_date, [r]);
+  }
+  return map;
+}
+
+/** 月ぶんのシフト（日付 → profile_id の配列） */
+export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("shifts")
+    .select("biz_date, profile_id")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+
+  const map = new Map<string, string[]>();
+  for (const row of data ?? []) {
+    const list = map.get(row.biz_date as string);
+    if (list) list.push(row.profile_id as string);
+    else map.set(row.biz_date as string, [row.profile_id as string]);
+  }
+  return map;
+}
+
+/** その日のシフト（profile_id の配列） */
+export async function getShiftProfileIds(date: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("shifts").select("profile_id").eq("biz_date", date);
+  return (data ?? []).map((r) => r.profile_id as string);
 }
 
 /** その営業日の予約。時刻順。 */

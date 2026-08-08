@@ -575,6 +575,154 @@ textarea.field {
   color: var(--gold);
 }
 
+/* ───────────────────────── 暦（縦スクロールの月ビュー）───────────────────────── */
+
+.mrow {
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 0.2rem 0.7rem;
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid var(--line);
+  /* sticky なヘッダーの下に今日が潜らないように */
+  scroll-margin-top: 3.6rem;
+}
+
+.mrow--today {
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
+  border-radius: 8px;
+  border-bottom-color: color-mix(in srgb, var(--gold) 40%, transparent);
+}
+
+.mrow--event {
+  background: color-mix(in srgb, var(--beer) 10%, transparent);
+  border-radius: 8px;
+}
+
+.mrow--closed {
+  opacity: 0.55;
+}
+
+.mrow__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  padding-top: 0.15rem;
+  color: var(--text);
+}
+
+.mrow__day {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.mrow__dow {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+.mrow__dow--sun {
+  color: var(--seal);
+}
+.mrow__dow--sat {
+  color: #7ea6d9;
+}
+
+.mrow__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.mrow__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.7rem;
+}
+
+.mrow__add {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  color: var(--gold-soft);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* 1件＝1行。時刻・名前・人数・席・受付者だけに絞る（詳細はタップ先で） */
+.mline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.14rem 0;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.mline--off {
+  opacity: 0.5;
+}
+.mline--off .mline__name {
+  text-decoration: line-through;
+}
+
+.mline__time {
+  font-family: var(--font-serif);
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.mline__name {
+  font-weight: 600;
+}
+
+.mline__reg {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ───────────────────────── シフトチップ ───────────────────────── */
+
+.shiftchip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* 日別画面の編集用チップ。押されていない＝シフトに入っていない */
+.shiftchip--btn {
+  min-height: 2.2rem;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.shiftchip--btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ───────────────────────── カレンダー ───────────────────────── */
 
 .cal {

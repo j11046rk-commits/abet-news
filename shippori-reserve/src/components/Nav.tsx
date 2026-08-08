@@ -5,15 +5,15 @@ import { usePathname } from "next/navigation";
 
 /**
  * 下タブ。iPhone の片手操作が基準なので、移動は必ず親指の届く下半分に置く。
- * 予約登録（S4）・営業日設定（S7）はそれぞれの画面から入るのでタブには出さない。
+ * ホームは暦（縦スクロールの1か月）。予約登録・営業日設定は各画面から入る。
  *
- * 設計上のタブは5つだが、集計（S10）は Phase 4 の画面なのでまだ並べない。
+ * 集計（S10）は Phase 4 の画面なのでまだ並べない。
  * 中身の無いタブを置いておくより、増えたときに足すほうがよい。
  */
 const TABS = [
-  { href: "/", label: "今日", icon: "☀︎" },
+  { href: "/", label: "暦", icon: "▦" },
+  { href: "/today", label: "今日", icon: "☀︎" },
   { href: "/reservations", label: "予約", icon: "☰" },
-  { href: "/calendar", label: "暦", icon: "▦" },
   { href: "/settings", label: "設定", icon: "⚙" },
 ];
 
@@ -21,7 +21,11 @@ export default function Nav() {
   const pathname = usePathname();
 
   const isCurrent = (href: string) =>
-    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+    href === "/"
+      ? pathname === "/"
+      : href === "/today"
+        ? pathname === "/today" || pathname.startsWith("/day/")
+        : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <nav className="tabbar" aria-label="メインナビゲーション">

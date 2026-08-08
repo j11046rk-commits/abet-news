@@ -31,7 +31,7 @@ export default async function NewReservationPage({
   return (
     <>
       <header className="appbar">
-        <Link className="btn btn-sm" href={`/?d=${date}`}>
+        <Link className="btn btn-sm" href={`/day/${date}`}>
           ‹ 戻る
         </Link>
         <div className="appbar__title">予約を登録</div>

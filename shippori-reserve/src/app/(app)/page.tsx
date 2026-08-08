@@ -1,168 +1,165 @@
 import Link from "next/link";
-import { ModeBadge } from "@/components/Badges";
-import ReservationCard from "@/components/ReservationCard";
-import { attentionReason } from "@/lib/attention";
-import { ACTIVE_STATUSES, TOTAL_SEATS } from "@/lib/constants";
-import { getDailySummary, getReservationsByDate } from "@/lib/queries";
-import { fmtDateShort, shiftDate, startLabel, todayBizDate } from "@/lib/time";
+import ScrollTo from "@/components/ScrollTo";
+import { requirePermission } from "@/lib/auth";
+import { SOURCE_SHORT } from "@/lib/constants";
+import { chipColors, surname } from "@/lib/staff";
+import {
+  deriveBusinessDay,
+  getAllProfiles,
+  getMonthReservations,
+  getMonthShifts,
+  getMonthSummaries,
+  getSettings,
+} from "@/lib/queries";
+import {
+  fmtMonthJa,
+  fmtYm,
+  monthRange,
+  shiftDate,
+  shiftMonth,
+  startLabel,
+  todayBizDate,
+  weekdayOf,
+  WEEKDAY_JA,
+} from "@/lib/time";
+import type { Reservation } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const YM_RE = /^\d{4}-\d{2}$/;
+
 /**
- * S2「今日」— 第一画面。
- * 開いた瞬間に「今日どうなっているか」が分かること。スクロールなしで
- * ①サマリー ②時系列 ③＋予約を登録 の3つが見える。
+ * 暦（ホーム）。縦スクロールの1か月。開いた位置は今日。
+ *
+ * 店で使ってきたカレンダーアプリの良さ——シフトが一目・受付者が一目・
+ * その日をタップすればすぐ入力——をこの1画面に引き継ぐ。
+ * 月グリッドは廃止した（1画面に収めるより、指で流して見えるほうが速い）。
  */
-export default async function TodayPage({
+export default async function MonthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ d?: string }>;
+  searchParams: Promise<{ m?: string }>;
 }) {
+  await requirePermission("reservation.read");
   const sp = await searchParams;
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.d ?? "") ? sp.d! : todayBizDate();
+  const today = todayBizDate();
+  const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [summary, reservations] = await Promise.all([
-    getDailySummary(date),
-    getReservationsByDate(date),
+  const [summaries, resvMap, shiftMap, profiles, settings] = await Promise.all([
+    getMonthSummaries(ym),
+    getMonthReservations(ym),
+    getMonthShifts(ym),
+    getAllProfiles(),
+    getSettings(),
   ]);
 
-  const active = reservations.filter((r) => ACTIVE_STATUSES.includes(r.status));
-  const flagged = reservations
-    .map((r) => ({ r, reason: attentionReason(r, summary.mode) }))
-    .filter((x) => x.reason);
+  const names = new Map(profiles.map((p) => [p.id, p.display_name]));
+  const colorIndex = new Map(profiles.map((p, i) => [p.id, i]));
 
-  const isEvent = summary.mode === "event";
+  const { from, to } = monthRange(ym);
+  const dates: string[] = [];
+  for (let d = from; d <= to; d = shiftDate(d, 1)) dates.push(d);
+
+  /** 行の右端に出す「受付した人」。HPからの自動受付は流入元の略称で埋める。 */
+  const registrar = (r: Reservation): string =>
+    (r.created_by && names.get(r.created_by)?.split(/[\s　]/)[0]) || SOURCE_SHORT[r.source];
 
   return (
     <>
       <header className="appbar">
-        <div>
-          <div className="appbar__title">
-            {fmtDateShort(date)} {isEvent ? "イベント営業" : "通常営業"}
-          </div>
-          <div className="appbar__sub">
-            {date === todayBizDate() ? "今日" : "この日の予約"}
-          </div>
-        </div>
-        <div className="appbar__spacer" />
-        <Link className="btn btn-sm" href={`/?d=${shiftDate(date, -1)}`} aria-label="前の日">
+        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, -1))}`} aria-label="前の月">
           ‹
         </Link>
-        <Link className="btn btn-sm" href="/">
-          今日
-        </Link>
-        <Link className="btn btn-sm" href={`/?d=${shiftDate(date, 1)}`} aria-label="次の日">
+        <div className="appbar__title">{fmtMonthJa(`${ym}-01`)}</div>
+        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, 1))}`} aria-label="次の月">
           ›
+        </Link>
+        <div className="appbar__spacer" />
+        <Link className="btn btn-sm" href="/">
+          今月
         </Link>
       </header>
 
-      <div className="wrap stack">
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          <ModeBadge
-            mode={summary.mode}
-            isBusy={summary.is_busy}
-            isClosed={summary.is_closed}
-            eventName={summary.event_name}
-          />
-          <Link className="micro" href={`/calendar/${date}`}>
-            営業日の設定 ›
-          </Link>
-        </div>
+      <div className="wrap" style={{ paddingTop: "0.4rem" }}>
+        {dates.map((date) => {
+          const day = summaries.get(date) ?? deriveBusinessDay(date, settings);
+          const rows = resvMap.get(date) ?? [];
+          const shiftIds = shiftMap.get(date) ?? [];
+          const dow = weekdayOf(date);
 
-        {/* ① サマリー ─ イベント営業日は席ではなく定員で見る */}
-        <section className="summary">
-          <div className="summary__item">
-            <span className="summary__num">{summary.reservation_count}</span>
-            <span className="summary__label">予約</span>
-          </div>
-          <div className="summary__item">
-            <span className="summary__num">{summary.guest_count}</span>
-            <span className="summary__label">名</span>
-          </div>
-          {isEvent ? (
-            <div className="summary__item">
-              <span className="summary__num">
-                {summary.remaining_capacity ?? "—"}
-              </span>
-              <span className="summary__label">残り定員（{summary.event_capacity}名）</span>
-            </div>
-          ) : (
-            <div className="summary__item">
-              <span className="summary__num">
-                {summary.guest_count}
-                <span style={{ fontSize: "0.9rem", color: "var(--text-dim)" }}>
-                  /{TOTAL_SEATS}
+          const rowCls = [
+            "mrow",
+            date === today ? "mrow--today" : "",
+            day.mode === "event" ? "mrow--event" : "",
+            day.is_closed && rows.length === 0 ? "mrow--closed" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <section key={date} id={`d-${date}`} className={rowCls}>
+              <Link href={`/day/${date}`} className="mrow__date" aria-label={`${date} を開く`}>
+                <span className="mrow__day">{Number(date.slice(8))}</span>
+                <span
+                  className={`mrow__dow ${dow === 0 ? "mrow__dow--sun" : dow === 6 ? "mrow__dow--sat" : ""}`}
+                >
+                  {WEEKDAY_JA[dow]}
                 </span>
-              </span>
-              <span className="summary__label">席</span>
-            </div>
-          )}
-          {summary.tentative_count > 0 ? (
-            <div className="summary__item">
-              <span className="summary__num" style={{ color: "var(--seal)" }}>
-                {summary.tentative_count}
-              </span>
-              <span className="summary__label">仮予約</span>
-            </div>
-          ) : null}
-        </section>
+              </Link>
 
-        {/* 要対応 ─ 先頭に立てる。本体は下の時系列にあるので、ここは行き先の案内だけ。 */}
-        {flagged.length > 0 ? (
-          <section className="card card--flag">
-            <p className="micro" style={{ color: "var(--seal)", letterSpacing: "0.1em" }}>
-              要対応 {flagged.length}件
-            </p>
-            <ul style={{ margin: "0.4rem 0 0", padding: 0, listStyle: "none" }}>
-              {flagged.map(({ r, reason }) => (
-                <li key={r.id} style={{ padding: "0.15rem 0" }}>
-                  <Link href={`/reservations/${r.id}`} style={{ color: "inherit" }}>
-                    <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {startLabel(r)}
-                    </span>{" "}
-                    {r.customer_name} 様{" "}
-                    <span className="micro" style={{ color: "var(--seal)" }}>
-                      {reason}
+              <div className="mrow__body">
+                <div className="mrow__top">
+                  {day.is_closed ? <span className="badge badge--closed">休</span> : null}
+                  {day.mode === "event" ? (
+                    <span className="badge badge--event">{day.event_name || "イベント"}</span>
+                  ) : null}
+                  {day.is_busy ? <span className="badge badge--busy">繁忙</span> : null}
+
+                  {shiftIds.map((id) => (
+                    <span key={id} className="shiftchip" style={chipColors(colorIndex.get(id) ?? 0)}>
+                      {surname(names.get(id) ?? "?")}
                     </span>
+                  ))}
+
+                  <Link
+                    className="mrow__add"
+                    href={`/reservations/new?d=${date}`}
+                    aria-label={`${date} に予約を登録`}
+                  >
+                    ＋
                   </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+                </div>
 
-        {/* ② 時系列 */}
-        <section className="list">
-          {reservations.length === 0 ? (
-            <p className="empty">
-              {summary.is_closed
-                ? "この日は休業日です。"
-                : "この日の予約はまだありません。"}
-            </p>
-          ) : (
-            reservations.map((r) => (
-              <ReservationCard
-                key={r.id}
-                reservation={r}
-                attention={attentionReason(r, summary.mode)}
-              />
-            ))
-          )}
-        </section>
+                {rows.map((r) => {
+                  const off = r.status === "cancelled" || r.status === "no_show";
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/reservations/${r.id}`}
+                      className={`mline ${off ? "mline--off" : ""}`}
+                    >
+                      <span className="mline__time">{startLabel(r)}</span>
+                      <span className="mline__name">
+                        {r.customer_name}
+                        <span className="muted"> {r.party_size}名</span>
+                      </span>
+                      {r.status === "tentative" ? (
+                        <span className="badge badge--tentative">仮</span>
+                      ) : null}
+                      {r.seat_note ? <span className="muted">{r.seat_note}</span> : null}
+                      <span className="mline__reg">{registrar(r)}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
 
-        {active.length > 0 ? (
-          <p className="micro" style={{ textAlign: "center" }}>
-            キャンセル・無断キャンセルを除いて {active.length} 件
-          </p>
-        ) : null}
-
-        <div style={{ height: "3.5rem" }} />
+        <div style={{ height: "2rem" }} />
       </div>
 
-      {/* ③ どこにいても親指の位置にある */}
-      <Link className="fab" href={`/reservations/new?d=${date}`}>
-        ＋ 予約を登録
-      </Link>
+      {ym === today.slice(0, 7) ? <ScrollTo id={`d-${today}`} /> : null}
     </>
   );
 }

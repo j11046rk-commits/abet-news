@@ -3,7 +3,7 @@ import ReservationCard from "@/components/ReservationCard";
 import SearchControls from "@/components/SearchControls";
 import { requirePermission } from "@/lib/auth";
 import { ACTIVE_STATUSES } from "@/lib/constants";
-import { searchReservations } from "@/lib/queries";
+import { getProfileNames, searchReservations } from "@/lib/queries";
 import { fmtDateJa, shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
 import type { Reservation } from "@/lib/types";
 
@@ -49,13 +49,16 @@ export default async function ReservationsPage({
   const range = resolvePeriod(sp);
   const desc = sp.order === "desc" || sp.period === "past";
 
-  const rows = await searchReservations({
-    ...range,
-    status: sp.status || undefined,
-    source: sp.source || undefined,
-    q: sp.q || undefined,
-    desc,
-  });
+  const [rows, names] = await Promise.all([
+    searchReservations({
+      ...range,
+      status: sp.status || undefined,
+      source: sp.source || undefined,
+      q: sp.q || undefined,
+      desc,
+    }),
+    getProfileNames(),
+  ]);
 
   // 日付でまとめる。DBから既に日付順で来ているので順序はそのまま。
   const groups: { date: string; items: Reservation[] }[] = [];
@@ -88,13 +91,18 @@ export default async function ReservationsPage({
             <section key={g.date} className="daygroup">
               <div className="daygroup__head">
                 <span className="daygroup__date">{fmtDateJa(g.date)}</span>
-                <Link className="micro" href={`/?d=${g.date}`}>
+                <Link className="micro" href={`/day/${g.date}`}>
                   この日を開く ›
                 </Link>
               </div>
               <div className="list">
                 {g.items.map((r) => (
-                  <ReservationCard key={r.id} reservation={r} showActions={false} />
+                  <ReservationCard
+                    key={r.id}
+                    reservation={r}
+                    showActions={false}
+                    registrar={r.created_by ? (names.get(r.created_by) ?? null) : null}
+                  />
                 ))}
               </div>
             </section>

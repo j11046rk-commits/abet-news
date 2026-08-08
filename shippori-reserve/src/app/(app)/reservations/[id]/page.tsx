@@ -44,7 +44,7 @@ export default async function ReservationDetailPage({
   return (
     <>
       <header className="appbar">
-        <Link className="btn btn-sm" href={`/?d=${reservation.biz_date}`}>
+        <Link className="btn btn-sm" href={`/day/${reservation.biz_date}`}>
           ‹ 戻る
         </Link>
         <div>

@@ -81,12 +81,19 @@ const ALL_PERMISSIONS: PermissionCode[] = [
   "settings.write",
   "account.write",
   "audit.read",
+  "shift.write",
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
   owner: ALL_PERMISSIONS,
   manager: ALL_PERMISSIONS.filter((p) => p !== "account.write"),
-  staff: ["reservation.read", "reservation.write", "reservation.override", "stats.read"],
+  staff: [
+    "reservation.read",
+    "reservation.write",
+    "reservation.override",
+    "stats.read",
+    "shift.write",
+  ],
   viewer: ["reservation.read"],
 };
 

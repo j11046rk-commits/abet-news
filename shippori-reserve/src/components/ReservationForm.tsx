@@ -131,7 +131,7 @@ export default function ReservationForm({
         setPartySize(2);
         router.refresh();
       } else {
-        router.push(`/?d=${bizDate}`);
+        router.push(`/day/${bizDate}`);
       }
       router.refresh();
     });
