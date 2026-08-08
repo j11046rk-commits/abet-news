@@ -672,12 +672,25 @@ textarea.field {
   font-weight: 600;
 }
 
-/* 繁忙日の2名様テーブル・和室への注意（止めない・スタッフ判断） */
-.warnline {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--seal);
+/* 確認ポップアップ（繁忙日の3名様以下×テーブル・和室など） */
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+.veil__card {
+  width: 100%;
+  max-width: 21rem;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 
 /* 売上タブの棒グラフ。下からにゅっと伸びる。 */

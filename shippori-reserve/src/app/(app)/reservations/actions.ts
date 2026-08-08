@@ -10,7 +10,7 @@ import {
   getStayMinutes,
 } from "@/lib/queries";
 import { can, SOURCES, STATUSES } from "@/lib/constants";
-import { computeSeatUsage, NO_SEAT, seatUsageAt, toOccupancies } from "@/lib/seats";
+import { computeSeatUsage, NO_SEAT } from "@/lib/seats";
 import { minutesToIso } from "@/lib/time";
 import type { ReservationSource, ReservationStatus } from "@/lib/types";
 
@@ -67,7 +67,7 @@ function validate(input: ReservationInput): string | null {
 
 /**
  * 席の重なりをサーバーでも見る（画面が古いままの保存や同時入力への備え）。
- * 通常日＝1晩1組。繁忙日＝滞在時間（既定2時間）の重なりだけを見る（席の回転・店主指定）。
+ * 判定はどの日も「1つの席は1晩1組」（店主指定・繁忙日も同じ）。
  * イベント日は席を使わないので見ない。
  */
 async function seatConflictError(
@@ -81,17 +81,14 @@ async function seatConflictError(
     .filter((s) => s !== NO_SEAT);
   if (seats.length === 0) return null;
 
-  const [day, rows, units, stay] = await Promise.all([
+  const [day, rows, units] = await Promise.all([
     getDailySummary(input.biz_date),
     getReservationsByDate(input.biz_date),
     getSeatUnits(),
-    getStayMinutes(),
   ]);
   if (day.mode === "event") return null;
 
-  const usage = day.is_busy
-    ? seatUsageAt(toOccupancies(rows, excludeId), input.start_min, stay)
-    : computeSeatUsage(rows, excludeId);
+  const usage = computeSeatUsage(rows, excludeId);
 
   for (const name of seats) {
     const unit = units.find((u) => u.name === name);
@@ -101,9 +98,7 @@ async function seatConflictError(
         return `カウンターの残りが足りません（残り ${Math.max(0, unit.capacity - usage.counter_used)} 席）。`;
       }
     } else if (usage.taken.includes(name)) {
-      return day.is_busy
-        ? `その時間は「${name}」が埋まっています。時間をずらすか、別の席を選んでください。`
-        : `「${name}」はこの日すでに予約が入っています。`;
+      return `「${name}」はこの日すでに予約が入っています。`;
     }
   }
   return null;

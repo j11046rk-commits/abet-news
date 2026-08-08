@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProfile } from "@/lib/auth";
-import { getDailySummary, getSeatOccupancies, getSeatUsage } from "@/lib/queries";
+import { getDailySummary, getSeatUsage } from "@/lib/queries";
 import { can } from "@/lib/constants";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,11 +21,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ date: strin
   }
 
   const exclude = new URL(request.url).searchParams.get("exclude") || undefined;
-  const [summary, usage, occupancies] = await Promise.all([
-    getDailySummary(date),
-    getSeatUsage(date, exclude),
-    getSeatOccupancies(date, exclude),
-  ]);
+  const [summary, usage] = await Promise.all([getDailySummary(date), getSeatUsage(date, exclude)]);
 
-  return NextResponse.json({ ...summary, usage, occupancies });
+  return NextResponse.json({ ...summary, usage });
 }

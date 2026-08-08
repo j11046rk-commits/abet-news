@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SELECTABLE_SOURCES } from "@/lib/constants";
-import { isSeatFull, NO_SEAT, seatUsageAt, type SeatOccupancy } from "@/lib/seats";
+import { isSeatFull, NO_SEAT } from "@/lib/seats";
 import DateJa from "@/components/DateJa";
 import { isoToMinutes, minutesToLabel } from "@/lib/time";
 import type { Course, DailySummary, Reservation, SeatUnit, SeatUsage } from "@/lib/types";
@@ -15,10 +15,6 @@ type Props = {
   initialDay: DailySummary;
   /** その日の席の埋まり具合（編集時は自分のぶんを除いたもの） */
   initialUsage: SeatUsage;
-  /** その日の予約の時間帯一覧（繁忙日の回転判定用。編集時は自分のぶんを除いたもの） */
-  initialOccupancies: SeatOccupancy[];
-  /** 滞在の目安（分）。繁忙日はこの幅で時間帯の重なりを見る */
-  stayMin: number;
   courses: Course[];
   seatUnits: SeatUnit[];
   /** 新規登録時の日付。暦の＋から来た日が入る。タップすればOSのピッカーで変えられる。 */
@@ -39,8 +35,6 @@ export default function ReservationForm({
   reservation,
   initialDay,
   initialUsage,
-  initialOccupancies,
-  stayMin,
   courses,
   seatUnits,
   defaultDate,
@@ -52,7 +46,6 @@ export default function ReservationForm({
   const [bizDate, setBizDate] = useState(reservation?.biz_date ?? defaultDate);
   const [day, setDay] = useState<DailySummary>(initialDay);
   const [usage, setUsage] = useState<SeatUsage>(initialUsage);
-  const [occ, setOcc] = useState<SeatOccupancy[]>(initialOccupancies);
   const [startMin, setStartMin] = useState<number>(
     reservation ? isoToMinutes(reservation.biz_date, reservation.starts_at) : initialDay.open_min,
   );
@@ -78,19 +71,16 @@ export default function ReservationForm({
   const multiAllowed = partySize >= 7;
 
   /*
-   * 繁忙日は席の回転を前提に、時間帯の重なりで空きを判定する（店主指定）。
-   * 例：18:00の2名がT1でも、滞在2時間の目安が過ぎる20:00以降ならT1をもう1組に出せる。
-   * 通常日は従来どおり1晩1組（usage をそのまま使う）。
+   * 繁忙日の3名様以下がテーブル・和室を選んだときは、確定の直前に一度だけ確認を挟む
+   * （カウンター推奨。ただしお客様のご希望はスタッフ判断で通せる・店主指定）。
+   * 席の空き判定そのものは繁忙日も通常どおり「1晩1組」。
    */
-  const busyRotation = !isEvent && day.is_busy;
-  const usageNow = busyRotation ? seatUsageAt(occ, startMin, stayMin) : usage;
-
-  // 繁忙日で時間を変えたら、その時間帯では埋まっている席を選択から外す
-  useEffect(() => {
-    if (!busyRotation) return;
-    const u = seatUsageAt(occ, startMin, stayMin);
-    setSeats((prev) => prev.filter((s) => s === NO_SEAT || !u.taken.includes(s)));
-  }, [busyRotation, occ, startMin, stayMin]);
+  const [busyConfirm, setBusyConfirm] = useState(false);
+  const needsBusyConfirm =
+    !isEvent &&
+    day.is_busy &&
+    partySize <= 3 &&
+    seats.some((s) => seatUnits.some((u) => u.name === s && !u.is_shared));
 
   /*
    * 日付が変わったら、その日の営業設定を取り直す。
@@ -103,12 +93,11 @@ export default function ReservationForm({
     const exclude = reservation ? `?exclude=${reservation.id}` : "";
     fetch(`/api/days/${bizDate}${exclude}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: (DailySummary & { usage?: SeatUsage; occupancies?: SeatOccupancy[] }) | null) => {
+      .then((d: (DailySummary & { usage?: SeatUsage }) | null) => {
         if (cancelled || !d) return;
         setDay(d);
         const u = d.usage ?? { taken: [], counter_used: 0 };
         setUsage(u);
-        setOcc(d.occupancies ?? []);
         setStartMin((m) => (m < d.open_min || m > d.close_min - 30 ? d.open_min : m));
         // 変えた先の日で埋まっている席は選択から外す
         setSeats((prev) => prev.filter((s) => s === NO_SEAT || !u.taken.includes(s)));
@@ -157,7 +146,7 @@ export default function ReservationForm({
     }
   }
 
-  function submit() {
+  function submit(skipBusyConfirm = false) {
     setError(null);
 
     // 日付を変えた直後で、その日の営業設定（イベント日かどうか等）が届く前は保存しない
@@ -178,11 +167,17 @@ export default function ReservationForm({
       !isEvent &&
       counter &&
       seats.includes(counter.name) &&
-      usageNow.counter_used + partySize > counter.capacity
+      usage.counter_used + partySize > counter.capacity
     ) {
       setError(
-        `カウンターの残りが足りません（残り ${Math.max(0, counter.capacity - usageNow.counter_used)} 席）。`,
+        `カウンターの残りが足りません（残り ${Math.max(0, counter.capacity - usage.counter_used)} 席）。`,
       );
+      return;
+    }
+
+    // 他の検査を全部通ってから、繁忙日の3名様以下だけ一度確認を挟む
+    if (!skipBusyConfirm && needsBusyConfirm) {
+      setBusyConfirm(true);
       return;
     }
 
@@ -399,14 +394,9 @@ export default function ReservationForm({
               </span>
             ) : null}
           </label>
-          {busyRotation ? (
-            <p className="micro" style={{ margin: "0 0 0.35rem" }}>
-              繁忙日：選んだ時間の前後{Math.round(stayMin / 60)}時間と重なる席だけ埋まり扱いです。時間をずらせば同じ席も使えます。
-            </p>
-          ) : null}
           <div className="chips">
             {seatUnits.map((u) => {
-              const full = isSeatFull(u, usageNow, partySize);
+              const full = isSeatFull(u, usage, partySize);
               const selected = seats.includes(u.name);
               return (
                 <button
@@ -420,7 +410,7 @@ export default function ReservationForm({
                   {u.name}
                   <span className="micro" style={{ marginLeft: "0.3rem" }}>
                     {u.is_shared
-                      ? `残${Math.max(0, u.capacity - usageNow.counter_used)}`
+                      ? `残${Math.max(0, u.capacity - usage.counter_used)}`
                       : full
                         ? "済"
                         : u.capacity}
@@ -437,14 +427,6 @@ export default function ReservationForm({
               {NO_SEAT}
             </button>
           </div>
-          {/* 繁忙日の2名様以下はカウンター優先（店主指定）。止めはしない＝スタッフ判断で通せる。 */}
-          {busyRotation &&
-          partySize <= 2 &&
-          seats.some((s) => seatUnits.some((u) => u.name === s && !u.is_shared)) ? (
-            <p className="warnline" role="alert">
-              ⚠ 繁忙日の2名様以下はカウンター優先です。テーブル・和室は、お客様のたってのご希望のときだけこのまま登録してください（スタッフ判断）。
-            </p>
-          ) : null}
         </div>
       ) : null}
 
@@ -490,6 +472,40 @@ export default function ReservationForm({
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
         {pending ? "保存中" : editing ? "変更を保存" : "この内容で登録"}
       </button>
+
+      {/* 繁忙日の3名様以下×テーブル・和室の確認。一度だけ挟む（店主指定）。 */}
+      {busyConfirm ? (
+        <div className="veil" role="dialog" aria-modal="true" aria-label="繁忙日の確認">
+          <div className="veil__card">
+            <p style={{ margin: "0 0 0.9rem", lineHeight: 1.7 }}>
+              繁忙日の3名様以下は<strong>カウンター推奨</strong>です。
+              <br />
+              このまま登録してよろしいですか？
+            </p>
+            <div className="row" style={{ gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setBusyConfirm(false);
+                  submit(true);
+                }}
+              >
+                このまま登録
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => setBusyConfirm(false)}
+              >
+                戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
