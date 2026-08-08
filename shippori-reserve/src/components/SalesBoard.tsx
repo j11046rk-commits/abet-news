@@ -16,7 +16,7 @@ export type SalesBoardDay = {
   isToday: boolean;
 };
 
-/** 数字がするすると増えるカウントアップ（みんなで見て楽しい・店主要望のアニメーション） */
+/** 数字がするすると増えるカウントアップ（店主要望のアニメーション） */
 function useCountUp(value: number, ms = 900): number {
   const [shown, setShown] = useState(0);
   const started = useRef(false);
@@ -41,155 +41,110 @@ function useCountUp(value: number, ms = 900): number {
 }
 
 /**
- * 売上ボード。上に月の合計（目標・実績・達成率）、下に日毎の棒グラフ。
- * 棒は下からにゅっと伸びる（CSSアニメーション）。実績が目標に届いた日は金色。
+ * 売上ボード（グリッドのカレンダー・店主指定でグラフなし）。
+ * 上：月間目標／現時点の目標（月初〜今日の日毎目標の累計）／実績と達成率。
+ * 下：月のグリッド。各日に目標と実績。タップでその日の詳細へ。
  */
-export default function SalesBoard({ days }: { days: SalesBoardDay[] }) {
-  const [grown, setGrown] = useState(false);
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setGrown(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const totals = useMemo(() => {
-    let target = 0;
-    let actual = 0;
-    let hitDays = 0;
-    let judgedDays = 0;
+export default function SalesBoard({ days, today }: { days: SalesBoardDay[]; today: string }) {
+  const { monthTarget, cumTarget, cumLabel, actualTotal } = useMemo(() => {
+    let monthTarget = 0;
+    let cumTarget = 0;
+    let actualTotal = 0;
     for (const d of days) {
-      if (d.target) target += d.target;
-      if (d.actual) actual += d.actual;
-      if (d.target && d.actual !== null) {
-        judgedDays += 1;
-        if (d.actual >= d.target) hitDays += 1;
+      if (d.target) {
+        monthTarget += d.target;
+        if (d.date <= today) cumTarget += d.target;
       }
+      if (d.actual) actualTotal += d.actual;
     }
-    return { target, actual, hitDays, judgedDays };
-  }, [days]);
+    // 今日を含む月なら「8/8までの目標」、過去の月なら月間と同じ、未来の月は 0
+    const inMonth = days.some((d) => d.isToday);
+    const cumLabel = inMonth
+      ? `${Number(today.slice(5, 7))}/${Number(today.slice(8))}までの目標`
+      : "現時点の目標";
+    return { monthTarget, cumTarget, cumLabel, actualTotal };
+  }, [days, today]);
 
-  const shownActual = useCountUp(totals.actual);
-  const shownTarget = useCountUp(totals.target);
-  const rate = totals.target > 0 ? Math.round((totals.actual / totals.target) * 100) : null;
+  const rate = cumTarget > 0 ? Math.round((actualTotal / cumTarget) * 100) : null;
+  const onPace = rate !== null && rate >= 100;
+
+  const shownMonth = useCountUp(monthTarget);
+  const shownCum = useCountUp(cumTarget);
+  const shownActual = useCountUp(actualTotal);
   const shownRate = useCountUp(rate ?? 0);
 
-  const max = useMemo(
-    () => Math.max(1, ...days.map((d) => Math.max(d.target ?? 0, d.actual ?? 0))),
-    [days],
-  );
-
-  const hasData = days.some((d) => d.target || d.actual !== null);
-
-  if (!hasData) {
-    return (
-      <div className="card" style={{ textAlign: "center" }}>
-        <p className="micro" style={{ margin: 0 }}>
-          この月の目標・実績はまだ入っていません。
-          <br />
-          目標は カレンダー → 日付 → <Link href="/">営業日の設定</Link> から入れられます。
-        </p>
-      </div>
-    );
-  }
+  const lead = days.length > 0 ? days[0].dow : 0;
 
   return (
     <div className="stack">
-      {/* 月の合計 */}
+      {/* 月間目標。いちばん上に大きく（店主指定）。 */}
+      <section className="card salesgoal">
+        <span className="summary__label">月間売上目標</span>
+        <span className="salesgoal__num">{monthTarget > 0 ? fmtYen(shownMonth) : "—"}</span>
+      </section>
+
+      {/* 現時点での目標に対する実績 */}
       <section className="summary">
         <div className="summary__item">
-          <span className="summary__num salesnum">{fmtYen(shownActual)}</span>
+          <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
+            {fmtYen(shownActual)}
+          </span>
           <span className="summary__label">実績</span>
         </div>
         <div className="summary__item">
-          <span className="summary__num">{fmtYen(shownTarget)}</span>
-          <span className="summary__label">目標</span>
+          <span className="summary__num">{cumTarget > 0 ? fmtYen(shownCum) : "—"}</span>
+          <span className="summary__label">{cumLabel}</span>
         </div>
         <div className="summary__item">
-          <span className={`summary__num ${rate !== null && rate >= 100 ? "salesnum--hit" : ""}`}>
+          <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
             {rate === null ? "—" : `${shownRate}%`}
           </span>
-          <span className="summary__label">
-            達成率{totals.judgedDays > 0 ? `・${totals.hitDays}/${totals.judgedDays}日達成` : ""}
-          </span>
+          <span className="summary__label">現時点の達成率</span>
         </div>
       </section>
 
-      {/* 日毎の棒グラフ。タップでその日の詳細へ。 */}
-      <section className="card">
-        <div className={`saleschart ${grown ? "saleschart--grown" : ""}`} role="img" aria-label="日毎の売上グラフ">
-          {days.map((d, i) => {
-            const t = d.target ?? 0;
-            const a = d.actual ?? 0;
-            const hit = t > 0 && a >= t;
-            return (
-              <Link
-                key={d.date}
-                href={`/day/${d.date}`}
-                className={`salescol ${d.isToday ? "salescol--today" : ""}`}
-                aria-label={`${d.day}日 目標${t ? fmtMan(t) : "なし"} 実績${d.actual !== null ? fmtMan(a) : "なし"}`}
+      {/* 月のグリッド。各日に目標と実績。 */}
+      <div className="salesgrid" role="grid" aria-label="日毎の売上目標と実績">
+        {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
+          <div key={w} className="salesgrid__head">
+            {w}
+          </div>
+        ))}
+        {Array.from({ length: lead }, (_, i) => (
+          <div key={`pad-${i}`} />
+        ))}
+        {days.map((d) => {
+          const hit = d.target != null && d.actual != null && d.actual >= d.target;
+          return (
+            <Link
+              key={d.date}
+              href={`/day/${d.date}`}
+              className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""}`}
+              aria-label={`${d.day}日 目標${d.target ? fmtMan(d.target) : "なし"} 実績${d.actual != null ? fmtMan(d.actual) : "なし"}`}
+            >
+              <span
+                className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
               >
-                <span className="salescol__bars">
-                  {t > 0 ? (
-                    <span
-                      className="salesbar salesbar--target"
-                      style={{ height: `${(t / max) * 100}%`, transitionDelay: `${i * 18}ms` }}
-                    />
-                  ) : null}
-                  {d.actual !== null ? (
-                    <span
-                      className={`salesbar salesbar--actual ${hit ? "salesbar--hit" : ""}`}
-                      style={{ height: `${(a / max) * 100}%`, transitionDelay: `${i * 18 + 90}ms` }}
-                    />
-                  ) : null}
-                </span>
-                <span
-                  className={`salescol__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
-                >
-                  {/* 31本並ぶので日付は5日刻みと今日だけ書く（詰まって読めなくなる） */}
-                  {d.day === 1 || d.day % 5 === 0 || d.isToday ? d.day : ""}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-        <p className="micro" style={{ margin: "0.5rem 0 0", textAlign: "center" }}>
-          <span className="saleslegend saleslegend--target" /> 目標
-          <span style={{ display: "inline-block", width: "1rem" }} />
-          <span className="saleslegend saleslegend--actual" /> 実績
-          <span style={{ display: "inline-block", width: "1rem" }} />
-          <span className="saleslegend saleslegend--hit" /> 達成
-        </p>
-      </section>
-
-      {/* 日毎の数字（データのある日だけ） */}
-      <section className="card">
-        <ul className="saleslist">
-          {days
-            .filter((d) => d.target || d.actual !== null)
-            .map((d) => {
-              const hit = d.target && d.actual !== null && d.actual >= d.target;
-              return (
-                <li key={d.date} className="saleslist__row">
-                  <Link href={`/day/${d.date}`} className="saleslist__date">
-                    {d.day}
-                    <span
-                      className={`mrow__dow ${d.dow === 0 || d.holiday ? "mrow__dow--sun" : d.dow === 6 ? "mrow__dow--sat" : ""}`}
-                      style={{ marginLeft: "0.25rem" }}
-                    >
-                      {d.dowLabel}
-                    </span>
-                  </Link>
-                  <span className="saleslist__nums">
-                    <span className={hit ? "salesnum--hit" : undefined}>
-                      {d.actual !== null ? fmtYen(d.actual) : "—"}
-                    </span>
-                    <span className="muted"> / {d.target ? fmtYen(d.target) : "目標なし"}</span>
-                    {hit ? " 🎯" : ""}
+                {d.day}
+              </span>
+              {d.closed ? (
+                <span className="salescell__t">休</span>
+              ) : (
+                <>
+                  <span className={`salescell__a ${hit ? "salescell__a--hit" : ""}`}>
+                    {d.actual != null ? `${fmtMan(d.actual)}${hit ? "🎯" : ""}` : "ー"}
                   </span>
-                </li>
-              );
-            })}
-        </ul>
-      </section>
+                  <span className="salescell__t">{d.target ? `目標${fmtMan(d.target)}` : ""}</span>
+                </>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+
+      <p className="micro" style={{ textAlign: "center", margin: 0 }}>
+        上段＝実績（<span className="salesnum--hit">金色🎯＝目標達成</span>）・下段＝目標。タップでその日の詳細へ。
+      </p>
     </div>
   );
 }

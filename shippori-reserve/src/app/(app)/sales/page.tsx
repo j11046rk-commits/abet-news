@@ -77,7 +77,7 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
-        <SalesBoard key={ym} days={days} />
+        <SalesBoard key={ym} days={days} today={today} />
 
         {can(me.role, "sales.write") ? (
           <p className="micro" style={{ textAlign: "center" }}>
