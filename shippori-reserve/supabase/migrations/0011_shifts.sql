@@ -12,12 +12,12 @@ create table if not exists shifts (
 
 create index if not exists shifts_date_idx on shifts (biz_date);
 
--- 権限は1行足すだけの流儀に合わせる（viewer 以外は編集できる）
-insert into permissions (code, label) values ('shift.write', 'シフトの登録・削除')
+-- 確定シフトを組めるのは店長とオーナーだけ（スタッフは希望を出す側。0012参照）
+insert into permissions (code, label) values ('shift.write', '確定シフトの編集')
 on conflict (code) do nothing;
 
 insert into role_permissions (role, permission)
-select unnest(array['owner','manager','staff']::user_role[]), 'shift.write'
+select unnest(array['owner','manager']::user_role[]), 'shift.write'
 on conflict do nothing;
 
 alter table shifts enable row level security;

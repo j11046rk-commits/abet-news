@@ -31,7 +31,8 @@ export type PermissionCode =
   | "settings.write"
   | "account.write"
   | "audit.read"
-  | "shift.write";
+  | "shift.write"
+  | "shiftrequest.write";
 
 export type Profile = {
   id: string;

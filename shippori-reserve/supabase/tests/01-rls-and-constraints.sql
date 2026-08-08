@@ -86,24 +86,33 @@ from audit_logs where target_table = 'reservations' order by id;
 \echo '───── 11. 流入元別の集計が引ける ─────'
 select source, total, guests from v_source_stats order by source;
 
-\echo '───── 12. シフト：staffは入れられる・外せる／viewerは触れない ─────'
+\echo '───── 12. 確定シフト：組めるのは店長・オーナーだけ ─────'
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
 insert into shifts (biz_date, profile_id, created_by)
 values ('2026-08-14', '22222222-2222-2222-2222-222222222222', '22222222-2222-2222-2222-222222222222');
-select count(*) as staff_shift_rows from shifts where biz_date = '2026-08-14';
-\echo '（1 が正解）'
+\echo '（↑ 一般スタッフは RLS で拒否されるのが正解）'
 
-select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
 insert into shifts (biz_date, profile_id, created_by)
-values ('2026-08-14', '33333333-3333-3333-3333-333333333333', '33333333-3333-3333-3333-333333333333');
-\echo '（↑ viewer は RLS で拒否されるのが正解）'
-select count(*) as viewer_can_read_shifts from shifts;
-\echo '（viewer も読むのは 1 件見える）'
+values ('2026-08-14', '22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111');
+select count(*) as owner_made_shift from shifts where biz_date = '2026-08-14';
+\echo '（オーナーが組んだ1件が入る）'
 
+\echo '───── 13. 希望シフト：自分の行しか書けない ─────'
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
-delete from shifts where biz_date = '2026-08-14' and profile_id = '22222222-2222-2222-2222-222222222222';
-select count(*) as after_delete from shifts where biz_date = '2026-08-14';
-\echo '（外したので 0 が正解）'
+insert into shift_requests (biz_date, profile_id)
+values ('2026-09-05', '22222222-2222-2222-2222-222222222222');
+select count(*) as my_request from shift_requests;
+\echo '（自分の希望1件が入る）'
+
+insert into shift_requests (biz_date, profile_id)
+values ('2026-09-05', '11111111-1111-1111-1111-111111111111');
+\echo '（↑ 他人の名義では RLS で拒否されるのが正解）'
+
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+insert into shift_requests (biz_date, profile_id)
+values ('2026-09-06', '11111111-1111-1111-1111-111111111111');
+\echo '（↑ オーナーは提出権限が無いので拒否されるのが正解）'
 
 reset role;
 \echo '───── 検証おわり ─────'

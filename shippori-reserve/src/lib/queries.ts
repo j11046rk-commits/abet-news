@@ -171,6 +171,25 @@ export async function getSeatUsage(date: string, excludeId?: string): Promise<Se
   return computeSeatUsage(await getReservationsByDate(date), excludeId);
 }
 
+/** 月ぶんの希望シフト（日付 → profile_id の配列）。シフトタブが使う。 */
+export async function getMonthShiftRequests(ym: string): Promise<Map<string, string[]>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("shift_requests")
+    .select("biz_date, profile_id")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+
+  const map = new Map<string, string[]>();
+  for (const row of data ?? []) {
+    const list = map.get(row.biz_date as string);
+    if (list) list.push(row.profile_id as string);
+    else map.set(row.biz_date as string, [row.profile_id as string]);
+  }
+  return map;
+}
+
 /** その日のシフト（profile_id の配列） */
 export async function getShiftProfileIds(date: string): Promise<string[]> {
   const supabase = await createClient();

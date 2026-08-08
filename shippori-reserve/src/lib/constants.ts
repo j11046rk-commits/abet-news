@@ -94,6 +94,8 @@ const ALL_PERMISSIONS: PermissionCode[] = [
 ];
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
+  // オーナー・店長＝確定シフトを組む側（shift.write）。
+  // 一般スタッフ＝希望を出す側（shiftrequest.write）。店長は提出しない（店主指定）。
   owner: ALL_PERMISSIONS,
   manager: ALL_PERMISSIONS.filter((p) => p !== "account.write"),
   staff: [
@@ -101,7 +103,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
     "reservation.write",
     "reservation.override",
     "stats.read",
-    "shift.write",
+    "shiftrequest.write",
   ],
   viewer: ["reservation.read"],
 };

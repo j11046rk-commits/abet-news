@@ -2,11 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ModeBadge } from "@/components/Badges";
 import ReservationCard from "@/components/ReservationCard";
-import ShiftEditor from "@/components/ShiftEditor";
 import { attentionReason } from "@/lib/attention";
 import { requireProfile } from "@/lib/auth";
-import { ACTIVE_STATUSES, can, TOTAL_SEATS } from "@/lib/constants";
-import { surname } from "@/lib/staff";
+import { ACTIVE_STATUSES, TOTAL_SEATS } from "@/lib/constants";
+import { chipColors, surname } from "@/lib/staff";
 import {
   getAllProfiles,
   getCourses,
@@ -25,7 +24,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * 当日の時系列・来店/会計の1タップ・シフトの確認と編集はここ。
  */
 export default async function DayPage({ params }: { params: Promise<{ date: string }> }) {
-  const me = await requireProfile();
+  await requireProfile();
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
@@ -39,15 +38,11 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
-  const staff = profiles
+  // 表示は確定シフトのみ。編集はシフトタブで行う。
+  const onShift = profiles
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.is_active)
-    .map(({ p, i }) => ({
-      id: p.id,
-      name: surname(p.display_name),
-      colorIndex: i,
-      on: shiftIds.includes(p.id),
-    }));
+    .filter(({ p }) => shiftIds.includes(p.id))
+    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
 
   const flagged = reservations
     .map((r) => ({ r, reason: attentionReason(r) }))
@@ -114,7 +109,29 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
           )}
         </section>
 
-        <ShiftEditor date={date} staff={staff} canEdit={can(me.role, "shift.write")} />
+        <section className="card">
+          <div className="row" style={{ marginBottom: onShift.length ? "0.5rem" : 0 }}>
+            <p className="micro" style={{ letterSpacing: "0.12em", margin: 0 }}>
+              この日のシフト
+            </p>
+            <Link className="micro" href={`/shifts?m=${date.slice(0, 7)}`} style={{ marginLeft: "auto" }}>
+              シフト表へ ›
+            </Link>
+          </div>
+          {onShift.length > 0 ? (
+            <div className="chips">
+              {onShift.map((p) => (
+                <span key={p.id} className="shiftchip" style={chipColors(p.colorIndex)}>
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="micro" style={{ margin: 0 }}>
+              まだ決まっていません。
+            </p>
+          )}
+        </section>
 
         {flagged.length > 0 ? (
           <section className="card card--flag">
