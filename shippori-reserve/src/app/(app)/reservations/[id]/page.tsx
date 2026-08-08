@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BackButton from "@/components/BackButton";
+import DateJa from "@/components/DateJa";
 import ReservationForm from "@/components/ReservationForm";
 import StatusPanel from "@/components/StatusPanel";
 import { SourceBadge } from "@/components/Badges";
@@ -14,7 +15,7 @@ import {
   getSeatUnits,
   getSeatUsage,
 } from "@/lib/queries";
-import { fmt, fmtDateJa, startLabel } from "@/lib/time";
+import { fmt, startLabel } from "@/lib/time";
 import { updateReservation } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export default async function ReservationDetailPage({
         <div>
           <div className="appbar__title">{reservation.reference}</div>
           <div className="appbar__sub">
-            {fmtDateJa(reservation.biz_date)} {startLabel(reservation)}
+            <DateJa date={reservation.biz_date} long /> {startLabel(reservation)}
           </div>
         </div>
       </header>

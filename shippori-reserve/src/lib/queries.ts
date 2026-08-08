@@ -7,7 +7,6 @@ import {
   DEFAULT_EVENT_CAPACITY,
   DEFAULT_OPEN_MIN,
   DEFAULT_STAY_MIN,
-  FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
 import { computeSeatUsage } from "@/lib/seats";
 import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
@@ -64,7 +63,7 @@ export function deriveBusinessDay(
     event_name: null,
     event_capacity: null,
     open_min: Number(settings.default_open_min) || DEFAULT_OPEN_MIN,
-    close_min: dow === 5 || dow === 6 ? FRI_SAT_CLOSE_MIN : DEFAULT_CLOSE_MIN,
+    close_min: DEFAULT_CLOSE_MIN,
     note: null,
     updated_by: null,
     updated_at: new Date(0).toISOString(),

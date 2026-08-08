@@ -4,7 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SELECTABLE_SOURCES } from "@/lib/constants";
 import { isSeatFull, NO_SEAT } from "@/lib/seats";
-import { fmtDateJa, isoToMinutes, minutesToLabel } from "@/lib/time";
+import DateJa from "@/components/DateJa";
+import { isoToMinutes, minutesToLabel } from "@/lib/time";
 import type { Course, DailySummary, Reservation, SeatUnit, SeatUsage } from "@/lib/types";
 import type { ActionResult, ReservationInput } from "@/app/(app)/reservations/actions";
 
@@ -235,7 +236,7 @@ export default function ReservationForm({
           </div>
         </div>
         <p className="micro" style={{ marginTop: "0.25rem" }}>
-          {fmtDateJa(bizDate)}・{isEvent ? "イベント営業" : "通常営業"}
+          <DateJa date={bizDate} long />・{isEvent ? "イベント営業" : "通常営業"}
           {day.is_busy ? "・繁忙日" : ""}
           {day.is_closed ? "・休業日の設定です" : ""}
         </p>

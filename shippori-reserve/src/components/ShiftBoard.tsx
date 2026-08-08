@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmMonthShifts, submitMyRequests } from "@/app/(app)/shifts/actions";
+import { isHoliday } from "@/lib/holidays";
 import { chipColors } from "@/lib/staff";
 
 export type BoardStaff = { id: string; name: string; colorIndex: number };
@@ -209,7 +210,7 @@ export default function ShiftBoard({
             <div className="srow__date">
               <span className="mrow__day">{d.day}</span>
               <span
-                className={`mrow__dow ${d.dow === 0 ? "mrow__dow--sun" : d.dow === 6 ? "mrow__dow--sat" : ""}`}
+                className={`mrow__dow ${d.dow === 0 || isHoliday(d.date) ? "mrow__dow--sun" : d.dow === 6 ? "mrow__dow--sat" : ""}`}
               >
                 {d.dowLabel}
               </span>
@@ -269,7 +270,7 @@ export default function ShiftBoard({
                       ids.map((profile_id) => ({ date, profile_id })),
                     ),
                   ),
-                "シフトを確定しました。暦に表示されます。",
+                "シフトを確定しました。カレンダーに表示されます。",
               )
             }
           >
@@ -278,7 +279,7 @@ export default function ShiftBoard({
           <p className="micro" style={{ textAlign: "center", margin: "0.3rem 0 0" }}>
             {publishedAt
               ? `確定済み（${fmtStamp(publishedAt)}）。押し直すと上書きされます。`
-              : "確定すると暦と日別画面に表示されます。"}
+              : "確定するとカレンダーと日別画面に表示されます。"}
           </p>
         </div>
       ) : null}

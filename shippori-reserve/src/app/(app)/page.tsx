@@ -3,6 +3,7 @@ import NoteLine from "@/components/NoteLine";
 import ScrollTo from "@/components/ScrollTo";
 import { requirePermission } from "@/lib/auth";
 import { SOURCE_SHORT } from "@/lib/constants";
+import { isHoliday } from "@/lib/holidays";
 import { computeSeatUsage, isSeatFull, seatShort } from "@/lib/seats";
 import { chipColors, surname } from "@/lib/staff";
 import {
@@ -118,7 +119,7 @@ export default async function MonthPage({
               <Link href={`/day/${date}`} className="mrow__date" aria-label={`${date} を開く`}>
                 <span className="mrow__day">{Number(date.slice(8))}</span>
                 <span
-                  className={`mrow__dow ${dow === 0 ? "mrow__dow--sun" : dow === 6 ? "mrow__dow--sat" : ""}`}
+                  className={`mrow__dow ${dow === 0 || isHoliday(date) ? "mrow__dow--sun" : dow === 6 ? "mrow__dow--sat" : ""}`}
                 >
                   {WEEKDAY_JA[dow]}
                 </span>

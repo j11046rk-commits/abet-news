@@ -646,6 +646,14 @@ textarea.field {
   color: #7ea6d9;
 }
 
+/* 曜日の文字色（ヘッダー等の日付表示用）。日曜・祝日＝赤、土曜＝青 */
+.dow-red {
+  color: var(--seal);
+}
+.dow-blue {
+  color: #7ea6d9;
+}
+
 .mrow__body {
   display: flex;
   flex-direction: column;

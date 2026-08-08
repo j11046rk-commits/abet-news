@@ -11,7 +11,7 @@ import { usePathname } from "next/navigation";
  * 中身の無いタブを置いておくより、増えたときに足すほうがよい。
  */
 const TABS = [
-  { href: "/", label: "暦", icon: "▦" },
+  { href: "/", label: "カレンダー", icon: "▦" },
   { href: "/today", label: "今日", icon: "☀︎" },
   { href: "/reservations", label: "予約", icon: "☰" },
   { href: "/shifts", label: "シフト", icon: "◷" },

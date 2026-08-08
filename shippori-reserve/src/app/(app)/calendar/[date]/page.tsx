@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BusinessDayForm from "@/components/BusinessDayForm";
+import DateJa from "@/components/DateJa";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { getBusinessDay, getDailySummary, getDefaultEventCapacity } from "@/lib/queries";
-import { fmtDateJa } from "@/lib/time";
 import { saveBusinessDay } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -33,10 +33,12 @@ export default async function BusinessDayPage({
     <>
       <header className="appbar">
         <Link className="btn btn-sm" href={`/?m=${date.slice(0, 7)}`}>
-          ‹ 暦
+          ‹ カレンダー
         </Link>
         <div>
-          <div className="appbar__title">{fmtDateJa(date)}</div>
+          <div className="appbar__title">
+            <DateJa date={date} long />
+          </div>
           <div className="appbar__sub">営業日の設定</div>
         </div>
       </header>

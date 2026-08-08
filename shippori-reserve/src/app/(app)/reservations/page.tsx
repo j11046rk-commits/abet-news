@@ -1,10 +1,11 @@
 import Link from "next/link";
+import DateJa from "@/components/DateJa";
 import ReservationCard from "@/components/ReservationCard";
 import SearchControls from "@/components/SearchControls";
 import { requirePermission } from "@/lib/auth";
 import { ACTIVE_STATUSES } from "@/lib/constants";
 import { getProfileNames, searchReservations } from "@/lib/queries";
-import { fmtDateJa, shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
+import { shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
 import type { Reservation } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -90,7 +91,9 @@ export default async function ReservationsPage({
           groups.map((g) => (
             <section key={g.date} className="daygroup">
               <div className="daygroup__head">
-                <span className="daygroup__date">{fmtDateJa(g.date)}</span>
+                <span className="daygroup__date">
+                  <DateJa date={g.date} long />
+                </span>
                 <Link className="micro" href={`/day/${g.date}`}>
                   この日を開く ›
                 </Link>

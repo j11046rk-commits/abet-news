@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ModeBadge } from "@/components/Badges";
+import DateJa from "@/components/DateJa";
 import DayShiftEditor from "@/components/DayShiftEditor";
 import ReservationCard from "@/components/ReservationCard";
 import { attentionReason } from "@/lib/attention";
@@ -15,7 +16,8 @@ import {
   getShiftProfileIds,
   getShiftPublication,
 } from "@/lib/queries";
-import { fmtDateShort, shiftDate, startLabel, todayBizDate } from "@/lib/time";
+import { holidayName } from "@/lib/holidays";
+import { shiftDate, startLabel, todayBizDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -62,18 +64,22 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     .filter((x) => x.reason);
   const active = reservations.filter((r) => ACTIVE_STATUSES.includes(r.status));
   const isEvent = summary.mode === "event";
+  const holiday = holidayName(date);
 
   return (
     <>
       <header className="appbar">
         <Link className="btn btn-sm" href={`/?m=${date.slice(0, 7)}`}>
-          ‹ 暦
+          ‹ カレンダー
         </Link>
         <div>
           <div className="appbar__title">
-            {fmtDateShort(date)} {isEvent ? "イベント営業" : "通常営業"}
+            <DateJa date={date} /> {isEvent ? "イベント営業" : "通常営業"}
           </div>
-          <div className="appbar__sub">{date === todayBizDate() ? "今日" : "この日の予約"}</div>
+          <div className="appbar__sub">
+            {holiday ? `${holiday}・` : ""}
+            {date === todayBizDate() ? "今日" : "この日の予約"}
+          </div>
         </div>
         <div className="appbar__spacer" />
         <Link className="btn btn-sm" href={`/day/${shiftDate(date, -1)}`} aria-label="前の日">
