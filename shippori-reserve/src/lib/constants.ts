@@ -23,6 +23,15 @@ export const SOURCES: {
   { value: "other", label: "その他", short: "他" },
 ];
 
+/**
+ * 予約登録フォームに並べる流入元。
+ * 「当日飛び込み」「オーナー直接」は店主判断で外した（2026-08-08）。
+ * enum とバッジ表示には残る（過去データ・公開フォームのため）。
+ */
+export const SELECTABLE_SOURCES = SOURCES.filter(
+  (s) => s.value !== "walk_in" && s.value !== "owner_direct",
+);
+
 export const SOURCE_LABEL: Record<ReservationSource, string> = Object.fromEntries(
   SOURCES.map((s) => [s.value, s.label]),
 ) as Record<ReservationSource, string>;

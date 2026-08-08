@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { SOURCES, STATUSES } from "@/lib/constants";
+import { SELECTABLE_SOURCES, STATUSES } from "@/lib/constants";
 
 const PERIODS = [
   { value: "today", label: "今日" },
@@ -85,7 +85,7 @@ export default function SearchControls() {
           aria-label="流入元でしぼる"
         >
           <option value="">流入元：すべて</option>
-          {SOURCES.map((s) => (
+          {SELECTABLE_SOURCES.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
             </option>

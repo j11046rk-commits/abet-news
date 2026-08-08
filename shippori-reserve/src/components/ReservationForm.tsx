@@ -2,36 +2,33 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { SOURCES } from "@/lib/constants";
-import {
-  fmtDateJa,
-  isoToMinutes,
-  minutesToLabel,
-  shiftDate,
-  timeSlots,
-  todayBizDate,
-} from "@/lib/time";
-import type { Course, DailySummary, Profile, Reservation, SeatUnit } from "@/lib/types";
+import { SELECTABLE_SOURCES } from "@/lib/constants";
+import { fmtDateJa, isoToMinutes, labelToMinutes, minutesToLabel } from "@/lib/time";
+import type { Course, DailySummary, Reservation, SeatUnit } from "@/lib/types";
 import type { ActionResult, ReservationInput } from "@/app/(app)/reservations/actions";
 
 type Props = {
   /** 編集なら既存の予約。新規なら undefined。 */
   reservation?: Reservation;
   initialDay: DailySummary;
-  ownerContacts: Profile[];
   courses: Course[];
   seatUnits: SeatUnit[];
-  /** 新規登録時の初期日付 */
+  /** 新規登録時の日付。暦の＋から来た日がそのまま入る（この画面では変えられない）。 */
   defaultDate: string;
   onSubmit: (input: ReservationInput) => Promise<ActionResult>;
 };
 
 const PARTY_CHIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
+/** 予約の受け始めは 20:30 まで（店主指定）。それ以降は任意入力で。 */
+const LAST_START_MIN = 1230;
+
+/** 席の選択肢としての「指定なし」。選ばれたことが分かるよう文字列で保存する。 */
+const NO_SEAT = "指定なし";
+
 export default function ReservationForm({
   reservation,
   initialDay,
-  ownerContacts,
   courses,
   seatUnits,
   defaultDate,
@@ -45,13 +42,18 @@ export default function ReservationForm({
   const [startMin, setStartMin] = useState<number>(
     reservation ? isoToMinutes(reservation.biz_date, reservation.starts_at) : initialDay.open_min,
   );
+  const [customTime, setCustomTime] = useState("");
   const [partySize, setPartySize] = useState(reservation?.party_size ?? 2);
   const [name, setName] = useState(reservation?.customer_name ?? "");
   const [kana, setKana] = useState(reservation?.customer_kana ?? "");
   const [phone, setPhone] = useState(reservation?.phone ?? "");
   const [source, setSource] = useState<ReservationInput["source"]>(reservation?.source ?? "");
-  const [ownerId, setOwnerId] = useState(reservation?.source_profile_id ?? "");
-  const [seatNote, setSeatNote] = useState(reservation?.seat_note ?? "");
+  const [seats, setSeats] = useState<string[]>(() => {
+    const note = reservation?.seat_note;
+    if (!note) return [];
+    const known = new Set([NO_SEAT, ...seatUnits.map((u) => u.name)]);
+    return note.split("＋").filter((s) => known.has(s));
+  });
   const [courseId, setCourseId] = useState(reservation?.course_id ?? "");
   const [drinkPlan, setDrinkPlan] = useState(reservation?.drink_plan ?? false);
   const [allergy, setAllergy] = useState(reservation?.allergy ?? "");
@@ -63,8 +65,11 @@ export default function ReservationForm({
 
   const isEvent = day.mode === "event";
 
+  /** 7名様以上はテーブルをつなげる前提なので、席を複数選べる */
+  const multiAllowed = partySize >= 7;
+
   /*
-   * 日付を変えたら、その日の営業設定を取り直す。
+   * 日付が変わったら（編集で変えたときだけ）、その日の営業設定を取り直す。
    * イベント営業日かどうか・何時から何時までかは、日ごとに違う。
    */
   useEffect(() => {
@@ -76,7 +81,6 @@ export default function ReservationForm({
       .then((d: DailySummary | null) => {
         if (cancelled || !d) return;
         setDay(d);
-        // 新しい日の営業時間の外にいたら開店時刻に寄せる
         setStartMin((m) => (m < d.open_min || m > d.close_min - 30 ? d.open_min : m));
       })
       .catch(() => {});
@@ -93,8 +97,42 @@ export default function ReservationForm({
       ? day.event_capacity - (day.guest_count - alreadyCounted) - partySize
       : null;
 
+  const slots: number[] = [];
+  for (let m = day.open_min; m <= Math.min(LAST_START_MIN, day.close_min - 30); m += 15) {
+    slots.push(m);
+  }
+
+  function pickTime(m: number) {
+    setStartMin(m);
+    setCustomTime("");
+  }
+
+  function pickSeat(seatName: string) {
+    setSeats((prev) => {
+      if (seatName === NO_SEAT) return prev.includes(NO_SEAT) ? [] : [NO_SEAT];
+      const base = prev.filter((s) => s !== NO_SEAT);
+      if (multiAllowed) {
+        return base.includes(seatName) ? base.filter((s) => s !== seatName) : [...base, seatName];
+      }
+      return base.includes(seatName) ? [] : [seatName];
+    });
+  }
+
+  function changeParty(n: number) {
+    setPartySize(n);
+    // 6名以下に戻したら、つなげていた席は先頭の1つだけ残す
+    if (n < 7) {
+      setSeats((prev) => (prev.length > 1 && !prev.includes(NO_SEAT) ? [prev[0]] : prev));
+    }
+  }
+
   function submit() {
     setError(null);
+
+    if (!isEvent && seats.length === 0) {
+      setError("席を選んでください（「指定なし」も選べます）。");
+      return;
+    }
 
     const input: ReservationInput = {
       biz_date: bizDate,
@@ -104,8 +142,7 @@ export default function ReservationForm({
       customer_kana: kana,
       phone,
       source,
-      source_profile_id: ownerId,
-      seat_note: isEvent ? "" : seatNote,
+      seat_note: isEvent ? "" : seats.join("＋"),
       course_id: courseId,
       drink_plan: drinkPlan,
       allergy,
@@ -125,7 +162,7 @@ export default function ReservationForm({
         setName("");
         setKana("");
         setPhone("");
-        setSeatNote("");
+        setSeats([]);
         setMemo("");
         setAllergy("");
         setPartySize(2);
@@ -136,8 +173,6 @@ export default function ReservationForm({
       router.refresh();
     });
   }
-
-  const slots = timeSlots(day.open_min, day.close_min);
 
   return (
     <form
@@ -153,43 +188,38 @@ export default function ReservationForm({
         </p>
       ) : null}
 
-      {/* 1. 日付 ─ 電話で聞く順に並べる */}
-      <div>
-        <label className="field-label">
-          日付<span className="req">必須</span>
-        </label>
-        <div className="chips">
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={bizDate === todayBizDate()}
-            onClick={() => setBizDate(todayBizDate())}
-          >
-            今日
-          </button>
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={bizDate === shiftDate(todayBizDate(), 1)}
-            onClick={() => setBizDate(shiftDate(todayBizDate(), 1))}
-          >
-            明日
-          </button>
+      {/* 日付。暦でタップした日がそのまま入るので、ここでは選ばせない。 */}
+      {editing ? (
+        <div>
+          <label className="field-label" htmlFor="biz_date">
+            日付
+          </label>
           <input
+            id="biz_date"
             type="date"
             className="field"
-            style={{ width: "auto", flex: "1 1 10rem" }}
             value={bizDate}
             onChange={(e) => e.target.value && setBizDate(e.target.value)}
           />
+          <p className="micro" style={{ marginTop: "0.35rem" }}>
+            {fmtDateJa(bizDate)}・{isEvent ? "イベント営業" : "通常営業"}
+            {day.is_busy ? "・繁忙日" : ""}
+          </p>
         </div>
-        <p className="micro" style={{ marginTop: "0.35rem" }}>
-          {fmtDateJa(bizDate)}・{isEvent ? "イベント営業" : "通常営業"}
-          {day.is_busy ? "・繁忙日" : ""}
+      ) : (
+        <p
+          className="notice"
+          style={{ fontFamily: "var(--font-serif)", fontSize: "1.05rem", color: "var(--gold-soft)" }}
+        >
+          {fmtDateJa(bizDate)}
+          <span className="micro" style={{ marginLeft: "0.6rem" }}>
+            {isEvent ? "イベント営業" : "通常営業"}
+            {day.is_busy ? "・繁忙日" : ""}
+          </span>
         </p>
-      </div>
+      )}
 
-      {/* 2. 時刻 */}
+      {/* 時刻 ─ 15分刻みで20:30まで。それ以降（二次会など）は任意入力で。 */}
       <div>
         <label className="field-label">
           時刻<span className="req">必須</span>
@@ -200,16 +230,34 @@ export default function ReservationForm({
               key={m}
               type="button"
               className="chip chip--num"
-              aria-pressed={startMin === m}
-              onClick={() => setStartMin(m)}
+              aria-pressed={startMin === m && !customTime}
+              onClick={() => pickTime(m)}
             >
               {minutesToLabel(m)}
             </button>
           ))}
         </div>
+        <div className="row" style={{ marginTop: "0.5rem", gap: "0.6rem" }}>
+          <label className="micro" htmlFor="custom_time" style={{ whiteSpace: "nowrap" }}>
+            上にない時刻
+          </label>
+          <input
+            id="custom_time"
+            type="time"
+            step={900}
+            className="field"
+            style={{ width: "auto" }}
+            value={customTime || (slots.includes(startMin) ? "" : minutesToLabel(startMin))}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              setCustomTime(e.target.value);
+              setStartMin(labelToMinutes(e.target.value));
+            }}
+          />
+        </div>
       </div>
 
-      {/* 3. 人数 */}
+      {/* 人数 */}
       <div>
         <label className="field-label">
           人数<span className="req">必須</span>
@@ -221,7 +269,7 @@ export default function ReservationForm({
               type="button"
               className="chip chip--num"
               aria-pressed={partySize === n}
-              onClick={() => setPartySize(n)}
+              onClick={() => changeParty(n)}
             >
               {n}
             </button>
@@ -234,7 +282,7 @@ export default function ReservationForm({
             className="field"
             style={{ width: "6.5rem" }}
             value={partySize}
-            onChange={(e) => setPartySize(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+            onChange={(e) => changeParty(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
             aria-label="人数（11名以上）"
           />
           <span className="micro" style={{ alignSelf: "center" }}>
@@ -251,18 +299,22 @@ export default function ReservationForm({
         ) : null}
       </div>
 
-      {/* 4-5. お客様 */}
+      {/* お客様 */}
       <div>
         <label className="field-label" htmlFor="customer_name">
           お名前<span className="req">必須</span>
         </label>
-        <input
-          id="customer_name"
-          className="field"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
+        <div className="row" style={{ gap: "0.5rem" }}>
+          <input
+            id="customer_name"
+            className="field"
+            style={{ flex: 1 }}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <span style={{ whiteSpace: "nowrap" }}>様</span>
+        </div>
       </div>
 
       <div>
@@ -292,13 +344,13 @@ export default function ReservationForm({
         />
       </div>
 
-      {/* 6. 流入元 ─ 既定値を置かない。選ばないと保存できない。 */}
+      {/* 流入元 ─ 既定値を置かない。選ばないと保存できない。 */}
       <div>
         <label className="field-label">
           どこから来た予約か<span className="req">必須</span>
         </label>
         <div className="chips">
-          {SOURCES.map((s) => (
+          {SELECTABLE_SOURCES.map((s) => (
             <button
               key={s.value}
               type="button"
@@ -310,43 +362,22 @@ export default function ReservationForm({
             </button>
           ))}
         </div>
-
-        {source === "owner_direct" ? (
-          <div style={{ marginTop: "0.6rem" }}>
-            <label className="field-label" htmlFor="owner">
-              どのオーナー経由か<span className="req">必須</span>
-            </label>
-            <select
-              id="owner"
-              className="field"
-              value={ownerId ?? ""}
-              onChange={(e) => setOwnerId(e.target.value)}
-            >
-              <option value="">選んでください</option>
-              {ownerContacts.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.display_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
       </div>
 
-      {/* 7. 席 ─ Phase 1 はメモ。重複判定は Phase 2 で入れる。 */}
+      {/* 席 ─ 必須。「指定なし」も選択のうち。7名様以上は複数選べる。 */}
       {!isEvent ? (
         <div>
-          <label className="field-label" htmlFor="seat_note">
-            席（任意・メモ）
+          <label className="field-label">
+            席<span className="req">必須</span>
           </label>
-          <div className="chips" style={{ marginBottom: "0.45rem" }}>
+          <div className="chips">
             {seatUnits.map((u) => (
               <button
                 key={u.id}
                 type="button"
                 className="chip"
-                aria-pressed={seatNote === u.name}
-                onClick={() => setSeatNote(seatNote === u.name ? "" : u.name)}
+                aria-pressed={seats.includes(u.name)}
+                onClick={() => pickSeat(u.name)}
               >
                 {u.name}
                 <span className="micro" style={{ marginLeft: "0.3rem" }}>
@@ -354,21 +385,24 @@ export default function ReservationForm({
                 </span>
               </button>
             ))}
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={seats.includes(NO_SEAT)}
+              onClick={() => pickSeat(NO_SEAT)}
+            >
+              {NO_SEAT}
+            </button>
           </div>
-          <input
-            id="seat_note"
-            className="field"
-            placeholder="例：テーブル2卓つなげて"
-            value={seatNote ?? ""}
-            onChange={(e) => setSeatNote(e.target.value)}
-          />
           <p className="micro" style={{ marginTop: "0.35rem" }}>
-            いまは席の重複チェックはしません（Phase 2 で入ります）。
+            {multiAllowed
+              ? "7名様以上なので、席をつなげて複数選べます。"
+              : "席の重複チェックはまだ入りません（Phase 2 で入ります）。"}
           </p>
         </div>
       ) : null}
 
-      {/* 8. コース */}
+      {/* コース */}
       <div>
         <label className="field-label" htmlFor="course">
           コース（任意）

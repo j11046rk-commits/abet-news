@@ -8,7 +8,6 @@ import { can, SOURCE_LABEL, STATUS_LABEL } from "@/lib/constants";
 import {
   getCourses,
   getDailySummary,
-  getOwnerContacts,
   getProfileNames,
   getReservation,
   getSeatUnits,
@@ -30,9 +29,8 @@ export default async function ReservationDetailPage({
   const reservation = await getReservation(id);
   if (!reservation) notFound();
 
-  const [day, ownerContacts, courses, seatUnits, names] = await Promise.all([
+  const [day, courses, seatUnits, names] = await Promise.all([
     getDailySummary(reservation.biz_date),
-    getOwnerContacts(),
     getCourses(),
     getSeatUnits(),
     getProfileNames(),
@@ -145,7 +143,6 @@ export default async function ReservationDetailPage({
               reservation={reservation}
               initialDay={day}
               defaultDate={reservation.biz_date}
-              ownerContacts={ownerContacts}
               courses={courses}
               seatUnits={seatUnits}
               onSubmit={updateReservation.bind(null, reservation.id)}

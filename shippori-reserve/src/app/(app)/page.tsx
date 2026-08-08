@@ -141,7 +141,7 @@ export default async function MonthPage({
                       <span className="mline__time">{startLabel(r)}</span>
                       <span className="mline__name">
                         {r.customer_name}
-                        <span className="muted"> {r.party_size}名</span>
+                        <span className="muted"> 様 {r.party_size}名</span>
                       </span>
                       {r.status === "tentative" ? (
                         <span className="badge badge--tentative">仮</span>
