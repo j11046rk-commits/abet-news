@@ -261,6 +261,8 @@ export type ReservationFilter = {
   to?: string;
   status?: string;
   source?: string;
+  /** 受付した人（created_by）で絞る */
+  createdBy?: string;
   q?: string;
   desc?: boolean;
 };
@@ -274,6 +276,7 @@ export async function searchReservations(f: ReservationFilter): Promise<Reservat
   if (f.to) query = query.lte("biz_date", f.to);
   if (f.status) query = query.eq("status", f.status);
   if (f.source) query = query.eq("source", f.source);
+  if (f.createdBy) query = query.eq("created_by", f.createdBy);
 
   if (f.q) {
     // 名前・カナ・電話・受付番号・メモを横断して探す。

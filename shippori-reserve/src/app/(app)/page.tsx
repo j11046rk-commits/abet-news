@@ -97,9 +97,6 @@ export default async function MonthPage({
         <Link className="btn btn-sm" href="/reservations" aria-label="予約の検索">
           検索
         </Link>
-        <Link className="btn btn-sm" href="/">
-          今月
-        </Link>
       </header>
 
       <div className="wrap" style={{ paddingTop: "0.4rem" }}>

@@ -4,41 +4,25 @@ import ReservationCard from "@/components/ReservationCard";
 import SearchControls from "@/components/SearchControls";
 import { requirePermission } from "@/lib/auth";
 import { ACTIVE_STATUSES } from "@/lib/constants";
-import { getProfileNames, searchReservations } from "@/lib/queries";
-import { shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
+import { getAllProfiles, searchReservations } from "@/lib/queries";
+import { fmtMonthJa, fmtYm, monthRange, shiftMonth, todayBizDate } from "@/lib/time";
 import type { Reservation } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+const YM_RE = /^\d{4}-\d{2}$/;
+
 type Search = {
-  period?: string;
-  from?: string;
-  to?: string;
-  status?: string;
+  m?: string;
   source?: string;
+  staff?: string;
   q?: string;
-  order?: string;
 };
 
-/** 期間チップ → 実際の日付範囲。「先週LINEで来た鈴木さん」に辿り着ければよい。 */
-function resolvePeriod(sp: Search): { from?: string; to?: string } {
-  const today = todayBizDate();
-  switch (sp.period) {
-    case "today":
-      return { from: today, to: today };
-    case "week":
-      return { from: today, to: shiftDate(today, 6) };
-    case "month":
-      return { from: shiftMonth(today, 0), to: shiftDate(shiftMonth(today, 1), -1) };
-    case "past":
-      return { from: shiftDate(today, -90), to: shiftDate(today, -1) };
-    case "all":
-      return {};
-    default:
-      return { from: sp.from || undefined, to: sp.to || undefined };
-  }
-}
-
+/**
+ * 予約一覧。月固定で ‹ › で月を切り替える（店主指定）。
+ * 流入元・担当（受付した人）・フリーワードで絞れる。
+ */
 export default async function ReservationsPage({
   searchParams,
 }: {
@@ -47,19 +31,24 @@ export default async function ReservationsPage({
   await requirePermission("reservation.read");
   const sp = await searchParams;
 
-  const range = resolvePeriod(sp);
-  const desc = sp.order === "desc" || sp.period === "past";
+  const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(todayBizDate());
+  const { from, to } = monthRange(ym);
 
-  const [rows, names] = await Promise.all([
+  const [rows, profiles] = await Promise.all([
     searchReservations({
-      ...range,
-      status: sp.status || undefined,
+      from,
+      to,
       source: sp.source || undefined,
+      createdBy: sp.staff || undefined,
       q: sp.q || undefined,
-      desc,
     }),
-    getProfileNames(),
+    getAllProfiles(),
   ]);
+
+  const names = new Map(profiles.map((p) => [p.id, p.display_name]));
+  const staffOptions = profiles
+    .filter((p) => p.is_active && p.role !== "viewer")
+    .map((p) => ({ id: p.id, name: p.display_name }));
 
   // 日付でまとめる。DBから既に日付順で来ているので順序はそのまま。
   const groups: { date: string; items: Reservation[] }[] = [];
@@ -72,21 +61,41 @@ export default async function ReservationsPage({
   const activeRows = rows.filter((r) => ACTIVE_STATUSES.includes(r.status));
   const guests = activeRows.reduce((sum, r) => sum + r.party_size, 0);
 
+  /** 月を移動しても、いまの絞り込み（流入元・担当・語句）は保つ */
+  const monthHref = (n: number): string => {
+    const q = new URLSearchParams();
+    q.set("m", fmtYm(shiftMonth(`${ym}-01`, n)));
+    if (sp.source) q.set("source", sp.source);
+    if (sp.staff) q.set("staff", sp.staff);
+    if (sp.q) q.set("q", sp.q);
+    return `/reservations?${q.toString()}`;
+  };
+
   return (
     <>
       <header className="appbar">
-        <div className="appbar__title">予約一覧</div>
-        <div className="appbar__spacer" />
-        <span className="appbar__sub">
-          {rows.length}件 / {guests}名
-        </span>
+        <Link className="btn btn-sm" href="/">
+          ‹ カレンダー
+        </Link>
+        <Link className="btn btn-sm" href={monthHref(-1)} aria-label="前の月">
+          ‹
+        </Link>
+        <div>
+          <div className="appbar__title">{fmtMonthJa(`${ym}-01`)} 予約</div>
+          <div className="appbar__sub">
+            {rows.length}件 / {guests}名
+          </div>
+        </div>
+        <Link className="btn btn-sm" href={monthHref(1)} aria-label="次の月">
+          ›
+        </Link>
       </header>
 
       <div className="wrap">
-        <SearchControls />
+        <SearchControls staffOptions={staffOptions} />
 
         {groups.length === 0 ? (
-          <p className="empty">該当する予約はありません。</p>
+          <p className="empty">この月の該当する予約はありません。</p>
         ) : (
           groups.map((g) => (
             <section key={g.date} className="daygroup">
