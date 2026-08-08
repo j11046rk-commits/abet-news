@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmMonthShifts, submitMyRequests } from "@/app/(app)/shifts/actions";
 import { chipColors } from "@/lib/staff";
@@ -60,6 +60,22 @@ export default function ShiftBoard({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+
+  // 出勤日数バーはアプリバーのすぐ下に貼り付く。アプリバーは副題の折り返しや
+  // 文字サイズ設定で高さが変わるので、決め打ちせず実測して合わせる。
+  const countbarRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const bar = countbarRef.current;
+    const appbar = document.querySelector<HTMLElement>(".appbar");
+    if (!bar || !appbar) return;
+    const apply = () => {
+      bar.style.top = `${appbar.offsetHeight}px`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(appbar);
+    return () => ro.disconnect();
+  }, []);
 
   // ── 下書き ──
   const [draft, setDraft] = useState<Record<string, string[]>>(confirmedInit);
@@ -171,7 +187,7 @@ export default function ShiftBoard({
   return (
     <div className="stack">
       {/* 出勤日数。スクロールしても常に見える。 */}
-      <div className="countbar">
+      <div className="countbar" ref={countbarRef}>
         {staff.map((p) => (
           <span key={p.id} className="shiftchip" style={chipColors(p.colorIndex)}>
             {p.name} {counts.get(p.id) ?? 0}
