@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ModeBadge } from "@/components/Badges";
+import DayShiftEditor from "@/components/DayShiftEditor";
 import ReservationCard from "@/components/ReservationCard";
 import { attentionReason } from "@/lib/attention";
 import { requireProfile } from "@/lib/auth";
-import { ACTIVE_STATUSES, TOTAL_SEATS } from "@/lib/constants";
+import { ACTIVE_STATUSES, TOTAL_SEATS, can } from "@/lib/constants";
 import { chipColors, surname } from "@/lib/staff";
 import {
   getAllProfiles,
@@ -25,7 +26,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * 当日の時系列・来店/会計の1タップ・シフトの確認と編集はここ。
  */
 export default async function DayPage({ params }: { params: Promise<{ date: string }> }) {
-  await requireProfile();
+  const me = await requireProfile();
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
@@ -44,10 +45,16 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
-  // 表示は確定シフトのみ。編集はシフトタブで行う。
   const onShift = profiles
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => shiftIds.includes(p.id))
+    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
+
+  // 店長・オーナーは、確定済みの日ならここで直せる（急な休み・交代）
+  const canEditShift = can(me.role, "shift.write") && !!shiftsPublishedAt && !summary.is_closed;
+  const shiftStaff = profiles
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer")
     .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
 
   const flagged = reservations
@@ -116,7 +123,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         </section>
 
         <section className="card">
-          <div className="row" style={{ marginBottom: onShift.length ? "0.5rem" : 0 }}>
+          <div className="row" style={{ marginBottom: onShift.length || canEditShift ? "0.5rem" : 0 }}>
             <p className="micro" style={{ letterSpacing: "0.12em", margin: 0 }}>
               この日のシフト
             </p>
@@ -124,7 +131,10 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               シフト表へ ›
             </Link>
           </div>
-          {onShift.length > 0 ? (
+          {canEditShift ? (
+            // 前後の日に移動したら編集状態を作り直す（key が無いと前の日の下書きが残る）
+            <DayShiftEditor key={date} date={date} staff={shiftStaff} initial={shiftIds} />
+          ) : onShift.length > 0 ? (
             <div className="chips">
               {onShift.map((p) => (
                 <span key={p.id} className="shiftchip" style={chipColors(p.colorIndex)}>

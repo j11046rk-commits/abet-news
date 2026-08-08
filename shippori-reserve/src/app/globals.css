@@ -823,6 +823,23 @@ textarea.field {
   line-height: 1;
 }
 
+/* 出勤可＝緑地に白◯・出勤不可＝赤地に白×（店主指定の配色） */
+.scell--ok {
+  background: #37795b;
+  border-color: #37795b;
+  color: #fff;
+}
+.scell--ng {
+  background: #a8453a;
+  border-color: #a8453a;
+  color: #fff;
+}
+.scell--ok .scell__mark,
+.scell--ng .scell__mark {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 /* 出勤日数。スクロールしても常に見える。 */
 .countbar {
   position: sticky;

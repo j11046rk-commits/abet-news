@@ -69,3 +69,29 @@ export async function confirmMonthShifts(
   revalidatePath("/day/[date]", "page");
   return { ok: true };
 }
+
+/**
+ * 確定済みの日のシフトを差し替える（店長・オーナー）。急な休みや交代用。
+ * 月が未確定なら DB関数 update_day_shifts が拒否する。
+ */
+export async function updateDayShifts(
+  date: string,
+  profileIds: string[],
+): Promise<ShiftActionResult> {
+  const me = await requireProfile();
+  if (!can(me.role, "shift.write")) return { ok: false, error: "権限がありません。" };
+  if (!DATE_RE.test(date)) return { ok: false, error: "日付が不正です。" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_day_shifts", {
+    p_date: date,
+    p_profile_ids: profileIds,
+  });
+
+  if (error) return { ok: false, error: rpcError(error.message, "保存できませんでした。") };
+
+  revalidatePath("/");
+  revalidatePath("/shifts");
+  revalidatePath("/day/[date]", "page");
+  return { ok: true };
+}

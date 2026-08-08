@@ -114,8 +114,10 @@ export default async function ShiftsPage({
           <div className="appbar__title">{fmtMonthJa(`${ym}-01`)} シフト</div>
           <div className="appbar__sub">
             {mode === "manage"
-              ? "点線＝希望あり・タップで下書き・ボタンで確定"
-              : "入れる日をチェックして提出"}
+              ? publishedAt
+                ? "確定済み。タップで直して「確定し直す」で反映"
+                : "点線＝希望あり・タップで下書き・ボタンで確定"
+              : "出勤できる日を◯にして提出"}
           </div>
         </div>
         <Link className="btn btn-sm" href={`/shifts?m=${fmtYm(shiftMonth(`${ym}-01`, 1))}`} aria-label="次の月">
@@ -130,7 +132,7 @@ export default async function ShiftsPage({
               <p className="notice">
                 {fmtMonthJa(`${targetYm}-01`)}の希望シフトは
                 <strong> 今月{REQUEST_DEADLINE_DAY}日まで </strong>。
-                入れる日をタップしてチェックし、下の提出ボタンを押してください。
+                タップして出勤できる日を◯・できない日を×にし、下の提出ボタンを押してください。
               </p>
             ) : (
               <p className="notice notice-strong">

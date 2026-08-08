@@ -132,21 +132,21 @@ export default function ShiftBoard({
               <button
                 key={d.date}
                 type="button"
-                className={`scell ${d.closed ? "scell--closed" : ""}`}
-                style={on ? chipColors(staff.find((p) => p.id === myId)?.colorIndex ?? 0) : undefined}
+                className={`scell ${d.closed ? "scell--closed" : on ? "scell--ok" : "scell--ng"}`}
                 aria-pressed={on}
+                aria-label={`${d.day}日 ${d.closed ? "休業日" : on ? "出勤可" : "出勤不可"}`}
                 disabled={pending || d.closed || !requestOpen}
                 onClick={() => toggleMyDay(d.date)}
               >
                 <span className="scell__day">{d.day}</span>
-                {d.closed ? <span className="scell__mark">休</span> : on ? <span className="scell__mark">◯</span> : null}
+                <span className="scell__mark">{d.closed ? "休" : on ? "◯" : "×"}</span>
               </button>
             );
           })}
         </div>
 
         <p className="micro" style={{ textAlign: "center" }}>
-          入れる日 {myDays.size} 日
+          ◯（出勤できる日）{myDays.size} 日
           {mySubmittedAt ? `｜前回の提出 ${fmtStamp(mySubmittedAt)}` : "｜まだ提出していません"}
         </p>
 
