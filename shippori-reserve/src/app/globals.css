@@ -1344,3 +1344,158 @@ textarea.field {
   color: var(--gold);
   margin: 1.4rem 0 0.6rem;
 }
+
+/* ═══════════════ ネット予約（お客様向け・/yoyaku）═══════════════
+   スタッフアプリと同じ濃紺×金。ただし片手のスマホで迷わず進める
+   縦一直線のウィザードで、タブバーは持たない。 */
+
+.net {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: calc(1rem + var(--safe-t)) 1rem calc(2.5rem + var(--safe-b));
+}
+
+.net__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.2rem 1rem;
+}
+.net__shop { margin: 0; font-size: 0.78rem; color: var(--text-dim); letter-spacing: 0.06em; }
+.net__title { margin: 0; font-family: var(--font-serif); font-size: 1.45rem; color: var(--gold-soft); }
+
+.net__flow { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.net__card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.net__step-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.net__no {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.net__picked { margin-left: auto; font-size: 0.82rem; color: var(--gold-soft); font-weight: 400; }
+
+.net__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.net__chip {
+  min-width: 3.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 1rem;
+}
+.net__chip:disabled { opacity: 0.32; text-decoration: line-through; }
+.net__chip--on { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+
+.net__hint { margin: 0.7rem 0 0; font-size: 0.82rem; color: var(--text-dim); line-height: 1.7; }
+.net__hint a, .net__note a, .net__foot a, .net__event a { color: var(--gold-soft); }
+.net__event { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--beer); }
+
+.net__monthnav { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-bottom: 0.7rem; }
+.net__month { font-size: 1.02rem; font-weight: 600; min-width: 7rem; text-align: center; }
+
+.net__cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.28rem; }
+.net__dow { text-align: center; font-size: 0.72rem; color: var(--text-dim); padding-bottom: 0.15rem; }
+.net__dow--sun { color: #e08585; }
+.net__dow--sat { color: #7ba3e0; }
+
+.net__day {
+  aspect-ratio: 1 / 1.12;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  padding: 0;
+}
+.net__day:disabled { opacity: 0.42; }
+.net__day-n { font-size: 0.88rem; line-height: 1.1; }
+.net__day-m { font-size: 0.72rem; line-height: 1; }
+.net__day--ok .net__day-m { color: var(--gold-soft); }
+.net__day--few .net__day-m { color: var(--warn); }
+.net__day--full .net__day-m, .net__day--closed .net__day-m { color: var(--text-dim); }
+.net__day--sel { background: var(--gold); border-color: var(--gold); }
+.net__day--sel .net__day-n, .net__day--sel .net__day-m { color: var(--bg); font-weight: 700; }
+
+.net__label { display: block; margin: 0.8rem 0 0.3rem; font-size: 0.85rem; color: var(--text-dim); }
+.net__label:first-of-type { margin-top: 0; }
+.net__label em { font-style: normal; color: var(--seal); font-size: 0.75rem; margin-left: 0.25rem; }
+
+.net__confirm-btn { width: 100%; margin-top: 1rem; padding: 0.85rem; font-size: 1.05rem; }
+.net__btnrow { display: flex; gap: 0.6rem; margin-top: 1rem; }
+.net__grow { flex: 1; }
+
+.net__error {
+  margin: 0 0 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--seal) 16%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--seal) 45%, var(--line));
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.net__summary { margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.net__summary > div { display: flex; gap: 0.8rem; }
+.net__summary dt { flex: none; width: 4.6rem; color: var(--text-dim); font-size: 0.85rem; padding-top: 0.1rem; }
+.net__summary dd { margin: 0; }
+.net__summary--big dd { font-size: 1.05rem; }
+
+.net__fineprint { margin: 0.9rem 0 0; font-size: 0.8rem; color: var(--text-dim); line-height: 1.7; }
+
+.net__done { text-align: center; }
+.net__done-mark { margin: 0; font-size: 2.2rem; }
+.net__done h2 { margin: 0.3rem 0 0.4rem; font-family: var(--font-serif); color: var(--gold-soft); }
+.net__done-lead { margin: 0 0 1rem; font-size: 0.9rem; color: var(--text-dim); }
+.net__ref {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--bg-3);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+}
+.net__ref-label { font-size: 0.75rem; color: var(--text-dim); }
+.net__ref-num { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.08em; color: var(--gold-soft); }
+.net__done .net__summary { text-align: left; }
+.net__note { margin-top: 1rem; font-size: 0.85rem; color: var(--text-dim); line-height: 1.8; text-align: left; }
+.net__note p { margin: 0 0 0.3rem; }
+
+.net__foot { margin: 0.4rem 0 0; text-align: center; font-size: 0.85rem; color: var(--text-dim); }
+.net__pagefoot {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.net__pagefoot p { margin: 0.15rem 0; }
+.net__pagefoot a { color: var(--gold-soft); }

@@ -8,6 +8,7 @@ const r = site.予約問い合わせ;
 const ig = site.instagram;
 const tel = s.電話番号.replace(/-/g, '');
 const hasLine = r.lineURL && r.lineURL.trim() !== '';
+const netURL = (r.ネット予約URL || '').trim();
 ---
 <section class="ctaband" aria-label="ご予約・お問い合わせ">
   <div class="container ctaband__inner">
@@ -16,7 +17,13 @@ const hasLine = r.lineURL && r.lineURL.trim() !== '';
       <p class="ctaband__text">{c.本文}</p>
     </div>
     <div class="ctaband__btns">
-      <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+      {netURL && (
+        <a class="btn btn--primary btn--lg" href={netURL}>
+          <Icon name="calendar" size={20} />
+          <span>ネット予約</span>
+        </a>
+      )}
+      <a class={`btn btn--lg ${netURL ? 'btn--ghost' : 'btn--primary'}`} href={`tel:${tel}`}>
         <Icon name="phone" size={20} />
         <span>電話で予約</span>
         <span class="btn__phone-num">{s.電話番号表示用}</span>

@@ -10,7 +10,15 @@ import { createServerClient } from "@supabase/ssr";
  */
 // /api/sales/ingest はセッションではなく x-api-key（SALES_INGEST_TOKEN）で守る。
 // ここに入れないと未ログインのPOSTが /login へ転送され、送信元は200(HTML)を成功と誤認する。
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/sales/ingest", "/manifest.webmanifest"];
+// /yoyaku と /api/public はお客様向けのネット予約（ログイン不要が仕様）。
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/sales/ingest",
+  "/manifest.webmanifest",
+  "/yoyaku",
+  "/api/public",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,8 +26,16 @@ export async function middleware(request: NextRequest) {
   /*
    * 認証に用が無いパスは Supabase への往復より前に返す。
    * manifest はホーム画面登録時にブラウザが Cookie 無しで取りに来る。
+   * ネット予約（/yoyaku・/api/public）はお客様向けで、セッションを一切使わない。
    */
-  if (pathname === "/api/ping" || pathname === "/manifest.webmanifest" || pathname === "/sw.js") {
+  if (
+    pathname === "/api/ping" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
+    pathname === "/yoyaku" ||
+    pathname.startsWith("/yoyaku/") ||
+    pathname.startsWith("/api/public/")
+  ) {
     return NextResponse.next({ request });
   }
 

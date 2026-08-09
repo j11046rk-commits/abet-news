@@ -380,3 +380,19 @@ src/lib/
   stats.ts           集計クエリ
   time.ts            JST・営業日・open_min/close_min の変換をここに閉じ込める
 ```
+
+## ネット予約（公開API・ログイン不要）
+
+HP（shipporitei.jp）の「ネット予約」から使う。空席の判定は店内と同じデータ・同じ物差し。
+
+| メソッド/パス | 役割 |
+|---|---|
+| `GET /api/public/availability?ym=YYYY-MM&party=N` | 月カレンダー（◯/△/×/休）。予約の中身は返さない |
+| `GET /api/public/availability?date=YYYY-MM-DD&party=N` | その日の時間枠（30分刻み・2時間前まで） |
+| `POST /api/public/reservations` | 即時確定（〜8名・60日先まで）。source=web_form で登録。席は自動割当 |
+| `POST /api/public/cancel` | Webキャンセル（予約番号＋電話番号で本人確認・開始2時間前まで） |
+
+- 画面は `/yoyaku`（予約）と `/yoyaku/cancel`（キャンセル）。
+- 書き込みの最後の砦は DB 関数 `net_reserve`（0021）。advisory lock で同日を直列化し、
+  再判定と登録を1トランザクションで行うので、同時送信でも席は二重にならない。
+- 防衛：ハニーポット欄・同一電話番号は今後の営業日に3件まで・窓口全体で直近10分20件まで。
