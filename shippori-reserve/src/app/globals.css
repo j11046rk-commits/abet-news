@@ -97,7 +97,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.7rem 1rem;
+  /* ホーム画面から起動(PWA)するとステータスバーの下に潜るので、ノッチぶんを上に足す */
+  padding: calc(0.7rem + var(--safe-t)) 1rem 0.7rem;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);

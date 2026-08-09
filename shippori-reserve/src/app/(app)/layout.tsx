@@ -1,3 +1,4 @@
+import AutoRefresh from "@/components/AutoRefresh";
 import Nav from "@/components/Nav";
 import { requireProfile } from "@/lib/auth";
 
@@ -7,6 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="app">
+      <AutoRefresh />
       {children}
       <Nav />
     </div>

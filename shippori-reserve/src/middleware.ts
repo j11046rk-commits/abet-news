@@ -8,7 +8,9 @@ import { createServerClient } from "@supabase/ssr";
  * ここで弾くのは1枚目の壁で、2枚目は DB の RLS。
  * ミドルウェアのバグだけで予約データが漏れることはない。
  */
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/manifest.webmanifest"];
+// /api/sales/ingest はセッションではなく x-api-key（SALES_INGEST_TOKEN）で守る。
+// ここに入れないと未ログインのPOSTが /login へ転送され、送信元は200(HTML)を成功と誤認する。
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/sales/ingest", "/manifest.webmanifest"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
