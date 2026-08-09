@@ -28,7 +28,6 @@ export const NET = {
   minLeadMin: 120, // 開始の2時間前まで
   maxDaysAhead: 60,
   slotStep: 30,
-  counterMaxParty: 4, // ネットからの自動割当でカウンターに座らせる上限
 } as const;
 
 export type NetDayStatus = "ok" | "few" | "full" | "closed" | "out";
@@ -99,35 +98,55 @@ async function fetchRange(from: string, to: string) {
   };
 }
 
+export type NetSeat = {
+  name: string;
+  capacity: number;
+  is_shared: boolean;
+  /** カウンターのみ：残り席数 */
+  remaining: number | null;
+  /** この人数・この日で選べるか */
+  selectable: boolean;
+  /** 選べない理由（表示用）："埋" 予約済み／"狭" 人数が入らない／"繁" 繁忙日ルール */
+  reason: "" | "埋" | "狭" | "繁";
+};
+
 /**
- * その晩に party 名を通せる席の候補を、店の好みの順で返す。
- * 1〜2名はカウンター優先。繁忙日は3名以下もカウンター優先（店の運用と同じ）。
- * 3名以上はぴったりに近いテーブル→和室。テーブルが全滅なら4名まではカウンターに逃がす。
+ * その晩の席一覧を「選べる／選べない＋理由」つきで返す。お客様が席まで選ぶ。
+ * 店のルール：繁忙日の3名様以下はカウンターのみ（テーブル・和室は選択不可）。
  */
-export function seatCandidates(
+export function seatOptions(
   day: Pick<DayRow, "is_busy">,
   rows: ResvRow[],
   units: SeatUnit[],
   party: number,
-): string[] {
+): NetSeat[] {
   const usage = computeSeatUsage(rows as Reservation[]);
-  const counter = units.find((u) => u.is_shared);
-  const counterOk =
-    counter !== undefined &&
-    party <= NET.counterMaxParty &&
-    usage.counter_used + party <= counter.capacity;
+  const busyRule = day.is_busy && party <= 3;
 
-  const tables = units
-    .filter((u) => !u.is_shared && u.capacity >= party && !usage.taken.includes(u.name))
-    .sort((a, b) => a.capacity - b.capacity || a.sort_order - b.sort_order)
-    .map((u) => u.name);
-
-  const preferCounter = party <= 2 || (day.is_busy && party <= 3);
-  const out: string[] = [];
-  if (counterOk && preferCounter) out.push(COUNTER_NAME);
-  out.push(...tables);
-  if (counterOk && !preferCounter) out.push(COUNTER_NAME);
-  return out;
+  return units.map((u) => {
+    if (u.is_shared) {
+      const remaining = Math.max(0, u.capacity - usage.counter_used);
+      return {
+        name: u.name,
+        capacity: u.capacity,
+        is_shared: true,
+        remaining,
+        selectable: remaining >= party,
+        reason: remaining >= party ? ("" as const) : ("埋" as const),
+      };
+    }
+    const taken = usage.taken.includes(u.name);
+    const tooSmall = u.capacity < party;
+    const busyBlocked = busyRule;
+    return {
+      name: u.name,
+      capacity: u.capacity,
+      is_shared: false,
+      remaining: null,
+      selectable: !taken && !tooSmall && !busyBlocked,
+      reason: taken ? ("埋" as const) : busyBlocked ? ("繁" as const) : tooSmall ? ("狭" as const) : ("" as const),
+    };
+  });
 }
 
 /** 営業日の枠（30分刻み・滞在時間ぶん手前まで） */
@@ -171,9 +190,9 @@ function dayStatus(
     return cap - guests - party < 8 ? "few" : "ok";
   }
 
-  const cands = seatCandidates(day, rows, ctx.units, party);
-  if (cands.length === 0) return "full";
-  return cands.length === 1 ? "few" : "ok";
+  const selectable = seatOptions(day, rows, ctx.units, party).filter((s) => s.selectable);
+  if (selectable.length === 0) return "full";
+  return selectable.length === 1 ? "few" : "ok";
 }
 
 /** 予約ページのカレンダー用：月内の各日を ◯／残りわずか／×／休 で返す */
@@ -211,7 +230,10 @@ export async function dayAvailability(date: string, party: number) {
     status,
     is_event: day.mode === "event",
     event_name: day.event_name,
+    is_busy: day.is_busy,
     slots,
+    // イベント日は席の概念がない（お席自由）
+    seats: day.mode === "event" ? [] : seatOptions(day, rows, ctx.units, party),
   };
 }
 
@@ -219,6 +241,9 @@ export type NetBookingInput = {
   date: string;
   start_min: number;
   party: number;
+  /** お客様が選んだ席（イベント日は不要） */
+  seat?: string;
+  /** フルネーム（姓と名） */
   name: string;
   kana?: string;
   phone: string;
@@ -256,6 +281,9 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     return { ok: false, error: "9名様以上のご予約はお電話で承ります。", code: "REJECT" };
   }
   if (!name) return { ok: false, error: "お名前を入力してください。" };
+  if (!/\S+[\s　]+\S+/.test(name)) {
+    return { ok: false, error: "お名前は姓と名（フルネーム）でご入力ください。" };
+  }
   if (name.length > 40 || kana.length > 40) return { ok: false, error: "お名前が長すぎます。" };
   if (!phone) return { ok: false, error: "電話番号を正しく入力してください（10〜11桁）。" };
   if (memo.length > 200) return { ok: false, error: "ご要望は200文字以内でお願いします。" };
@@ -306,11 +334,21 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     const guests = rows.reduce((a, r) => a + r.party_size, 0);
     if (guests + party > cap) return { ok: false, error: "満席です。", code: "RETRY" };
   } else {
-    const cands = seatCandidates(day, rows, ctx.units, party);
-    if (cands.length === 0) {
-      return { ok: false, error: "この日は満席です。別の日をご検討ください。", code: "RETRY" };
+    const picked = seatOptions(day, rows, ctx.units, party).find(
+      (s) => s.name === (input.seat ?? "").trim(),
+    );
+    if (!picked) return { ok: false, error: "お席を選んでください。", code: "RETRY" };
+    if (!picked.selectable) {
+      return {
+        ok: false,
+        error:
+          picked.reason === "繁"
+            ? "繁忙日は3名様以下はカウンター席のみ承っています。"
+            : "その席は選べなくなりました。空席を選び直してください。",
+        code: "RETRY",
+      };
     }
-    seatNote = cands[0];
+    seatNote = picked.name;
   }
 
   const { data, error } = await admin.rpc("net_reserve", {

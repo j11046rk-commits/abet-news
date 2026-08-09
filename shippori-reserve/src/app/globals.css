@@ -1499,3 +1499,34 @@ textarea.field {
 }
 .net__pagefoot p { margin: 0.15rem 0; }
 .net__pagefoot a { color: var(--gold-soft); }
+
+/* ネット予約：席選択と姓名2列 */
+.net__seats { display: flex; flex-direction: column; gap: 0.5rem; }
+.net__seat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 0.98rem;
+  text-align: left;
+}
+.net__seat:disabled { opacity: 0.45; }
+.net__seat:disabled .net__seat-name { text-decoration: line-through; }
+.net__seat--on { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+.net__seat-why { flex: none; font-size: 0.75rem; color: var(--text-dim); }
+.net__seat--on .net__seat-why { color: var(--bg); }
+.net__busy {
+  margin: 0 0 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.net__namerow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }

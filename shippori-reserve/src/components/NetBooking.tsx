@@ -5,8 +5,9 @@ import { minutesToLabel, WEEKDAY_JA } from "@/lib/time";
 
 /**
  * お客様向けネット予約（ログイン不要）。
- * 人数 → 日付 → 時間 → お客様情報 → 確認 → 完了 の1画面ウィザード。
- * 空席はすべて /api/public/availability に聞く（判定ロジックはサーバーだけが持つ）。
+ * 人数 → 日付 → 時間 → お席 → お客様情報 → 確認 → 完了 の1画面ウィザード。
+ * 空席・席の選択可否はすべて /api/public/availability に聞く（判定はサーバーだけが持つ）。
+ * 繁忙日の3名様以下はカウンターのみ（テーブル・和室は選択不可＝店のルール）。
  */
 
 const TEL = "0897-47-4494";
@@ -14,7 +15,22 @@ const TEL_HREF = "tel:0897474494";
 
 type DayCell = { date: string; status: "ok" | "few" | "full" | "closed" | "out" };
 type Slot = { min: number; ok: boolean };
-type DayInfo = { status: string; is_event: boolean; event_name: string | null; slots: Slot[] };
+type Seat = {
+  name: string;
+  capacity: number;
+  is_shared: boolean;
+  remaining: number | null;
+  selectable: boolean;
+  reason: "" | "埋" | "狭" | "繁";
+};
+type DayInfo = {
+  status: string;
+  is_event: boolean;
+  event_name: string | null;
+  is_busy: boolean;
+  slots: Slot[];
+  seats: Seat[];
+};
 
 const ymOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const addMonths = (ym: string, n: number) => {
@@ -28,6 +44,9 @@ const jaDate = (date: string) => {
   return `${y}年${m}月${d}日(${w})`;
 };
 
+const seatLabel = (s: Seat) =>
+  s.is_shared ? `カウンター（残り${s.remaining}席）` : `${s.name}（${s.capacity}名掛け）`;
+
 export default function NetBooking() {
   const thisYm = ymOf(new Date());
   const maxYm = addMonths(thisYm, 2);
@@ -39,8 +58,10 @@ export default function NetBooking() {
   const [date, setDate] = useState<string | null>(null);
   const [dayInfo, setDayInfo] = useState<DayInfo | null>(null);
   const [min, setMin] = useState<number | null>(null);
+  const [seat, setSeat] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
+  const [sei, setSei] = useState("");
+  const [mei, setMei] = useState("");
   const [kana, setKana] = useState("");
   const [phone, setPhone] = useState("");
   const [memo, setMemo] = useState("");
@@ -50,9 +71,11 @@ export default function NetBooking() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [doneRef, setDoneRef] = useState("");
+  const [doneSeat, setDoneSeat] = useState("");
 
-  const formRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
+  const seatRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const loadMonth = useCallback(async (targetYm: string, targetParty: number) => {
     setMonthLoading(true);
@@ -85,23 +108,39 @@ export default function NetBooking() {
     setDate(null);
     setDayInfo(null);
     setMin(null);
+    setSeat(null);
   };
 
   const pickDate = (d: DayCell) => {
     if (d.status !== "ok" && d.status !== "few") return;
     setDate(d.date);
     setMin(null);
+    setSeat(null);
     loadDay(d.date, party);
     setTimeout(() => timeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
   const pickMin = (m: number) => {
     setMin(m);
+    setTimeout(() => seatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
+
+  const pickSeat = (name: string) => {
+    setSeat(name);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
+  const isEvent = dayInfo?.is_event === true;
+  const seatDone = isEvent || seat !== null;
   const canConfirm =
-    date !== null && min !== null && name.trim() !== "" && phone.replace(/[^0-9]/g, "").length >= 10;
+    date !== null &&
+    min !== null &&
+    seatDone &&
+    sei.trim() !== "" &&
+    mei.trim() !== "" &&
+    phone.replace(/[^0-9]/g, "").length >= 10;
+
+  const fullName = `${sei.trim()} ${mei.trim()}`.trim();
 
   const submit = async () => {
     if (date === null || min === null || sending) return;
@@ -115,7 +154,8 @@ export default function NetBooking() {
           date,
           start_min: min,
           party,
-          name,
+          seat: isEvent ? undefined : (seat ?? ""),
+          name: fullName,
           kana,
           phone,
           memo,
@@ -125,17 +165,16 @@ export default function NetBooking() {
       const data = await res.json();
       if (data.ok) {
         setDoneRef(data.reference as string);
+        setDoneSeat((data.seat_note as string) ?? "");
         setStep("done");
       } else {
         setError(data.error ?? "予約できませんでした。");
+        setStep("pick");
         if (data.code === "RETRY") {
           // たった今埋まった等。最新の空きを取り直して選び直してもらう
-          setStep("pick");
-          setMin(null);
+          setSeat(null);
           loadMonth(ym, party);
           if (date) loadDay(date, party);
-        } else {
-          setStep("pick");
         }
       }
     } catch {
@@ -169,7 +208,8 @@ export default function NetBooking() {
         <dl className="net__summary">
           <div><dt>日時</dt><dd>{date && jaDate(date)} {min !== null && minutesToLabel(min)}</dd></div>
           <div><dt>人数</dt><dd>{party}名様</dd></div>
-          <div><dt>お名前</dt><dd>{name.trim()} 様</dd></div>
+          {doneSeat && doneSeat !== "指定なし" && <div><dt>お席</dt><dd>{doneSeat}</dd></div>}
+          <div><dt>お名前</dt><dd>{fullName} 様</dd></div>
         </dl>
         <div className="net__note">
           <p><b>予約番号をお控えください</b>（スクリーンショット推奨）。</p>
@@ -187,12 +227,12 @@ export default function NetBooking() {
         <dl className="net__summary net__summary--big">
           <div><dt>日時</dt><dd>{date && jaDate(date)} {min !== null && minutesToLabel(min)}〜</dd></div>
           <div><dt>人数</dt><dd>{party}名様</dd></div>
-          <div><dt>お名前</dt><dd>{name.trim()}{kana.trim() ? `（${kana.trim()}）` : ""} 様</dd></div>
+          <div><dt>お席</dt><dd>{isEvent ? "自由席（イベント営業）" : seat}</dd></div>
+          <div><dt>お名前</dt><dd>{fullName}{kana.trim() ? `（${kana.trim()}）` : ""} 様</dd></div>
           <div><dt>電話番号</dt><dd>{phone}</dd></div>
           {memo.trim() && <div><dt>ご要望</dt><dd>{memo.trim()}</dd></div>}
         </dl>
         <p className="net__fineprint">
-          お席は当店にお任せいただきます（ご要望があれば上のメモへ）。
           キャンセルは開始2時間前までWebで、それ以降はお電話でお願いします。
         </p>
         {error && <p className="net__error">{error}</p>}
@@ -299,21 +339,63 @@ export default function NetBooking() {
         )}
       </section>
 
+      <section className="net__card" ref={seatRef}>
+        <h2 className="net__step-title"><span className="net__no">4</span>お席</h2>
+        {date === null || dayInfo === null ? (
+          <p className="net__hint">先に日付と時間をお選びください。</p>
+        ) : isEvent ? (
+          <p className="net__hint">イベント営業のため自由席です（お席の選択はありません）。</p>
+        ) : (
+          <>
+            {dayInfo.is_busy && party <= 3 && (
+              <p className="net__busy">この日は混み合う日のため、3名様以下は<b>カウンター席のみ</b>のご案内です。</p>
+            )}
+            <div className="net__seats">
+              {dayInfo.seats.map((s) => (
+                <button
+                  key={s.name}
+                  className={`net__seat${seat === s.name ? " net__seat--on" : ""}`}
+                  disabled={!s.selectable}
+                  onClick={() => pickSeat(s.name)}
+                >
+                  <span className="net__seat-name">{seatLabel(s)}</span>
+                  {!s.selectable && (
+                    <span className="net__seat-why">
+                      {s.reason === "埋" ? "予約済み" : s.reason === "繁" ? "この日は選べません" : "人数が入りません"}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <p className="net__hint">カウンターはお隣と相席の1枚板です。テーブル・和室（掘りごたつ）は1組様ごとのご案内です。</p>
+          </>
+        )}
+      </section>
+
       <section className="net__card" ref={formRef}>
-        <h2 className="net__step-title"><span className="net__no">4</span>お客様情報</h2>
-        <label className="net__label" htmlFor="net-name">お名前 <em>必須</em></label>
-        <input id="net-name" className="field" value={name} maxLength={40}
-          onChange={(e) => setName(e.target.value)} placeholder="例）山内" autoComplete="name" />
+        <h2 className="net__step-title"><span className="net__no">5</span>お客様情報</h2>
+        <div className="net__namerow">
+          <div>
+            <label className="net__label" htmlFor="net-sei">姓 <em>必須</em></label>
+            <input id="net-sei" className="field" value={sei} maxLength={20}
+              onChange={(e) => setSei(e.target.value)} placeholder="例）山内" autoComplete="family-name" />
+          </div>
+          <div>
+            <label className="net__label" htmlFor="net-mei">名 <em>必須</em></label>
+            <input id="net-mei" className="field" value={mei} maxLength={20}
+              onChange={(e) => setMei(e.target.value)} placeholder="例）太郎" autoComplete="given-name" />
+          </div>
+        </div>
         <label className="net__label" htmlFor="net-kana">フリガナ</label>
         <input id="net-kana" className="field" value={kana} maxLength={40}
-          onChange={(e) => setKana(e.target.value)} placeholder="例）ヤマウチ" />
+          onChange={(e) => setKana(e.target.value)} placeholder="例）ヤマウチ タロウ" />
         <label className="net__label" htmlFor="net-phone">電話番号 <em>必須</em></label>
         <input id="net-phone" className="field" value={phone} inputMode="tel" maxLength={13}
           onChange={(e) => setPhone(e.target.value)} placeholder="例）090-1234-5678" autoComplete="tel" />
         <label className="net__label" htmlFor="net-memo">ご要望（任意）</label>
         <textarea id="net-memo" className="field" value={memo} maxLength={200} rows={3}
           onChange={(e) => setMemo(e.target.value)}
-          placeholder="アレルギー・お祝い・掘りごたつ希望 など" />
+          placeholder="アレルギー・お祝い など" />
         {/* ボット対策。人間には見えない */}
         <input
           type="text"
@@ -333,7 +415,7 @@ export default function NetBooking() {
           予約内容を確認する
         </button>
         {!canConfirm && (
-          <p className="net__hint">日付・時間を選び、お名前と電話番号をご入力ください。</p>
+          <p className="net__hint">日付・時間・お席を選び、お名前（フルネーム）と電話番号をご入力ください。</p>
         )}
       </section>
 
