@@ -27,7 +27,9 @@ export const NET = {
   maxParty: 8,
   minLeadMin: 120, // 開始の2時間前まで
   maxDaysAhead: 60,
-  slotStep: 30,
+  slotStep: 15,
+  firstStart: 1080, // 18:00
+  lastStart: 1320, // 22:00（ネットで選べる最終入店時刻・店主指定）
 } as const;
 
 export type NetDayStatus = "ok" | "few" | "full" | "closed" | "out";
@@ -98,12 +100,14 @@ async function fetchRange(from: string, to: string) {
   };
 }
 
+export type NetSeatKey = "counter" | "table" | "private";
+
 export type NetSeat = {
-  name: string;
-  capacity: number;
-  is_shared: boolean;
-  /** カウンターのみ：残り席数 */
-  remaining: number | null;
+  key: NetSeatKey;
+  /** お客様に見せる名前。個々の卓番（T1等）は見せない */
+  label: string;
+  /** 残り（カウンター=席数・テーブル=卓数・個室=室数） */
+  remaining: number;
   /** この人数・この日で選べるか */
   selectable: boolean;
   /** 選べない理由（表示用）："埋" 予約済み／"狭" 人数が入らない／"繁" 繁忙日ルール */
@@ -111,10 +115,11 @@ export type NetSeat = {
 };
 
 /**
- * その晩の席一覧を「選べる／選べない＋理由」つきで返す。お客様が席まで選ぶ。
- * 店のルール：繁忙日の3名様以下はカウンターのみ（テーブル・和室は選択不可）。
+ * その晩の席を種類ごとにまとめて返す。お客様は「カウンター／テーブル席／個室掘りごたつ席」
+ * から選び、どの卓（T1〜T3）になるかは登録時にこちらで割り当てる。
+ * 店のルール：繁忙日の3名様以下はカウンターのみ（テーブル・個室は選択不可）。
  */
-export function seatOptions(
+export function seatGroups(
   day: Pick<DayRow, "is_busy">,
   rows: ResvRow[],
   units: SeatUnit[],
@@ -122,37 +127,72 @@ export function seatOptions(
 ): NetSeat[] {
   const usage = computeSeatUsage(rows as Reservation[]);
   const busyRule = day.is_busy && party <= 3;
+  const out: NetSeat[] = [];
 
-  return units.map((u) => {
-    if (u.is_shared) {
-      const remaining = Math.max(0, u.capacity - usage.counter_used);
-      return {
-        name: u.name,
-        capacity: u.capacity,
-        is_shared: true,
-        remaining,
-        selectable: remaining >= party,
-        reason: remaining >= party ? ("" as const) : ("埋" as const),
-      };
-    }
-    const taken = usage.taken.includes(u.name);
-    const tooSmall = u.capacity < party;
-    const busyBlocked = busyRule;
-    return {
-      name: u.name,
-      capacity: u.capacity,
-      is_shared: false,
-      remaining: null,
-      selectable: !taken && !tooSmall && !busyBlocked,
-      reason: taken ? ("埋" as const) : busyBlocked ? ("繁" as const) : tooSmall ? ("狭" as const) : ("" as const),
-    };
-  });
+  const counter = units.find((u) => u.is_shared);
+  if (counter) {
+    const remaining = Math.max(0, counter.capacity - usage.counter_used);
+    out.push({
+      key: "counter",
+      label: `カウンター（残り${remaining}席）`,
+      remaining,
+      selectable: remaining >= party,
+      reason: remaining >= party ? "" : "埋",
+    });
+  }
+
+  const tables = units.filter((u) => !u.is_shared && u.area === "table");
+  if (tables.length > 0) {
+    const cap = Math.max(...tables.map((u) => u.capacity));
+    const free = tables.filter((u) => !usage.taken.includes(u.name)).length;
+    const tooSmall = cap < party;
+    out.push({
+      key: "table",
+      label: `テーブル席（${cap}名掛け）`,
+      remaining: free,
+      selectable: free > 0 && !tooSmall && !busyRule,
+      reason: busyRule ? "繁" : tooSmall ? "狭" : free > 0 ? "" : "埋",
+    });
+  }
+
+  const priv = units.find((u) => !u.is_shared && u.area === "private");
+  if (priv) {
+    const taken = usage.taken.includes(priv.name);
+    const tooSmall = priv.capacity < party;
+    out.push({
+      key: "private",
+      label: `個室掘りごたつ席（${priv.capacity}名掛け）`,
+      remaining: taken ? 0 : 1,
+      selectable: !taken && !tooSmall && !busyRule,
+      reason: busyRule ? "繁" : tooSmall ? "狭" : taken ? "埋" : "",
+    });
+  }
+
+  return out;
 }
 
-/** 営業日の枠（30分刻み・滞在時間ぶん手前まで） */
-export function slotMinutes(openMin: number, closeMin: number, stay: number): number[] {
+/** 選ばれた種類 → 実際に確保する席（卓番）。空きから順に割り当てる */
+export function pickUnitFor(
+  key: NetSeatKey,
+  rows: ResvRow[],
+  units: SeatUnit[],
+): string | null {
+  const usage = computeSeatUsage(rows as Reservation[]);
+  if (key === "counter") return units.find((u) => u.is_shared)?.name ?? null;
+  if (key === "table") {
+    const free = units
+      .filter((u) => !u.is_shared && u.area === "table" && !usage.taken.includes(u.name))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    return free[0]?.name ?? null;
+  }
+  const priv = units.find((u) => !u.is_shared && u.area === "private");
+  return priv && !usage.taken.includes(priv.name) ? priv.name : null;
+}
+
+/** ネットで選べる入店時刻：18:00〜22:00 の15分刻み（店主指定・全営業日共通） */
+export function slotMinutes(): number[] {
   const out: number[] = [];
-  for (let m = openMin; m + Math.min(stay, 120) <= closeMin; m += NET.slotStep) out.push(m);
+  for (let m = NET.firstStart; m <= NET.lastStart; m += NET.slotStep) out.push(m);
   return out;
 }
 
@@ -180,8 +220,7 @@ function dayStatus(
   if (day.is_closed) return "closed";
 
   // その日の枠が1つでも「2時間前ルール」を満たすか（未来日は常に満たす）
-  const slots = slotMinutes(day.open_min, day.close_min, ctx.stay);
-  if (!slots.some((m) => slotLeadOk(date, m))) return "full";
+  if (!slotMinutes().some((m) => slotLeadOk(date, m))) return "full";
 
   if (day.mode === "event") {
     const cap = day.event_capacity ?? DEFAULT_EVENT_CAPACITY;
@@ -190,7 +229,7 @@ function dayStatus(
     return cap - guests - party < 8 ? "few" : "ok";
   }
 
-  const selectable = seatOptions(day, rows, ctx.units, party).filter((s) => s.selectable);
+  const selectable = seatGroups(day, rows, ctx.units, party).filter((s) => s.selectable);
   if (selectable.length === 0) return "full";
   return selectable.length === 1 ? "few" : "ok";
 }
@@ -220,7 +259,7 @@ export async function dayAvailability(date: string, party: number) {
   const { day, rows } = dayCore(date, ctx);
   const status = dayStatus(date, ctx, party);
 
-  const slots = slotMinutes(day.open_min, day.close_min, ctx.stay).map((m) => ({
+  const slots = slotMinutes().map((m) => ({
     min: m,
     ok: status === "ok" || status === "few" ? slotLeadOk(date, m) : false,
   }));
@@ -233,7 +272,7 @@ export async function dayAvailability(date: string, party: number) {
     is_busy: day.is_busy,
     slots,
     // イベント日は席の概念がない（お席自由）
-    seats: day.mode === "event" ? [] : seatOptions(day, rows, ctx.units, party),
+    seats: day.mode === "event" ? [] : seatGroups(day, rows, ctx.units, party),
   };
 }
 
@@ -318,8 +357,9 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   const { day, rows } = dayCore(input.date, ctx);
 
   if (day.is_closed) return { ok: false, error: "この日は定休日です。", code: "RETRY" };
-  const slots = slotMinutes(day.open_min, day.close_min, ctx.stay);
-  if (!slots.includes(input.start_min)) return { ok: false, error: "時間を選び直してください。", code: "RETRY" };
+  if (!slotMinutes().includes(input.start_min)) {
+    return { ok: false, error: "時間を選び直してください。", code: "RETRY" };
+  }
   if (!slotLeadOk(input.date, input.start_min)) {
     return {
       ok: false,
@@ -334,8 +374,8 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     const guests = rows.reduce((a, r) => a + r.party_size, 0);
     if (guests + party > cap) return { ok: false, error: "満席です。", code: "RETRY" };
   } else {
-    const picked = seatOptions(day, rows, ctx.units, party).find(
-      (s) => s.name === (input.seat ?? "").trim(),
+    const picked = seatGroups(day, rows, ctx.units, party).find(
+      (s) => s.key === (input.seat ?? "").trim(),
     );
     if (!picked) return { ok: false, error: "お席を選んでください。", code: "RETRY" };
     if (!picked.selectable) {
@@ -343,12 +383,16 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
         ok: false,
         error:
           picked.reason === "繁"
-            ? "繁忙日は3名様以下はカウンター席のみ承っています。"
+            ? "この日は3名様以下はカウンター席のみ承っています。"
             : "その席は選べなくなりました。空席を選び直してください。",
         code: "RETRY",
       };
     }
-    seatNote = picked.name;
+    const unit = pickUnitFor(picked.key, rows, ctx.units);
+    if (!unit) {
+      return { ok: false, error: "その席は選べなくなりました。空席を選び直してください。", code: "RETRY" };
+    }
+    seatNote = unit;
   }
 
   const { data, error } = await admin.rpc("net_reserve", {

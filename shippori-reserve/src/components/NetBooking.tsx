@@ -16,10 +16,9 @@ const TEL_HREF = "tel:0897474494";
 type DayCell = { date: string; status: "ok" | "few" | "full" | "closed" | "out" };
 type Slot = { min: number; ok: boolean };
 type Seat = {
-  name: string;
-  capacity: number;
-  is_shared: boolean;
-  remaining: number | null;
+  key: "counter" | "table" | "private";
+  label: string;
+  remaining: number;
   selectable: boolean;
   reason: "" | "埋" | "狭" | "繁";
 };
@@ -44,9 +43,6 @@ const jaDate = (date: string) => {
   return `${y}年${m}月${d}日(${w})`;
 };
 
-const seatLabel = (s: Seat) =>
-  s.is_shared ? `カウンター（残り${s.remaining}席）` : `${s.name}（${s.capacity}名掛け）`;
-
 export default function NetBooking() {
   const thisYm = ymOf(new Date());
   const maxYm = addMonths(thisYm, 2);
@@ -58,7 +54,7 @@ export default function NetBooking() {
   const [date, setDate] = useState<string | null>(null);
   const [dayInfo, setDayInfo] = useState<DayInfo | null>(null);
   const [min, setMin] = useState<number | null>(null);
-  const [seat, setSeat] = useState<string | null>(null);
+  const [seat, setSeat] = useState<Seat | null>(null);
 
   const [sei, setSei] = useState("");
   const [mei, setMei] = useState("");
@@ -125,8 +121,8 @@ export default function NetBooking() {
     setTimeout(() => seatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
-  const pickSeat = (name: string) => {
-    setSeat(name);
+  const pickSeat = (s: Seat) => {
+    setSeat(s);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
   };
 
@@ -154,7 +150,7 @@ export default function NetBooking() {
           date,
           start_min: min,
           party,
-          seat: isEvent ? undefined : (seat ?? ""),
+          seat: isEvent ? undefined : (seat?.key ?? ""),
           name: fullName,
           kana,
           phone,
@@ -165,7 +161,7 @@ export default function NetBooking() {
       const data = await res.json();
       if (data.ok) {
         setDoneRef(data.reference as string);
-        setDoneSeat((data.seat_note as string) ?? "");
+        setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setStep("done");
       } else {
         setError(data.error ?? "予約できませんでした。");
@@ -208,7 +204,7 @@ export default function NetBooking() {
         <dl className="net__summary">
           <div><dt>日時</dt><dd>{date && jaDate(date)} {min !== null && minutesToLabel(min)}</dd></div>
           <div><dt>人数</dt><dd>{party}名様</dd></div>
-          {doneSeat && doneSeat !== "指定なし" && <div><dt>お席</dt><dd>{doneSeat}</dd></div>}
+          {doneSeat && <div><dt>お席</dt><dd>{doneSeat}</dd></div>}
           <div><dt>お名前</dt><dd>{fullName} 様</dd></div>
         </dl>
         <div className="net__note">
@@ -227,7 +223,7 @@ export default function NetBooking() {
         <dl className="net__summary net__summary--big">
           <div><dt>日時</dt><dd>{date && jaDate(date)} {min !== null && minutesToLabel(min)}〜</dd></div>
           <div><dt>人数</dt><dd>{party}名様</dd></div>
-          <div><dt>お席</dt><dd>{isEvent ? "自由席（イベント営業）" : seat}</dd></div>
+          <div><dt>お席</dt><dd>{isEvent ? "自由席（イベント営業）" : seat?.label}</dd></div>
           <div><dt>お名前</dt><dd>{fullName}{kana.trim() ? `（${kana.trim()}）` : ""} 様</dd></div>
           <div><dt>電話番号</dt><dd>{phone}</dd></div>
           {memo.trim() && <div><dt>ご要望</dt><dd>{memo.trim()}</dd></div>}
@@ -348,26 +344,25 @@ export default function NetBooking() {
         ) : (
           <>
             {dayInfo.is_busy && party <= 3 && (
-              <p className="net__busy">この日は混み合う日のため、3名様以下は<b>カウンター席のみ</b>のご案内です。</p>
+              <p className="net__busy">この日は混み合う日のため、3名様以下のご予約はカウンターのみ受け付けております。当日の状況によってはテーブル席のご案内ができる場合もございますので、ご希望がございましたら、ご来店時にスタッフまでお気軽にお声がけください。</p>
             )}
             <div className="net__seats">
               {dayInfo.seats.map((s) => (
                 <button
-                  key={s.name}
-                  className={`net__seat${seat === s.name ? " net__seat--on" : ""}`}
+                  key={s.key}
+                  className={`net__seat${seat?.key === s.key ? " net__seat--on" : ""}`}
                   disabled={!s.selectable}
-                  onClick={() => pickSeat(s.name)}
+                  onClick={() => pickSeat(s)}
                 >
-                  <span className="net__seat-name">{seatLabel(s)}</span>
+                  <span className="net__seat-name">{s.label}</span>
                   {!s.selectable && (
                     <span className="net__seat-why">
-                      {s.reason === "埋" ? "予約済み" : s.reason === "繁" ? "この日は選べません" : "人数が入りません"}
+                      {s.reason === "埋" ? "満席" : s.reason === "繁" ? "この日は選べません" : "人数が入りません"}
                     </span>
                   )}
                 </button>
               ))}
             </div>
-            <p className="net__hint">カウンターはお隣と相席の1枚板です。テーブル・和室（掘りごたつ）は1組様ごとのご案内です。</p>
           </>
         )}
       </section>
