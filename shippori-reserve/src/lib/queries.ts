@@ -60,7 +60,8 @@ export function deriveBusinessDay(
   return {
     biz_date: date,
     mode: "normal",
-    is_busy: false,
+    // 金土は既定で繁忙日（店主指定）。行を保存すれば個別にオフにできる
+    is_busy: dow === 5 || dow === 6,
     is_closed: closedWeekdays.includes(dow),
     event_name: null,
     event_capacity: null,

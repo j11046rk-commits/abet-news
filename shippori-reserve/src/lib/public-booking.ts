@@ -57,7 +57,8 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
   return {
     biz_date: date,
     mode: "normal",
-    is_busy: false,
+    // 金土は既定で繁忙日（店主指定）。行があればその設定を尊重する
+    is_busy: dow === 5 || dow === 6,
     is_closed: closedWeekdays.includes(dow),
     event_name: null,
     event_capacity: null,
@@ -202,10 +203,6 @@ function slotLeadOk(date: string, min: number): boolean {
   return slotAt >= nowJst().getTime() + NET.minLeadMin * 60_000;
 }
 
-/** ネット予約では金(5)・土(6)は自動で繁忙日扱い（店長の手動フラグとORで効く） */
-export const netBusy = (date: string, day: Pick<DayRow, "is_busy">): boolean =>
-  day.is_busy || weekdayOf(date) === 5 || weekdayOf(date) === 6;
-
 function dayCore(date: string, ctx: Awaited<ReturnType<typeof fetchRange>>) {
   const day = ctx.days.get(date) ?? deriveDay(date, ctx.settings);
   const rows = ctx.resv.get(date) ?? [];
@@ -233,9 +230,7 @@ function dayStatus(
     return cap - guests - party < 8 ? "few" : "ok";
   }
 
-  const selectable = seatGroups({ is_busy: netBusy(date, day) }, rows, ctx.units, party).filter(
-    (s) => s.selectable,
-  );
+  const selectable = seatGroups(day, rows, ctx.units, party).filter((s) => s.selectable);
   if (selectable.length === 0) return "full";
   return selectable.length === 1 ? "few" : "ok";
 }
@@ -275,14 +270,11 @@ export async function dayAvailability(date: string, party: number) {
     status,
     is_event: day.mode === "event",
     event_name: day.event_name,
-    is_busy: netBusy(date, day),
+    is_busy: day.is_busy,
     sms_required: smsEnabled(),
     slots,
     // イベント日は席の概念がない（お席自由）
-    seats:
-      day.mode === "event"
-        ? []
-        : seatGroups({ is_busy: netBusy(date, day) }, rows, ctx.units, party),
+    seats: day.mode === "event" ? [] : seatGroups(day, rows, ctx.units, party),
   };
 }
 
@@ -442,7 +434,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     const guests = rows.reduce((a, r) => a + r.party_size, 0);
     if (guests + party > cap) return { ok: false, error: "満席です。", code: "RETRY" };
   } else {
-    const picked = seatGroups({ is_busy: netBusy(input.date, day) }, rows, ctx.units, party).find(
+    const picked = seatGroups(day, rows, ctx.units, party).find(
       (s) => s.key === (input.seat ?? "").trim(),
     );
     if (!picked) return { ok: false, error: "お席を選んでください。", code: "RETRY" };
