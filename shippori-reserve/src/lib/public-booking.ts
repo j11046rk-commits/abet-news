@@ -29,7 +29,7 @@ export const NET = {
   maxDaysAhead: 60,
   slotStep: 15,
   firstStart: 1080, // 18:00
-  lastStart: 1320, // 22:00（ネットで選べる最終入店時刻・店主指定）
+  lastStart: 1305, // 21:45（ネットで選べる最終入店時刻・店主指定。22時以降は電話のみ）
 } as const;
 
 export type NetDayStatus = "ok" | "few" | "full" | "closed" | "out";
@@ -148,7 +148,7 @@ export function seatGroups(
     const tooSmall = cap < party;
     out.push({
       key: "table",
-      label: `テーブル席（${cap}名掛け）`,
+      label: `テーブル席（${cap}名掛け・残り${free}卓）`,
       remaining: free,
       selectable: free > 0 && !tooSmall && !busyRule,
       reason: busyRule ? "繁" : tooSmall ? "狭" : free > 0 ? "" : "埋",
@@ -189,7 +189,7 @@ export function pickUnitFor(
   return priv && !usage.taken.includes(priv.name) ? priv.name : null;
 }
 
-/** ネットで選べる入店時刻：18:00〜22:00 の15分刻み（店主指定・全営業日共通） */
+/** ネットで選べる入店時刻：18:00〜21:45 の15分刻み（店主指定・全営業日共通） */
 export function slotMinutes(): number[] {
   const out: number[] = [];
   for (let m = NET.firstStart; m <= NET.lastStart; m += NET.slotStep) out.push(m);

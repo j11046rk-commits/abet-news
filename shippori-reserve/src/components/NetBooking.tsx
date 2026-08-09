@@ -331,6 +331,7 @@ export default function NetBooking() {
                 </button>
               ))}
             </div>
+            <p className="net__hint">22時以降のご予約はお電話（<a href={TEL_HREF}>{TEL}</a>）にて承ります。</p>
           </>
         )}
       </section>
