@@ -99,7 +99,7 @@ DBのマイグレーションは `supabase/migrations/` にある。動かすま
 | 項目 | 置いた既定値 | 変える場所 |
 |---|---|---|
 | 公開URL | `yoyaku.shipporitei.jp`（サブドメイン案A）を前提 | Vercel のドメイン設定。既存サイトには触っていないので、案Bへは後から移行できます |
-| イベント営業の既定定員 | **60名** | `/settings` に表示。実体は `settings.default_event_capacity` |
+| イベント営業の既定定員 | **36名**（店主指定・2026-08-08） | `/settings` に表示。実体は `settings.default_event_capacity` |
 | 標準滞在時間 | **120分** | 同上（`settings.default_stay_min`）。予約の終了時刻の計算に使います |
 | 月額費用 | まず**0円**（Supabase Free + Vercel Hobby）で動かす前提 | 運用に乗ってから Pro（計約7,000円/月）へ。[05-stack.md §6](docs/05-stack.md#6-ランニングコスト) |
 
@@ -110,8 +110,9 @@ DBのマイグレーションは `supabase/migrations/` にある。動かすま
 アカウント登録を伴う作業だけは、こちらでは代行できません。
 
 1. **Supabase プロジェクトを作る**（リージョンは Tokyo）。
-2. `supabase/migrations/` の SQL を **0001 → 0002 → 0003 → 0004 → 0007 → 0008 → 0009 の順**に
-   SQL Editor へ貼って実行する。
+2. **`supabase/deploy-all.sql` を SQL Editor に貼って1回実行する**
+   （0001〜0020 の結合済み。2026年6〜12月の売上目標データも一緒に入る。
+   個別に流したい場合は `supabase/migrations/` を 0001→0002→0003→0004→0007→0008→0009→0011→…→0020 の順で）。
 3. `.env.local.example` を `.env.local` にコピーし、Supabase の Settings > API から
    `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` を入れる。
    **`SUPABASE_SERVICE_ROLE_KEY` は絶対に他人に渡さないこと**（RLSを丸ごと無視できる鍵です）。
@@ -121,8 +122,12 @@ DBのマイグレーションは `supabase/migrations/` にある。動かすま
    npm run seed:accounts   # 初期パスワードが画面に1度だけ出ます。控えて口頭で渡してください
    npm run dev             # http://localhost:3000
    ```
-5. Vercel にデプロイし、同じ環境変数を設定する（リージョン `hnd1`）。
-6. DNS に `yoyaku` の CNAME を1行足して、Vercel のドメインに向ける。
+5. Vercel にデプロイし、同じ環境変数を設定する（リージョン `hnd1`・Root Directory は `shippori-reserve`）。
+   売上の自動取り込みを使う場合は `SALES_INGEST_TOKEN`（長いランダムな合言葉）も追加する。
+6. DNS に `yoyaku` の CNAME を1行足して、Vercel のドメインに向ける（任意。まずは `〜.vercel.app` でも動く）。
+7. **エアレジ実績の自動取り込み**：店のMacで shippori-report リポジトリの `APP-INGEST.md` の3手順
+   （合言葉ファイル作成 → 過去実績837日の一括投入 → 毎朝7:30のlaunchd登録）。
+   合言葉は手順5の `SALES_INGEST_TOKEN` と同じ値にする。
 
 アイコンを作り直したいときは `npm run gen:icons`（`scripts/gen-icons.mjs` の SVG を書き換えてから実行）。
 
