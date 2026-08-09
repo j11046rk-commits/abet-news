@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // iOS は manifest の standalone を読まないので、こちらでも宣言する
   appleWebApp: {
     capable: true,
-    title: "しっぽり予約",
+    title: "しっぽり管理",
     statusBarStyle: "black-translucent",
   },
 };

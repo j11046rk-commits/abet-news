@@ -7,7 +7,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "しっぽり亭 予約管理",
-    short_name: "しっぽり予約",
+    short_name: "しっぽり管理",
     description: "しっぽり亭 店舗予約管理",
     start_url: "/",
     scope: "/",
