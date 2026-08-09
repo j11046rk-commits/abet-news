@@ -202,6 +202,10 @@ function slotLeadOk(date: string, min: number): boolean {
   return slotAt >= nowJst().getTime() + NET.minLeadMin * 60_000;
 }
 
+/** ネット予約では金(5)・土(6)は自動で繁忙日扱い（店長の手動フラグとORで効く） */
+export const netBusy = (date: string, day: Pick<DayRow, "is_busy">): boolean =>
+  day.is_busy || weekdayOf(date) === 5 || weekdayOf(date) === 6;
+
 function dayCore(date: string, ctx: Awaited<ReturnType<typeof fetchRange>>) {
   const day = ctx.days.get(date) ?? deriveDay(date, ctx.settings);
   const rows = ctx.resv.get(date) ?? [];
@@ -229,7 +233,9 @@ function dayStatus(
     return cap - guests - party < 8 ? "few" : "ok";
   }
 
-  const selectable = seatGroups(day, rows, ctx.units, party).filter((s) => s.selectable);
+  const selectable = seatGroups({ is_busy: netBusy(date, day) }, rows, ctx.units, party).filter(
+    (s) => s.selectable,
+  );
   if (selectable.length === 0) return "full";
   return selectable.length === 1 ? "few" : "ok";
 }
@@ -269,11 +275,71 @@ export async function dayAvailability(date: string, party: number) {
     status,
     is_event: day.mode === "event",
     event_name: day.event_name,
-    is_busy: day.is_busy,
+    is_busy: netBusy(date, day),
+    sms_required: smsEnabled(),
     slots,
     // イベント日は席の概念がない（お席自由）
-    seats: day.mode === "event" ? [] : seatGroups(day, rows, ctx.units, party),
+    seats:
+      day.mode === "event"
+        ? []
+        : seatGroups({ is_busy: netBusy(date, day) }, rows, ctx.units, party),
   };
+}
+
+/* ── SMS認証（Twilio Verify）────────────────────────────────
+   3つの環境変数が揃っているときだけ有効。未設定なら従来どおり認証なしで通る。
+   コードの発行・照合・有効期限・試行回数はすべてTwilio側が管理するので、
+   こちらにコードを保存するテーブルは持たない。 */
+
+export function smsEnabled(): boolean {
+  return Boolean(
+    process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_VERIFY_SID,
+  );
+}
+
+/** 090… → +8190…（日本の携帯・固定をE.164へ） */
+const toE164 = (digits: string): string => "+81" + digits.replace(/^0/, "");
+
+async function twilioVerify(path: string, form: Record<string, string>) {
+  const sid = process.env.TWILIO_ACCOUNT_SID!;
+  const token = process.env.TWILIO_AUTH_TOKEN!;
+  const service = process.env.TWILIO_VERIFY_SID!;
+  const res = await fetch(`https://verify.twilio.com/v2/Services/${service}/${path}`, {
+    method: "POST",
+    headers: {
+      authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"),
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(form).toString(),
+  });
+  const body = (await res.json().catch(() => null)) as { status?: string } | null;
+  return { httpOk: res.ok, status: body?.status ?? "" };
+}
+
+/** 認証コードを送る。成功: {ok:true} */
+export async function startSmsVerification(
+  phoneRaw: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!smsEnabled()) return { ok: false, error: "SMS認証は現在準備中です。" };
+  const digits = normalizePhone(phoneRaw);
+  if (!digits) return { ok: false, error: "電話番号を正しく入力してください（10〜11桁）。" };
+  const r = await twilioVerify("Verifications", {
+    To: toE164(digits),
+    Channel: "sms",
+    Locale: "ja",
+  });
+  if (!r.httpOk) {
+    return { ok: false, error: "認証コードを送れませんでした。番号をご確認のうえ、少し待ってからお試しください。" };
+  }
+  return { ok: true };
+}
+
+/** 入力されたコードを照合する */
+async function checkSmsVerification(digits: string, code: string): Promise<boolean> {
+  const r = await twilioVerify("VerificationCheck", { To: toE164(digits), Code: code });
+  return r.httpOk && r.status === "approved";
 }
 
 export type NetBookingInput = {
@@ -287,13 +353,15 @@ export type NetBookingInput = {
   kana?: string;
   phone: string;
   memo?: string;
+  /** SMS認証コード（SMS認証が有効なとき必須） */
+  sms_code?: string;
   /** ハニーポット。人間には見えない欄。埋まっていたらボット */
   website?: string;
 };
 
 export type NetBookingResult =
   | { ok: true; reference: string; seat_note: string }
-  | { ok: false; error: string; code?: "RETRY" | "REJECT" };
+  | { ok: false; error: string; code?: "RETRY" | "REJECT" | "SMS" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -374,7 +442,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     const guests = rows.reduce((a, r) => a + r.party_size, 0);
     if (guests + party > cap) return { ok: false, error: "満席です。", code: "RETRY" };
   } else {
-    const picked = seatGroups(day, rows, ctx.units, party).find(
+    const picked = seatGroups({ is_busy: netBusy(input.date, day) }, rows, ctx.units, party).find(
       (s) => s.key === (input.seat ?? "").trim(),
     );
     if (!picked) return { ok: false, error: "お席を選んでください。", code: "RETRY" };
@@ -393,6 +461,17 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
       return { ok: false, error: "その席は選べなくなりました。空席を選び直してください。", code: "RETRY" };
     }
     seatNote = unit;
+  }
+
+  // 本人確認（SMS認証が有効なときだけ）。席・時間の検査を全部通ってから照合する
+  if (smsEnabled()) {
+    const code = (input.sms_code ?? "").trim();
+    if (!/^\d{4,8}$/.test(code)) {
+      return { ok: false, error: "SMSで届いた認証コードを入力してください。", code: "SMS" };
+    }
+    if (!(await checkSmsVerification(phone, code))) {
+      return { ok: false, error: "認証コードが違うか、期限切れです。もう一度お試しください。", code: "SMS" };
+    }
   }
 
   const { data, error } = await admin.rpc("net_reserve", {

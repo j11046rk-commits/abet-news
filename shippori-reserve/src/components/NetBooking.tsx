@@ -27,6 +27,7 @@ type DayInfo = {
   is_event: boolean;
   event_name: string | null;
   is_busy: boolean;
+  sms_required: boolean;
   slots: Slot[];
   seats: Seat[];
 };
@@ -68,6 +69,11 @@ export default function NetBooking() {
   const [error, setError] = useState("");
   const [doneRef, setDoneRef] = useState("");
   const [doneSeat, setDoneSeat] = useState("");
+
+  // SMS認証（サーバー側が有効なときだけ使う）
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsCode, setSmsCode] = useState("");
 
   const timeRef = useRef<HTMLDivElement>(null);
   const seatRef = useRef<HTMLDivElement>(null);
@@ -127,6 +133,7 @@ export default function NetBooking() {
   };
 
   const isEvent = dayInfo?.is_event === true;
+  const smsRequired = dayInfo?.sms_required === true;
   const seatDone = isEvent || seat !== null;
   const canConfirm =
     date !== null &&
@@ -155,6 +162,7 @@ export default function NetBooking() {
           kana,
           phone,
           memo,
+          sms_code: smsCode,
           website,
         }),
       });
@@ -163,6 +171,9 @@ export default function NetBooking() {
         setDoneRef(data.reference as string);
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setStep("done");
+      } else if (data.code === "SMS") {
+        // コード違いは確認画面のままやり直せる
+        setError(data.error ?? "認証コードをご確認ください。");
       } else {
         setError(data.error ?? "予約できませんでした。");
         setStep("pick");
@@ -178,6 +189,25 @@ export default function NetBooking() {
       setStep("pick");
     }
     setSending(false);
+  };
+
+  const sendSms = async () => {
+    if (smsSending) return;
+    setSmsSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/public/sms-start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (data.ok) setSmsSent(true);
+      else setError(data.error ?? "認証コードを送れませんでした。");
+    } catch {
+      setError("通信に失敗しました。もう一度お試しください。");
+    }
+    setSmsSending(false);
   };
 
   // カレンダーの升目（1日の曜日ぶん頭を空ける）
@@ -231,10 +261,43 @@ export default function NetBooking() {
         <p className="net__fineprint">
           キャンセルは開始2時間前までWebで、それ以降はお電話でお願いします。
         </p>
+        {smsRequired && (
+          <div className="net__sms">
+            <p className="net__sms-title">携帯電話番号の確認</p>
+            {smsSent ? (
+              <>
+                <p className="net__hint">{phone} 宛にSMSで認証コードを送りました。届いた数字を入力してください。</p>
+                <input
+                  className="field net__sms-code"
+                  value={smsCode}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  placeholder="認証コード"
+                  onChange={(e) => setSmsCode(e.target.value.replace(/[^0-9]/g, ""))}
+                />
+                <button className="btn net__sms-resend" onClick={sendSms} disabled={smsSending}>
+                  {smsSending ? "送信中…" : "コードを再送する"}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="net__hint">イタズラ予約防止のため、携帯電話番号の確認にご協力ください。</p>
+                <button className="btn btn-primary net__sms-send" onClick={sendSms} disabled={smsSending}>
+                  {smsSending ? "送信中…" : `${phone} に認証コードを送る`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {error && <p className="net__error">{error}</p>}
         <div className="net__btnrow">
           <button className="btn" onClick={() => setStep("pick")} disabled={sending}>戻る</button>
-          <button className="btn btn-primary net__grow" onClick={submit} disabled={sending}>
+          <button
+            className="btn btn-primary net__grow"
+            onClick={submit}
+            disabled={sending || (smsRequired && smsCode.length < 4)}
+          >
             {sending ? "送信中…" : "この内容で予約する"}
           </button>
         </div>
@@ -406,7 +469,7 @@ export default function NetBooking() {
         <button
           className="btn btn-primary net__confirm-btn"
           disabled={!canConfirm}
-          onClick={() => { setError(""); setStep("confirm"); }}
+          onClick={() => { setError(""); setSmsSent(false); setSmsCode(""); setStep("confirm"); }}
         >
           予約内容を確認する
         </button>

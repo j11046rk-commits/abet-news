@@ -1530,3 +1530,15 @@ textarea.field {
   line-height: 1.7;
 }
 .net__namerow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+
+/* ネット予約：SMS認証 */
+.net__sms {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+}
+.net__sms-title { margin: 0 0 0.4rem; font-size: 0.92rem; font-weight: 600; color: var(--gold-soft); }
+.net__sms-send, .net__sms-resend { width: 100%; margin-top: 0.6rem; }
+.net__sms-code { margin-top: 0.6rem; font-size: 1.3rem; letter-spacing: 0.3em; text-align: center; }
