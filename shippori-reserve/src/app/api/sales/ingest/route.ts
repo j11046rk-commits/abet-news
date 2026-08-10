@@ -3,6 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 2026-02-31 のような「形は正しいが存在しない日」を弾く（正規表現は通ってしまう） */
+function isRealDate(s: string): boolean {
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 type IngestDay = {
   date: string;
   actual_yen?: number;
@@ -48,13 +54,45 @@ export async function POST(request: Request) {
   if (days.length === 0 || days.length > 400) {
     return NextResponse.json({ error: "days は 1〜400 件で送ってください。" }, { status: 400 });
   }
+  const seen = new Set<string>();
   for (const d of days) {
-    if (!DATE_RE.test(d.date ?? "")) {
+    if (!DATE_RE.test(d.date ?? "") || !isRealDate(d.date)) {
       return NextResponse.json({ error: `日付が不正です: ${d.date}` }, { status: 400 });
     }
+    // 同じ日付が2回入っていると upsert が
+    // 「ON CONFLICT DO UPDATE cannot affect row a second time」で丸ごと落ちる。
+    // 400件のバッチが1件の重複で全滅するので、ここで日付を名指しして止める。
+    if (seen.has(d.date)) {
+      return NextResponse.json({ error: `日付が重複しています: ${d.date}` }, { status: 400 });
+    }
+    seen.add(d.date);
+
     for (const v of [d.actual_yen, d.target_yen, d.tax10_yen, d.tax8_yen]) {
       if (v !== undefined && (!Number.isInteger(v) || v < 0 || v > 100_000_000)) {
         return NextResponse.json({ error: `金額が不正です: ${d.date}` }, { status: 400 });
+      }
+    }
+
+    // 税率別と実績の突き合わせ。
+    // service role で直接書くので DB関数 set_sales_retail の検査は一度も通らない。
+    // 10%と8%を取り違えて送られても素通りしてしまうので、ここが唯一の防波堤になる。
+    const bothRates = d.tax10_yen !== undefined && d.tax8_yen !== undefined;
+    if (d.actual_yen !== undefined) {
+      if (d.tax8_yen !== undefined && d.tax8_yen > d.actual_yen) {
+        return NextResponse.json(
+          { error: `物販が実績を超えています: ${d.date}` },
+          { status: 400 },
+        );
+      }
+      if (bothRates) {
+        const gap = Math.abs(d.tax10_yen! + d.tax8_yen! - d.actual_yen);
+        // 商品券や0%対象で多少ずれるのは通す。桁違いのずれは取り違えを疑う。
+        if (gap > Math.max(1000, d.actual_yen * 0.02)) {
+          return NextResponse.json(
+            { error: `税率別の合計が実績と合いません: ${d.date}` },
+            { status: 400 },
+          );
+        }
       }
     }
   }
@@ -95,6 +133,17 @@ export async function POST(request: Request) {
       tax8_yen: tax8,
     };
   });
+
+  // 実績だけ送り直して下げると、前に入っていた物販がそのまま残って
+  // 「店内＝実績−物販」が負になる。混ぜたあとの形でもう一度見る。
+  for (const r of rows) {
+    if (r.actual_yen != null && r.tax8_yen != null && r.tax8_yen > r.actual_yen) {
+      return NextResponse.json(
+        { error: `物販が実績を超えます（前に入っていた物販が残っています）: ${r.biz_date}` },
+        { status: 400 },
+      );
+    }
+  }
 
   const { error } = await admin.from("sales_daily").upsert(rows, { onConflict: "biz_date" });
   if (error) {

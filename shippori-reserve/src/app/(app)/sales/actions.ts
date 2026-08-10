@@ -36,31 +36,35 @@ export async function setSalesDay(
     const jp = message.match(/[ぁ-んァ-ヶ一-龠][^\n]*/);
     return { ok: false as const, error: jp ? jp[0] : "保存できませんでした。" };
   };
+  const finish = (): SalesActionResult => {
+    revalidatePath("/");
+    revalidatePath("/sales");
+    return { ok: true };
+  };
 
-  const { error } = await supabase.rpc("set_sales_day", {
+  // 3つまとめて1回で書く。片方ずつ書くと「実績も物販も両方下げる」訂正が
+  // 途中の姿で検査に引っかかって通らない。
+  const { error } = await supabase.rpc("set_sales_day_all", {
     p_date: date,
     p_target: targetYen,
     p_actual: actualYen,
+    p_retail: retailYen,
   });
 
-  if (error) return jpError(error.message);
-
-  // 物販は別の関数。実績が入ったあとでないと「物販が実績を超えていないか」を
-  // 見られないので、必ず set_sales_day の後に呼ぶ。
-  if (retailYen !== null) {
-    const { error: retailError } = await supabase.rpc("set_sales_retail", {
+  // 関数がまだ無い＝データベース側の更新が済んでいない。
+  // 目標と実績だけでも保存できるよう、古い関数に落として続ける。
+  if (error?.code === "PGRST202") {
+    const { error: legacy } = await supabase.rpc("set_sales_day", {
       p_date: date,
-      p_retail: retailYen,
+      p_target: targetYen,
+      p_actual: actualYen,
     });
-    // 関数がまだ無い＝データベース側の更新が済んでいない。
-    // 「保存できませんでした」だけだと入力を疑ってしまうので、理由を出す。
-    if (retailError?.code === "PGRST202") {
+    if (legacy) return jpError(legacy.message);
+    if (retailYen !== null) {
       return { ok: false, error: "物販欄はまだ準備中です。目標と実績は保存できています。" };
     }
-    if (retailError) return jpError(retailError.message);
+    return finish();
   }
-
-  revalidatePath("/");
-  revalidatePath("/sales");
-  return { ok: true };
+  if (error) return jpError(error.message);
+  return finish();
 }

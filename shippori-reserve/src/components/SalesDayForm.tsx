@@ -31,12 +31,17 @@ export default function SalesDayForm({ date, sales }: { date: string; sales: Sal
 
   // 入力中の「店内飲食はいくらになるか」をその場で出す。
   // 打ち間違い（桁を1つ多い等）はこの行が変になるので一番早く気づける。
+  // 式は lib/sales.ts の salesView と同じ「実績 − 物販」。ここだけ別の計算にすると
+  // 入力中に出る金額と、保存後にカレンダーへ出る金額が食い違う。
   const a = parse(actual);
   const r = parse(retail);
+  // 空欄は「変更しない」。保存済みの物販が残るので、プレビューもその値で計算する。
+  // ここを 0 とみなすと、物販を消したつもりの人に「店内＝実績」と嘘を見せることになる。
+  const savedRetail = sales?.tax8_yen ?? 0;
+  const effRetail = r ?? savedRetail;
   const dineIn =
-    typeof a === "number" && !Number.isNaN(a) && typeof r === "number" && !Number.isNaN(r)
-      ? a - r
-      : null;
+    typeof a === "number" && !Number.isNaN(a) && !Number.isNaN(r) ? a - effRetail : null;
+  const retailStays = r === null && savedRetail > 0;
 
   function submit() {
     setError(null);
@@ -79,7 +84,7 @@ export default function SalesDayForm({ date, sales }: { date: string; sales: Sal
         </div>
         <div style={{ flex: 1 }}>
           <label className="field-label" htmlFor="sales-actual">
-            実績（円）
+            実績（店内＋物販・円）
           </label>
           <input
             id="sales-actual"
@@ -111,10 +116,16 @@ export default function SalesDayForm({ date, sales }: { date: string; sales: Sal
             onChange={(e) => setRetail(e.target.value)}
           />
           <p className="micro" style={{ margin: "0.3rem 0 0" }}>
-            {dineIn != null && dineIn >= 0 ? (
+            {retailStays ? (
               <>
-                この日の店内飲食は <strong>{fmtYen(dineIn)}</strong>。
-                平均や前年比を見るときは、こちらが店の実力になります。
+                空欄のままだと、いま入っている物販 <strong>{fmtYen(savedRetail)}</strong> は残ります。
+                無かったことにするなら <strong>0</strong> を入れてください。
+              </>
+            ) : dineIn != null && dineIn >= 0 ? (
+              <>
+                この日の店内は <strong>{fmtYen(dineIn)}</strong>。
+                カレンダーと売上タブの日毎の数字・目標達成の判定は、こちらで見ます。
+                物販は月間の合計にだけ入ります。
               </>
             ) : (
               <>太巻きやオードブルのような、お持ち帰りの売上だけを入れてください。</>

@@ -18,7 +18,7 @@ import {
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
-import { fmtYen } from "@/lib/sales";
+import { fmtYen, hitOf, salesView, shownYen } from "@/lib/sales";
 import {
   fmtMonthJa,
   fmtYm,
@@ -107,9 +107,10 @@ export default async function MonthPage({
           const dow = weekdayOf(date);
           const guests = summaries.get(date)?.guest_count ?? 0;
           const usage = computeSeatUsage(rows);
-          const sale = salesMap.get(date);
-          const saleHit =
-            sale?.target_yen != null && sale.actual_yen != null && sale.actual_yen >= sale.target_yen;
+          // 日毎の売上は店内だけで見る（物販は月間の合計にだけ入れる・店主指示 2026-08）
+          const sale = salesView(salesMap.get(date));
+          const saleHit = hitOf(sale);
+          const saleDineIn = shownYen(sale.dineIn);
 
           const rowCls = [
             "mrow",
@@ -173,15 +174,19 @@ export default async function MonthPage({
                   </div>
                 ) : null}
 
-                {/* 日毎の売上（目標と実績）。1円単位で省略なし（店主指定）。 */}
-                {sale && (sale.target_yen || sale.actual_yen != null) ? (
+                {/* 日毎の売上（目標と店内の実績）。1円単位で省略なし（店主指定）。 */}
+                {/* 中身が1つも無いときは行ごと出さない（火曜定休は目標0なので空の行になる） */}
+                {(sale.target ?? 0) > 0 || saleDineIn != null || sale.retail > 0 ? (
                   <div className="salesline" aria-label="売上の目標と実績">
-                    {sale.actual_yen != null ? (
+                    {saleDineIn != null ? (
                       <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
-                        実績 {fmtYen(sale.actual_yen)}
+                        店内 {fmtYen(saleDineIn)}
                       </span>
                     ) : null}
-                    {sale.target_yen ? <span>目標 {fmtYen(sale.target_yen)}</span> : null}
+                    {sale.retail > 0 ? (
+                      <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
+                    ) : null}
+                    {sale.target ? <span>目標 {fmtYen(sale.target)}</span> : null}
                   </div>
                 ) : null}
 

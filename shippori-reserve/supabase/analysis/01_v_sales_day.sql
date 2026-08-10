@@ -34,8 +34,9 @@ select
   -- 税率で分けた売上（エアレジの税率別集計、または手入力の「うち物販」から）
   s.tax10_yen,
   s.tax8_yen,
-  -- 店内飲食だけ。10%が来ていればそれを、無ければ「実績 − 物販」を使う
-  coalesce(s.tax10_yen, s.actual_yen - coalesce(s.tax8_yen, 0)) as dine_in_yen,
+  -- 店内飲食だけ。「実績 − 物販」で出す（実績が無い日だけ10%を予備に使う）。
+  -- 画面に「店内 ＋ 物販 ＝ 合計」が並ぶので、この足し算が必ず合う式でなければならない。
+  coalesce(s.actual_yen - coalesce(s.tax8_yen, 0), s.tax10_yen) as dine_in_yen,
   coalesce(s.tax8_yen, 0)                                       as retail_yen,
   (s.tax8_yen is not null and s.tax8_yen > 0)                   as has_retail,
 

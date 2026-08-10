@@ -686,6 +686,10 @@ textarea.field {
   color: var(--gold);
   font-weight: 600;
 }
+/* 物販。日毎の達成判定には関わらないので、金色はまとわせない */
+.salesline__retail {
+  color: var(--text-dim);
+}
 
 /* 確認ポップアップ（繁忙日の3名様以下×テーブル・和室など） */
 .veil {
@@ -910,6 +914,55 @@ textarea.field {
   color: var(--text-dim);
   line-height: 1.1;
   letter-spacing: -0.02em;
+}
+/* 物販があった日の小さな印。7列のセルは狭いので金額は出さない（別枠カードで出す） */
+.salescell__r {
+  font-size: 0.5rem;
+  color: var(--gold-soft);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* 月の物販（別枠）。物販があった月だけ出る */
+.retail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.retail__num {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.retail__days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.retail__days li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 0.2rem;
+}
+.retail__sum {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+.retail__sum strong {
+  color: var(--text);
 }
 
 .mrow__body {
