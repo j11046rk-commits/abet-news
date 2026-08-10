@@ -7,15 +7,31 @@ import { seatKind } from "@/lib/seats";
 
 /**
  * 席ボード（タブレット常設用）。
- * 実店舗の配置どおり：左=和室（8名・茜）・中央=L型カウンター10席（金）・右=6名掛けテーブル×3（青）。
+ * 実店舗の配置どおり：左=和室（掘りごたつ・両側4人掛け）・中央=L型カウンター10席・右=6名掛けテーブル×3。
+ * フロア図は 1000×430 の固定キャンバスを画面幅に合わせて等倍で縮小拡大する——
+ * 1枚の絵と同じ扱いなので、端末や画面サイズが変わっても配置は一切崩れない。
  * カウンターは丸椅子を1席ずつタップ（C1〜C10）。卓は1タップで使用中⇔空き。
  * 新しいネット予約は音つきの全画面お知らせ（タップで確認するまで消えない）。
  */
 
 const POLL_MS = 15_000;
-/** L型カウンター：横バーの上に7席・右へ折れた縦バーの外側に3席（図面どおり） */
-const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7];
-const STOOLS_SIDE = [8, 9, 10];
+
+/** 固定キャンバスの設計サイズ */
+const CANVAS_W = 1000;
+const CANVAS_H = 430;
+const STOOL = 46; // 丸椅子の直径
+
+// カウンターの椅子は長手も短手も中心間60pxで統一
+/** 横バーの上に並ぶ1〜7番（左から） */
+const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7].map((n, i) => ({ n, x: 260 + i * 60 - STOOL / 2, y: 28 }));
+/** L字に折れた縦バーの右に並ぶ8〜10番（上から） */
+const STOOLS_SIDE = [8, 9, 10].map((n, i) => ({ n, x: 657, y: 132 + i * 60 }));
+/** テーブル3卓の枠位置 */
+const TABLES = [
+  { key: "T1", x: 715 },
+  { key: "T2", x: 810 },
+  { key: "T3", x: 905 },
+];
 
 export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [date, setDate] = useState(initial.date);
@@ -34,6 +50,23 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // キャンバスの縮尺。枠の幅に合わせて等倍で縮小・拡大する。
+  // 途中で止めると端が隠れてしまうので、どんなに狭い画面でも図の全体が必ず収まるようにする
+  const floorRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = floorRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth - 18; // 枠のパディング分
+      setScale(Math.min(w / CANVAS_W, 1.2));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   // 音はブラウザの決まりで「一度画面に触れた後」しか鳴らせない。最初のタップで準備する
@@ -121,13 +154,18 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const stoolOn = (n: number) => (board[`C${n}`] ?? 0) > 0;
   const toggleStool = (n: number) => save(`C${n}`, stoolOn(n) ? 0 : 1);
 
-  const counterUsed = [...STOOLS_TOP, ...STOOLS_SIDE].filter(stoolOn).length;
+  const counterUsed = [...STOOLS_TOP, ...STOOLS_SIDE].filter((s) => stoolOn(s.n)).length;
+  const zashikiOn = (board["和室"] ?? 0) > 0;
+  const tablesFree = TABLES.filter((t) => !((board[t.key] ?? 0) > 0)).length;
+  /** いま席ボード上で空いている席数＝飛び込みを受け入れられる目安 */
+  const freeSeats = 10 - counterUsed + tablesFree * 6 + (zashikiOn ? 0 : 8);
   const guests = resv.reduce((a, r) => a + r.party_size, 0);
 
-  const stoolBtn = (n: number) => (
+  const stoolBtn = ({ n, x, y }: { n: number; x: number; y: number }) => (
     <button
       key={n}
       className={`fb__stool${stoolOn(n) ? " fb__stool--on" : ""}`}
+      style={{ left: x, top: y, width: STOOL, height: STOOL }}
       onClick={() => toggleStool(n)}
       aria-pressed={stoolOn(n)}
       aria-label={`カウンター${n}番`}
@@ -136,16 +174,17 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     </button>
   );
 
-  const tableCard = (key: string) => {
+  const tableCard = ({ key, x }: { key: string; x: number }) => {
     const on = (board[key] ?? 0) > 0;
     return (
       <button
         key={key}
         className={`fb__table${on ? " fb__table--on" : ""}`}
+        style={{ left: x, top: 120, width: 84, height: 270 }}
         onClick={() => toggleUnit(key)}
         aria-pressed={on}
       >
-        <span className="fb__chairs-col">
+        <span className="fbc__tcol">
           {Array.from({ length: 3 }, (_, i) => (
             <i key={i} />
           ))}
@@ -155,7 +194,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           <small>6名掛け</small>
           <em className="fb__state">{on ? "使用中" : "空き"}</em>
         </span>
-        <span className="fb__chairs-col">
+        <span className="fbc__tcol">
           {Array.from({ length: 3 }, (_, i) => (
             <i key={i} />
           ))}
@@ -164,14 +203,12 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     );
   };
 
-  const zashikiOn = (board["和室"] ?? 0) > 0;
-
   return (
     <div className="fbwrap">
       <div className="fb">
         <header className="fb__head">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.png" alt="しっぽり亭" className="fb__logo" />
+          <img src="/logo-face.png" alt="しっぽり亭" className="fb__logo" />
           <h1>席ボード</h1>
           <p className="fb__date">{date.replaceAll("-", "/")}</p>
           {clock && (
@@ -179,6 +216,9 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
               {clock}
             </p>
           )}
+          <p className="fb__cap" aria-label="いま受け入れできる人数">
+            受入可 <b>{freeSeats}</b> 名
+          </p>
           <p className="fb__sum">
             予約 {resv.length}組 {guests}名 ／ カウンター使用 {counterUsed}席
           </p>
@@ -186,42 +226,62 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         </header>
 
         <div className="fb__body">
-          <div className="fb__floor">
-            <button
-              className={`fb__zashiki${zashikiOn ? " fb__zashiki--on" : ""}`}
-              onClick={() => toggleUnit("和室")}
-              aria-pressed={zashikiOn}
-            >
-              <span className="fb__chairs-row">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <i key={i} />
-                ))}
-              </span>
-              <span className="fb__zashiki-mid">
-                <i className="fb__chair-side" />
-                <span className="fb__ztable">
-                  <b>和室</b>
-                  <small>個室・8名掛け</small>
-                  <em className="fb__state">{zashikiOn ? "使用中" : "空き"}</em>
-                </span>
-                <i className="fb__chair-side" />
-              </span>
-              <span className="fb__chairs-row">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <i key={i} />
-                ))}
-              </span>
-            </button>
+          <div className="fb__floor" ref={floorRef}>
+            <div style={{ position: "relative", width: CANVAS_W * scale, height: CANVAS_H * scale }}>
+              <div
+                className="fb__canvas"
+                style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}
+              >
+                {/* 和室（掘りごたつ・両側4人掛け） */}
+                <button
+                  className={`fb__zashiki${zashikiOn ? " fb__zashiki--on" : ""}`}
+                  style={{ left: 12, top: 20, width: 190, height: 390 }}
+                  onClick={() => toggleUnit("和室")}
+                  aria-pressed={zashikiOn}
+                >
+                  <span className="fbc__zrow">
+                    <span className="fbc__chaircol">
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <i key={i} />
+                      ))}
+                    </span>
+                    <span className="fb__ztable">
+                      <b>和室</b>
+                      <small>個室・8名掛け</small>
+                      <em className="fb__state">{zashikiOn ? "使用中" : "空き"}</em>
+                    </span>
+                    <span className="fbc__chaircol">
+                      {Array.from({ length: 4 }, (_, i) => (
+                        <i key={i} />
+                      ))}
+                    </span>
+                  </span>
+                </button>
 
-            <div className="fb__lc" aria-label={`カウンター 残り${10 - counterUsed}席`}>
-              <div className="fb__lc-top">{STOOLS_TOP.map(stoolBtn)}</div>
-              <div className="fb__lc-hbar">カウンター（残り{10 - counterUsed}席）</div>
-              <div className="fb__lc-vbar" />
-              <div className="fb__lc-side">{STOOLS_SIDE.map(stoolBtn)}</div>
-              <p className="fb__hint">座った席をタップ（帰ったらもう一度タップで空きに戻る）</p>
+                {/* L型カウンター：横バー＋右端から下へ折れる縦バー */}
+                <div className="fb__hbar" style={{ left: 235, top: 90, width: 410, height: 42 }}>
+                  カウンター（残り{10 - counterUsed}席）
+                </div>
+                <div className="fb__vbar" style={{ left: 603, top: 131, width: 42, height: 201 }} />
+                {STOOLS_TOP.map(stoolBtn)}
+                {STOOLS_SIDE.map(stoolBtn)}
+                <p className="fb__hint" style={{ left: 235, top: 352, width: 350 }}>
+                  座った席をタップ（帰ったらもう一度タップで空きに戻る）
+                </p>
+
+                {/* ホール（歩く場所）は席がないので、ここに屋号の徳利を薄く置く */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/logo-face.png"
+                  alt=""
+                  className="fb__mark"
+                  style={{ left: 300, top: 175, width: 150, height: 150 }}
+                />
+
+                {/* テーブル3卓 */}
+                {TABLES.map(tableCard)}
+              </div>
             </div>
-
-            <div className="fb__tables">{["T1", "T2", "T3"].map(tableCard)}</div>
           </div>
 
           <aside className="fb__side">
