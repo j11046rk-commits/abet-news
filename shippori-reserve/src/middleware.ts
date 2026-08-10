@@ -66,7 +66,10 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    // ドメイン（yoyaku.shipporitei.jp）を直接開くのはお客様。
+    // チラシに短いURLだけを載せられるよう、素の入口は予約ページへ送る。
+    // スタッフは予約ページの下にある「スタッフの方はこちら」から入る。
+    url.pathname = pathname === "/" ? "/yoyaku" : "/login";
     url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
