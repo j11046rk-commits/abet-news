@@ -20,7 +20,7 @@ type ResvLite = Pick<
 
 export type BoardSnapshot = {
   date: string;
-  /** 'T1'|'T2'|'T3'|'和室' → 1(使用中) ／ 'C' → 使用席数 */
+  /** 'T1'|'T2'|'T3'|'和室' → 1(使用中) ／ 'C1'〜'C10' → その丸椅子が使用中か(0/1) */
   board: Record<string, number>;
   /** 今日の予約（横の一覧に出す） */
   reservations: ResvLite[];

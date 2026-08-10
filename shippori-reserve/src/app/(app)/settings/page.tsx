@@ -28,6 +28,8 @@ export default async function SettingsPage() {
   return (
     <>
       <header className="appbar">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-mark.png" alt="しっぽり亭" className="appbar__logo" />
         <div className="appbar__title">設定</div>
         <div className="appbar__spacer" />
         <span className="appbar__sub">

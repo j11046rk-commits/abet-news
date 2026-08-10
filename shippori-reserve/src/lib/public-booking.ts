@@ -93,13 +93,21 @@ async function fetchRange(from: string, to: string) {
     list.push(r);
     resv.set(r.biz_date, list);
   }
-  // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる
+  // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる。
+  // カウンターは旧'C'（合計値）と'C1'〜'C10'（1席ずつ）の両方式に対応し大きい方を採る
   const board = new Map<string, BoardState>();
+  const stools = new Map<string, number>();
   for (const b of (boardQ.data ?? []) as { biz_date: string; key: string; occupied: number }[]) {
     const cur = board.get(b.biz_date) ?? { taken: [], counterUsed: 0 };
-    if (b.key === "C") cur.counterUsed = b.occupied;
-    else if (b.occupied > 0) cur.taken.push(b.key);
+    if (b.key === "C") cur.counterUsed = Math.max(cur.counterUsed, b.occupied);
+    else if (/^C\d+$/.test(b.key)) {
+      if (b.occupied > 0) stools.set(b.biz_date, (stools.get(b.biz_date) ?? 0) + 1);
+    } else if (b.occupied > 0) cur.taken.push(b.key);
     board.set(b.biz_date, cur);
+  }
+  for (const [d, n] of stools) {
+    const cur = board.get(d);
+    if (cur) cur.counterUsed = Math.max(cur.counterUsed, n);
   }
 
   const stayRaw = Number(settings.default_stay_min);

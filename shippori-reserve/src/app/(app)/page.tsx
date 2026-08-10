@@ -116,6 +116,7 @@ export default async function MonthPage({
             date === today ? "mrow--today" : "",
             day.mode === "event" ? "mrow--event" : "",
             day.is_closed && rows.length === 0 ? "mrow--closed" : "",
+            saleHit ? "mrow--hit" : "",
           ]
             .filter(Boolean)
             .join(" ");

@@ -3,15 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtDateShort, startLabel } from "@/lib/time";
 import { getBoardSnapshot, setSeatState, type BoardSnapshot } from "@/app/(app)/board/actions";
+import { seatKind } from "@/lib/seats";
 
 /**
  * 席ボード（タブレット常設用）。
- * 実店舗の並びを模した簡易フロア図：和室（8名）・カウンター10席・6名掛けテーブル×3。
- * 飛び込みが座ったらタップ、帰ったらもう一度タップ。それだけ。
+ * 実店舗の配置どおり：左=和室（8名・茜）・中央=L型カウンター10席（金）・右=6名掛けテーブル×3（青）。
+ * カウンターは丸椅子を1席ずつタップ（C1〜C10）。卓は1タップで使用中⇔空き。
  * 新しいネット予約は音つきの全画面お知らせ（タップで確認するまで消えない）。
  */
 
 const POLL_MS = 15_000;
+/** L型カウンター：横バーの上に7席・右へ折れた縦バーの外側に3席（図面どおり） */
+const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7];
+const STOOLS_SIDE = [8, 9, 10];
 
 export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [date, setDate] = useState(initial.date);
@@ -22,6 +26,15 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
 
   const seenIds = useRef<Set<string>>(new Set(initial.recent_net.map((r) => r.id)));
   const audioCtx = useRef<AudioContext | null>(null);
+
+  // デジタル時計。秒まで動かして「画面が生きている」ことが分かるように（店主の希望）
+  const [clock, setClock] = useState("");
+  useEffect(() => {
+    const tick = () => setClock(new Date().toLocaleTimeString("ja-JP", { hour12: false }));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 音はブラウザの決まりで「一度画面に触れた後」しか鳴らせない。最初のタップで準備する
   useEffect(() => {
@@ -104,36 +117,46 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
 
   const toggleUnit = (key: string) => save(key, (board[key] ?? 0) > 0 ? 0 : 1);
 
-  /** カウンターの丸椅子。左から詰めて数える。p席目をタップ→そこまで埋める/そこから空ける */
-  const tapStool = (p: number) => {
-    const cur = board["C"] ?? 0;
-    save("C", p <= cur ? p - 1 : p);
-  };
+  /** カウンターの丸椅子（C1〜C10）。座ったらその席をタップ、帰ったらもう一度 */
+  const stoolOn = (n: number) => (board[`C${n}`] ?? 0) > 0;
+  const toggleStool = (n: number) => save(`C${n}`, stoolOn(n) ? 0 : 1);
 
-  const counterUsed = board["C"] ?? 0;
+  const counterUsed = [...STOOLS_TOP, ...STOOLS_SIDE].filter(stoolOn).length;
   const guests = resv.reduce((a, r) => a + r.party_size, 0);
 
-  const unitCard = (key: string, label: string, seats: number, kind: "table" | "room") => {
+  const stoolBtn = (n: number) => (
+    <button
+      key={n}
+      className={`fb__stool${stoolOn(n) ? " fb__stool--on" : ""}`}
+      onClick={() => toggleStool(n)}
+      aria-pressed={stoolOn(n)}
+      aria-label={`カウンター${n}番`}
+    >
+      {n}
+    </button>
+  );
+
+  const tableCard = (key: string) => {
     const on = (board[key] ?? 0) > 0;
     return (
       <button
         key={key}
-        className={`fb__unit fb__unit--${kind}${on ? " fb__unit--on" : ""}`}
+        className={`fb__table${on ? " fb__table--on" : ""}`}
         onClick={() => toggleUnit(key)}
         aria-pressed={on}
       >
-        <span className="fb__chairs fb__chairs--top">
-          {Array.from({ length: Math.ceil(seats / 2) }, (_, i) => (
+        <span className="fb__chairs-col">
+          {Array.from({ length: 3 }, (_, i) => (
             <i key={i} />
           ))}
         </span>
-        <span className="fb__tabletop">
-          <b>{label}</b>
-          <small>{seats}名掛け</small>
-          <em>{on ? "使用中" : "空き"}</em>
+        <span className="fb__ttop">
+          <b>{key}</b>
+          <small>6名掛け</small>
+          <em className="fb__state">{on ? "使用中" : "空き"}</em>
         </span>
-        <span className="fb__chairs fb__chairs--btm">
-          {Array.from({ length: Math.floor(seats / 2) }, (_, i) => (
+        <span className="fb__chairs-col">
+          {Array.from({ length: 3 }, (_, i) => (
             <i key={i} />
           ))}
         </span>
@@ -141,91 +164,111 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     );
   };
 
+  const zashikiOn = (board["和室"] ?? 0) > 0;
+
   return (
-    <div className="fb">
-      <header className="fb__head">
-        <h1>席ボード</h1>
-        <p className="fb__date">{date.replaceAll("-", "/")}</p>
-        <p className="fb__sum">
-          予約 {resv.length}組 {guests}名 ／ カウンター使用 {counterUsed}席
-        </p>
-        {saving && <span className="fb__saving">保存中…</span>}
-      </header>
-
-      <div className="fb__body">
-        <div className="fb__floor">
-          <div className="fb__row">
-            {unitCard("和室", "和室", 8, "room")}
-            <div className="fb__tables">
-              {unitCard("T1", "T1", 6, "table")}
-              {unitCard("T2", "T2", 6, "table")}
-              {unitCard("T3", "T3", 6, "table")}
-            </div>
-          </div>
-
-          <div className="fb__counter">
-            <p className="fb__counter-label">
-              カウンター <b>残り{10 - counterUsed}席</b>
+    <div className="fbwrap">
+      <div className="fb">
+        <header className="fb__head">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt="しっぽり亭" className="fb__logo" />
+          <h1>席ボード</h1>
+          <p className="fb__date">{date.replaceAll("-", "/")}</p>
+          {clock && (
+            <p className="fb__clock" aria-label="現在時刻">
+              {clock}
             </p>
-            <div className="fb__stools">
-              {Array.from({ length: 10 }, (_, i) => {
-                const p = i + 1;
-                const on = p <= counterUsed;
-                return (
-                  <button
-                    key={p}
-                    className={`fb__stool${on ? " fb__stool--on" : ""}`}
-                    onClick={() => tapStool(p)}
-                    aria-label={`カウンター${p}席目`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="fb__hint">座った席の数だけ左からタップ（帰ったら減らす）</p>
-          </div>
-        </div>
-
-        <aside className="fb__side">
-          <h2>今日の予約</h2>
-          {resv.length === 0 ? (
-            <p className="fb__empty">今日の予約はまだありません</p>
-          ) : (
-            <ul className="fb__list">
-              {resv.map((r) => (
-                <li key={r.id}>
-                  <span className="fb__time">{startLabel({ biz_date: date, starts_at: r.starts_at })}</span>
-                  <span className="fb__name">
-                    {r.customer_name} 様 {r.party_size}名
-                  </span>
-                  <span className="fb__seat">{r.seat_note ?? ""}</span>
-                  {r.source === "web_form" && <span className="fb__hp">HP</span>}
-                </li>
-              ))}
-            </ul>
           )}
-        </aside>
-      </div>
+          <p className="fb__sum">
+            予約 {resv.length}組 {guests}名 ／ カウンター使用 {counterUsed}席
+          </p>
+          {saving && <span className="fb__saving">保存中…</span>}
+        </header>
 
-      {alerts.length > 0 && (
-        <div className="fb__alert" role="alertdialog">
-          <div className="fb__alert-card">
-            <p className="fb__alert-title">新しいネット予約</p>
-            {alerts.map((a) => (
-              <p key={a.id} className="fb__alert-line">
-                <b>
-                  {fmtDateShort(a.biz_date)} {startLabel(a)}
-                </b>{" "}
-                {a.customer_name} 様 {a.party_size}名（{a.seat_note ?? "席未定"}）
-              </p>
-            ))}
-            <button className="btn btn-primary fb__alert-ok" onClick={() => setAlerts([])}>
-              確認した
+        <div className="fb__body">
+          <div className="fb__floor">
+            <button
+              className={`fb__zashiki${zashikiOn ? " fb__zashiki--on" : ""}`}
+              onClick={() => toggleUnit("和室")}
+              aria-pressed={zashikiOn}
+            >
+              <span className="fb__chairs-row">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </span>
+              <span className="fb__zashiki-mid">
+                <i className="fb__chair-side" />
+                <span className="fb__ztable">
+                  <b>和室</b>
+                  <small>個室・8名掛け</small>
+                  <em className="fb__state">{zashikiOn ? "使用中" : "空き"}</em>
+                </span>
+                <i className="fb__chair-side" />
+              </span>
+              <span className="fb__chairs-row">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </span>
             </button>
+
+            <div className="fb__lc" aria-label={`カウンター 残り${10 - counterUsed}席`}>
+              <div className="fb__lc-top">{STOOLS_TOP.map(stoolBtn)}</div>
+              <div className="fb__lc-hbar">カウンター（残り{10 - counterUsed}席）</div>
+              <div className="fb__lc-vbar" />
+              <div className="fb__lc-side">{STOOLS_SIDE.map(stoolBtn)}</div>
+              <p className="fb__hint">座った席をタップ（帰ったらもう一度タップで空きに戻る）</p>
+            </div>
+
+            <div className="fb__tables">{["T1", "T2", "T3"].map(tableCard)}</div>
           </div>
+
+          <aside className="fb__side">
+            <h2>今日の予約</h2>
+            {resv.length === 0 ? (
+              <p className="fb__empty">今日の予約はまだありません</p>
+            ) : (
+              <ul className="fb__list">
+                {resv.map((r) => {
+                  const kind = seatKind(r.seat_note);
+                  return (
+                    <li key={r.id} className={kind ? `fb__li--${kind}` : ""}>
+                      <span className="fb__time">
+                        {startLabel({ biz_date: date, starts_at: r.starts_at })}
+                      </span>
+                      <span className="fb__name">
+                        {r.customer_name} 様 {r.party_size}名
+                      </span>
+                      <span className="fb__seat">{r.seat_note ?? ""}</span>
+                      {r.source === "web_form" && <span className="fb__hp">HP</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </aside>
         </div>
-      )}
+
+        {alerts.length > 0 && (
+          <div className="fb__alert" role="alertdialog">
+            <div className="fb__alert-card">
+              <p className="fb__alert-title">新しいネット予約</p>
+              {alerts.map((a) => (
+                <p key={a.id} className="fb__alert-line">
+                  <b>
+                    {fmtDateShort(a.biz_date)} {startLabel(a)}
+                  </b>{" "}
+                  {a.customer_name} 様 {a.party_size}名（{a.seat_note ?? "席未定"}）
+                </p>
+              ))}
+              <button className="btn btn-primary fb__alert-ok" onClick={() => setAlerts([])}>
+                確認した
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
