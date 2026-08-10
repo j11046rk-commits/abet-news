@@ -384,6 +384,19 @@ textarea {
   border-color: color-mix(in srgb, var(--seal) 45%, transparent);
 }
 
+/* 枠のない文字だけのボタン。畳んである欄を開くような、脇役の操作に使う */
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--gold-soft);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
 .btn-sm {
   min-height: 2.1rem;
   padding: 0.25em 0.8em;

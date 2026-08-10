@@ -8,8 +8,18 @@
 --   2026-03-31 を最後に火曜定休になった（それ以前は火曜も営業していた）。
 --   火曜を混ぜたまま前年と比べると、2026年が構造的に低く出る。
 --   比較のときは必ず is_tuesday = false で絞る。
+--
+-- ★もう一つの要は dine_in_yen（店内飲食だけの売上）。
+--   太巻きのような物販が1日で62万乗ると、その日は通常営業の5日分になり、
+--   平均も前年比も達成率も全部そこに引きずられる。店の実力を見るときは
+--   actual_yen ではなく dine_in_yen を使う。
+--
+-- 列を足すときは置き換えではなく作り直しになる（drop view → create view）。
+-- migrations/0030・0031 がこのビューを同じ定義で作り直しているので、
+-- 直すときは両方を揃えること。
 
-create or replace view v_sales_day with (security_invoker = true) as
+drop view if exists v_sales_day;
+create view v_sales_day with (security_invoker = true) as
 select
   s.biz_date,
   extract(dow from s.biz_date)::int                       as dow,
@@ -20,6 +30,14 @@ select
   extract(day   from s.biz_date)::int                     as dd,
   s.target_yen,
   s.actual_yen,
+
+  -- 税率で分けた売上（エアレジの税率別集計、または手入力の「うち物販」から）
+  s.tax10_yen,
+  s.tax8_yen,
+  -- 店内飲食だけ。10%が来ていればそれを、無ければ「実績 − 物販」を使う
+  coalesce(s.tax10_yen, s.actual_yen - coalesce(s.tax8_yen, 0)) as dine_in_yen,
+  coalesce(s.tax8_yen, 0)                                       as retail_yen,
+  (s.tax8_yen is not null and s.tax8_yen > 0)                   as has_retail,
 
   -- 曜日の区分
   (extract(dow from s.biz_date)::int = 2)                 as is_tuesday,
