@@ -1950,7 +1950,3 @@ textarea.field:-webkit-autofill {
   font-size: 0.86rem;
   white-space: nowrap;
 }
-
-/* 予約ページ最下部の、スタッフ用ログインへの小さな戻り道 */
-.net__staff { margin-top: 0.6rem; }
-.net__staff a { font-size: 0.72rem; color: var(--text-dim); text-decoration: underline; }

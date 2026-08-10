@@ -66,11 +66,18 @@ export async function middleware(request: NextRequest) {
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
-    // ドメイン（yoyaku.shipporitei.jp）を直接開くのはお客様。
-    // チラシに短いURLだけを載せられるよう、素の入口は予約ページへ送る。
-    // スタッフは予約ページの下にある「スタッフの方はこちら」から入る。
-    url.pathname = pathname === "/" ? "/yoyaku" : "/login";
-    url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+    // 素のドメイン（yoyaku.shipporitei.jp）を開くのは、ふつうお客様。
+    // チラシに短いURLだけを載せられるよう、予約ページへ送る。
+    //
+    // ただし一度ログインした端末には Supabase のCookieが残る。
+    // それが残っているのに user が取れない＝スタッフの期限切れなので、
+    // 予約ページで行き止まりにせずログイン画面へ送る（ホーム画面のアプリはここを通る）。
+    const staffDevice = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+    const toBooking = pathname === "/" && !staffDevice;
+    url.pathname = toBooking ? "/yoyaku" : "/login";
+    url.search = toBooking || pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 

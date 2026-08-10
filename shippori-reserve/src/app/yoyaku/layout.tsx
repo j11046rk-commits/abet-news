@@ -29,8 +29,6 @@ export default function NetLayout({ children }: { children: React.ReactNode }) {
       <footer className="net__pagefoot">
         <p>しっぽり亭（愛媛・新居浜） ／ 火曜定休</p>
         <p>お電話：<a href="tel:0897474494">0897-47-4494</a> ／ <a href="https://shipporitei.jp">公式サイト</a></p>
-        {/* 素のドメインはお客様の入口にしたので、スタッフの戻り道をここに置く */}
-        <p className="net__staff"><a href="/login">スタッフの方はこちら</a></p>
       </footer>
     </div>
   );
