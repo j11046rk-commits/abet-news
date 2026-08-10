@@ -1736,3 +1736,15 @@ textarea.field:-webkit-autofill {
 .card--seat-table { border-left: 4px solid #5b8dd6; background: color-mix(in srgb, #5b8dd6 9%, var(--bg-2)); }
 .card--seat-room { border-left: 4px solid #c9603f; background: color-mix(in srgb, #c9603f 11%, var(--bg-2)); }
 .card--seat-counter { border-left: 4px solid var(--gold); }
+
+/* カレンダーの日毎売上: 達成日は売上グリッドと同じ金色の光をまとう */
+.salesline__actual--hit {
+  color: var(--gold-soft);
+  background:
+    radial-gradient(120% 140% at 50% 50%, color-mix(in srgb, var(--gold) 30%, transparent), transparent 75%);
+  border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+  border-radius: 999px;
+  padding: 0 0.55rem;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent);
+  animation: hitglow 2.4s ease-in-out infinite;
+}

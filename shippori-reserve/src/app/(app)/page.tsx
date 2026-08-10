@@ -178,7 +178,6 @@ export default async function MonthPage({
                     {sale.actual_yen != null ? (
                       <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
                         実績 {fmtYen(sale.actual_yen)}
-                        {saleHit ? "🎯" : ""}
                       </span>
                     ) : null}
                     {sale.target_yen ? <span>目標 {fmtYen(sale.target_yen)}</span> : null}
