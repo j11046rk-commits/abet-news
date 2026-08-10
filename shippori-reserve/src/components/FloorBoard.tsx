@@ -17,20 +17,20 @@ import { seatKind } from "@/lib/seats";
 const POLL_MS = 15_000;
 
 /** 固定キャンバスの設計サイズ */
-const CANVAS_W = 1000;
-const CANVAS_H = 430;
-const STOOL = 46; // 丸椅子の直径
+const CANVAS_W = 1200;
+const CANVAS_H = 375;
+const STOOL = 48; // 丸椅子の直径
 
-// カウンターの椅子は長手も短手も中心間60pxで統一
+// カウンターの椅子は長手も短手も中心間62pxで統一
 /** 横バーの上に並ぶ1〜7番（左から） */
-const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7].map((n, i) => ({ n, x: 260 + i * 60 - STOOL / 2, y: 28 }));
+const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7].map((n, i) => ({ n, x: 300 + i * 62, y: 24 }));
 /** L字に折れた縦バーの右に並ぶ8〜10番（上から） */
-const STOOLS_SIDE = [8, 9, 10].map((n, i) => ({ n, x: 657, y: 132 + i * 60 }));
+const STOOLS_SIDE = [8, 9, 10].map((n, i) => ({ n, x: 734, y: 152 + i * 62 }));
 /** テーブル3卓の枠位置 */
 const TABLES = [
-  { key: "T1", x: 715 },
-  { key: "T2", x: 810 },
-  { key: "T3", x: 905 },
+  { key: "T1", x: 810 },
+  { key: "T2", x: 940 },
+  { key: "T3", x: 1070 },
 ];
 
 export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
@@ -180,7 +180,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
       <button
         key={key}
         className={`fb__table${on ? " fb__table--on" : ""}`}
-        style={{ left: x, top: 120, width: 84, height: 270 }}
+        style={{ left: x, top: 120, width: 120, height: 200 }}
         onClick={() => toggleUnit(key)}
         aria-pressed={on}
       >
@@ -232,15 +232,15 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 className="fb__canvas"
                 style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}
               >
-                {/* 和室（掘りごたつ・両側4人掛け） */}
+                {/* 和室（掘りごたつは横向き・手前と奥に4人ずつ） */}
                 <button
                   className={`fb__zashiki${zashikiOn ? " fb__zashiki--on" : ""}`}
-                  style={{ left: 12, top: 20, width: 190, height: 390 }}
+                  style={{ left: 12, top: 20, width: 260, height: 250 }}
                   onClick={() => toggleUnit("和室")}
                   aria-pressed={zashikiOn}
                 >
-                  <span className="fbc__zrow">
-                    <span className="fbc__chaircol">
+                  <span className="fbc__zcol">
+                    <span className="fbc__chairrow">
                       {Array.from({ length: 4 }, (_, i) => (
                         <i key={i} />
                       ))}
@@ -250,7 +250,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                       <small>個室・8名掛け</small>
                       <em className="fb__state">{zashikiOn ? "使用中" : "空き"}</em>
                     </span>
-                    <span className="fbc__chaircol">
+                    <span className="fbc__chairrow">
                       {Array.from({ length: 4 }, (_, i) => (
                         <i key={i} />
                       ))}
@@ -259,23 +259,23 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 </button>
 
                 {/* L型カウンター：横バー＋右端から下へ折れる縦バー */}
-                <div className="fb__hbar" style={{ left: 235, top: 90, width: 410, height: 42 }}>
+                <div className="fb__hbar" style={{ left: 300, top: 86, width: 420, height: 60 }}>
                   カウンター（残り{10 - counterUsed}席）
                 </div>
-                <div className="fb__vbar" style={{ left: 603, top: 131, width: 42, height: 201 }} />
+                <div className="fb__vbar" style={{ left: 660, top: 146, width: 60, height: 180 }} />
                 {STOOLS_TOP.map(stoolBtn)}
                 {STOOLS_SIDE.map(stoolBtn)}
-                <p className="fb__hint" style={{ left: 235, top: 352, width: 350 }}>
+                <p className="fb__hint" style={{ left: 300, top: 348, width: 380 }}>
                   座った席をタップ（帰ったらもう一度タップで空きに戻る）
                 </p>
 
-                {/* ホール（歩く場所）は席がないので、ここに屋号の徳利を薄く置く */}
+                {/* 入口まわりは席がないので、ここに屋号の徳利を薄く置く */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo-face.png"
                   alt=""
                   className="fb__mark"
-                  style={{ left: 300, top: 175, width: 150, height: 150 }}
+                  style={{ left: 77, top: 282, width: 130, height: 130 }}
                 />
 
                 {/* テーブル3卓 */}

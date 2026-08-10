@@ -1661,13 +1661,13 @@ textarea.field:-webkit-autofill {
   padding: 0;
 }
 .fb__zashiki--on { background: #c9603f; color: #fff; }
-.fbc__zrow { display: flex; align-items: center; gap: 12px; }
-.fbc__chaircol { display: flex; flex-direction: column; gap: 30px; }
-.fbc__chaircol i {
+.fbc__zcol { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.fbc__chairrow { display: flex; gap: 18px; }
+.fbc__chairrow i {
   display: block;
-  width: 15px;
-  height: 34px;
-  border-radius: 4px;
+  width: 32px;
+  height: 15px;
+  border-radius: 4px 4px 2px 2px;
   background: #efe9dd;
   border: 1px solid #d8d0bf;
 }
@@ -1677,14 +1677,14 @@ textarea.field:-webkit-autofill {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 94px;
-  height: 310px;
+  width: 190px;
+  height: 96px;
   background: color-mix(in srgb, #c9603f 10%, #fff);
   border: 1px solid color-mix(in srgb, #c9603f 45%, #fff);
   border-radius: 12px;
 }
 .fb__zashiki--on .fb__ztable { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.4); }
-.fb__zashiki--on .fbc__chaircol i { background: rgba(255, 255, 255, 0.3); border-color: rgba(255, 255, 255, 0.45); }
+.fb__zashiki--on .fbc__chairrow i { background: rgba(255, 255, 255, 0.3); border-color: rgba(255, 255, 255, 0.45); }
 .fb__ztable b { font-size: 17px; }
 .fb__ztable small { font-size: 11px; opacity: 0.75; white-space: nowrap; }
 
@@ -1738,10 +1738,10 @@ textarea.field:-webkit-autofill {
   padding: 0;
 }
 .fb__table--on { background: #5b8dd6; color: #fff; }
-.fbc__tcol { display: flex; flex-direction: column; gap: 28px; }
+.fbc__tcol { display: flex; flex-direction: column; gap: 24px; }
 .fbc__tcol i {
   display: block;
-  width: 11px;
+  width: 12px;
   height: 28px;
   border-radius: 4px;
   background: #efe9dd;
@@ -1753,8 +1753,8 @@ textarea.field:-webkit-autofill {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: 46px;
-  height: 214px;
+  width: 76px;
+  height: 150px;
   background: color-mix(in srgb, #5b8dd6 10%, #fff);
   border: 1px solid color-mix(in srgb, #5b8dd6 45%, #fff);
   border-radius: 10px;
