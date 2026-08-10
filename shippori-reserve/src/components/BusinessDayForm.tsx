@@ -3,9 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { EVENT_CLOSE_MIN, EVENT_OPEN_MIN } from "@/lib/constants";
+import { fmtBytes, shrinkImage } from "@/lib/image";
 import { minutesToLabel } from "@/lib/time";
 import type { BusinessDay } from "@/lib/types";
 import type { BusinessDayInput, DayResult, FlyerResult } from "@/app/(app)/calendar/actions";
+
+/** Vercel が受け取れるリクエストの大きさに収まる範囲。画像は縮めてから送るので普通は届かない */
+const FLYER_MAX_BYTES = 4 * 1024 * 1024;
 
 const OPEN_CHOICES = [1020, 1050, 1080, 1110, 1140]; // 17:00〜19:00
 const CLOSE_CHOICES = [1380, 1440, 1470, 1500, 1560]; // 23:00〜26:00
@@ -55,22 +59,41 @@ export default function BusinessDayForm({
     }
   }
 
-  /** チラシを選んだらすぐ預かる。保存ボタンを押す前に、載る絵を確かめられるように */
-  async function pickFlyer(file: File | undefined) {
+  /**
+   * チラシを選んだらすぐ預かる。保存ボタンを押す前に、載る絵を確かめられるように。
+   * 何があっても「アップロード中…」のまま固まらないよう、必ず finally で戻す。
+   */
+  async function pickFlyer(input: HTMLInputElement) {
+    const file = input.files?.[0];
     if (!file) return;
     setError(null);
     setSaved(false);
     setUploading(true);
-    const fd = new FormData();
-    fd.set("file", file);
-    fd.set("date", day.biz_date);
-    const res = await onUploadFlyer(fd);
-    setUploading(false);
-    if (!res.ok) {
-      setError(res.error);
-      return;
+    try {
+      // スマホの写真は数MBある。送る前に縮めて、通信も待ち時間も軽くする
+      const sending = await shrinkImage(file);
+      if (sending.size > FLYER_MAX_BYTES) {
+        setError(
+          `ファイルが大きすぎます（${fmtBytes(sending.size)}）。もう少し小さい画像をお試しください。`,
+        );
+        return;
+      }
+      const fd = new FormData();
+      fd.set("file", sending);
+      fd.set("date", day.biz_date);
+      const res = await onUploadFlyer(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setFlyerUrl(res.url);
+    } catch {
+      setError("アップロードできませんでした。電波の良いところでもう一度お試しください。");
+    } finally {
+      setUploading(false);
+      // 同じ写真をもう一度選び直せるように、選択欄は空に戻す
+      input.value = "";
     }
-    setFlyerUrl(res.url);
   }
 
   function submit() {
@@ -183,8 +206,9 @@ export default function BusinessDayForm({
               id="flyer"
               className="field"
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
-              onChange={(e) => pickFlyer(e.target.files?.[0])}
+              accept="image/*,application/pdf"
+              disabled={uploading}
+              onChange={(e) => pickFlyer(e.currentTarget)}
             />
             {uploading ? <p className="micro">アップロード中…</p> : null}
             {flyerUrl ? (

@@ -70,8 +70,18 @@ export async function saveBusinessDay(input: BusinessDayInput): Promise<DayResul
 export type FlyerResult = { ok: true; url: string } | { ok: false; error: string };
 
 /** チラシに使えるもの。スマホで撮った写真とPDFを想定する */
-const FLYER_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"];
-const FLYER_MAX_BYTES = 10 * 1024 * 1024;
+const FLYER_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+];
+/** Vercel が受け取れるリクエストの大きさの範囲内。画像はブラウザ側で縮めてから届く */
+const FLYER_MAX_BYTES = 4 * 1024 * 1024;
+const FLYER_EXTS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "pdf"];
 
 /**
  * イベントのチラシを保存して、お客様が見られるURLを返す。
@@ -86,22 +96,30 @@ export async function uploadFlyer(fd: FormData): Promise<FlyerResult> {
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "ファイルを選んでください。" };
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { ok: false, error: "日付が不正です。" };
+  }
   if (file.size > FLYER_MAX_BYTES) {
-    return { ok: false, error: "ファイルが大きすぎます（10MBまで）。" };
+    return { ok: false, error: "ファイルが大きすぎます（4MBまで）。" };
   }
   if (!FLYER_TYPES.includes(file.type)) {
     return { ok: false, error: "画像（JPEG・PNG）かPDFを選んでください。" };
   }
 
-  const ext = file.type === "application/pdf" ? "pdf" : (file.name.split(".").pop() || "jpg");
+  const raw = file.type === "application/pdf" ? "pdf" : (file.name.split(".").pop() || "jpg");
+  const ext = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
   // 同じ日に貼り替えても古い画像が残らないよう、日付ごとに1枚だけ持つ
-  const path = `${date}.${ext.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+  const path = `${date}.${FLYER_EXTS.includes(ext) ? ext : "jpg"}`;
 
   const admin = createAdminClient();
   const { error } = await admin.storage
     .from("flyers")
     .upload(path, await file.arrayBuffer(), { contentType: file.type, upsert: true });
   if (error) return { ok: false, error: "アップロードできませんでした。" };
+
+  // 写真→PDF のように種類を替えたときに、前のファイルが公開されたまま残らないようにする
+  const stale = FLYER_EXTS.map((e) => `${date}.${e}`).filter((p) => p !== path);
+  await admin.storage.from("flyers").remove(stale);
 
   const { data } = admin.storage.from("flyers").getPublicUrl(path);
   // 貼り替えたときに古い画像が表示され続けないよう、更新時刻を付ける
