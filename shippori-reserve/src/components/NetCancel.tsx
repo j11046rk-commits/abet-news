@@ -55,12 +55,13 @@ export default function NetCancel() {
         onChange={(e) => setReference(e.target.value)} placeholder="例）R-2608-0038"
         autoCapitalize="characters" autoComplete="off" />
       <label className="net__label" htmlFor="nc-phone">電話番号 <em>必須</em></label>
-      <input id="nc-phone" className="field" value={phone} inputMode="tel" maxLength={13}
-        onChange={(e) => setPhone(e.target.value)} placeholder="例）090-1234-5678" autoComplete="tel" />
+      <input id="nc-phone" className="field" value={phone} type="tel" inputMode="tel" maxLength={20}
+        onChange={(e) => setPhone(e.target.value)} onInput={(e) => setPhone(e.currentTarget.value)}
+        placeholder="例）090-1234-5678" autoComplete="tel" />
       {error && <p className="net__error">{error}</p>}
       <button
         className="btn btn-primary net__confirm-btn"
-        disabled={sending || reference.trim() === "" || phone.replace(/[^0-9]/g, "").length < 10}
+        disabled={sending || reference.trim() === "" || phone.replace(/[^0-9+]/g, "").length < 10}
         onClick={submit}
       >
         {sending ? "確認中…" : "この予約をキャンセルする"}

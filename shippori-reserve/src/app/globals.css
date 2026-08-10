@@ -1542,3 +1542,16 @@ textarea.field {
 .net__sms-title { margin: 0 0 0.4rem; font-size: 0.92rem; font-weight: 600; color: var(--gold-soft); }
 .net__sms-send, .net__sms-resend { width: 100%; margin-top: 0.6rem; }
 .net__sms-code { margin-top: 0.6rem; font-size: 1.3rem; letter-spacing: 0.3em; text-align: center; }
+
+/* 自動入力(オートフィル)の黄色・白塗りを打ち消して、濃紺テーマに馴染ませる */
+input.field:-webkit-autofill,
+input.field:-webkit-autofill:hover,
+input.field:-webkit-autofill:focus,
+textarea.field:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  box-shadow: 0 0 0 1000px var(--bg-3) inset;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-3) inset;
+  border-color: var(--line);
+  transition: background-color 99999s ease-out;
+}

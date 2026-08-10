@@ -38,6 +38,13 @@ const addMonths = (ym: string, n: number) => {
   const d = new Date(y, m - 1 + n, 1);
   return ymOf(d);
 };
+/** +81形式や記号入りも受け付けて0始まりの数字に直す */
+const phoneDigits = (raw: string) => {
+  let d = raw.replace(/[^0-9]/g, "");
+  if (raw.trim().startsWith("+81") && d.startsWith("81")) d = "0" + d.slice(2);
+  return d;
+};
+
 const jaDate = (date: string) => {
   const [y, m, d] = date.split("-").map(Number);
   const w = WEEKDAY_JA[new Date(y, m - 1, d).getDay()];
@@ -78,6 +85,32 @@ export default function NetBooking() {
   const timeRef = useRef<HTMLDivElement>(null);
   const seatRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+
+  // iOSの予測変換・自動入力は入力イベントを起こさないことがあるので、
+  // 表示中は入力欄の実際の値を定期的に拾い直す（黄色く塗られても値は取れる）
+  const seiRef = useRef<HTMLInputElement>(null);
+  const meiRef = useRef<HTMLInputElement>(null);
+  const kanaRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const smsRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const sync = (
+        ref: React.RefObject<HTMLInputElement | null>,
+        cur: string,
+        set: (v: string) => void,
+      ) => {
+        const v = ref.current?.value;
+        if (v !== undefined && v !== cur) set(v);
+      };
+      sync(seiRef, sei, setSei);
+      sync(meiRef, mei, setMei);
+      sync(kanaRef, kana, setKana);
+      sync(phoneRef, phone, setPhone);
+      sync(smsRef, smsCode, (v) => setSmsCode(v.replace(/[^0-9]/g, "")));
+    }, 400);
+    return () => clearInterval(t);
+  }, [sei, mei, kana, phone, smsCode]);
 
   const loadMonth = useCallback(async (targetYm: string, targetParty: number) => {
     setMonthLoading(true);
@@ -141,7 +174,7 @@ export default function NetBooking() {
     seatDone &&
     sei.trim() !== "" &&
     mei.trim() !== "" &&
-    phone.replace(/[^0-9]/g, "").length >= 10;
+    phoneDigits(phone).length >= 10;
 
   const fullName = `${sei.trim()} ${mei.trim()}`.trim();
 
@@ -268,6 +301,7 @@ export default function NetBooking() {
               <>
                 <p className="net__hint">{phone} 宛にSMSで認証コードを送りました。届いた数字を入力してください。</p>
                 <input
+                  ref={smsRef}
                   className="field net__sms-code"
                   value={smsCode}
                   inputMode="numeric"
@@ -446,11 +480,12 @@ export default function NetBooking() {
           </div>
         </div>
         <label className="net__label" htmlFor="net-kana">フリガナ</label>
-        <input id="net-kana" className="field" value={kana} maxLength={40}
+        <input id="net-kana" ref={kanaRef} className="field" value={kana} maxLength={40}
           onChange={(e) => setKana(e.target.value)} placeholder="例）ヤマウチ タロウ" />
         <label className="net__label" htmlFor="net-phone">電話番号 <em>必須</em></label>
-        <input id="net-phone" className="field" value={phone} inputMode="tel" maxLength={13}
-          onChange={(e) => setPhone(e.target.value)} placeholder="例）090-1234-5678" autoComplete="tel" />
+        <input id="net-phone" ref={phoneRef} className="field" value={phone} type="tel" inputMode="tel"
+          maxLength={20} onChange={(e) => setPhone(e.target.value)}
+          placeholder="例）090-1234-5678" autoComplete="tel" />
         <label className="net__label" htmlFor="net-memo">ご要望（任意）</label>
         <textarea id="net-memo" className="field" value={memo} maxLength={200} rows={3}
           onChange={(e) => setMemo(e.target.value)}

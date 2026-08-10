@@ -368,7 +368,11 @@ export type NetBookingResult =
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function normalizePhone(raw: string): string | null {
-  const digits = (raw ?? "").replace(/[^0-9]/g, "");
+  let digits = (raw ?? "").replace(/[^0-9]/g, "");
+  // 連絡先の自動入力は「+81 80-1996-8762」形式で来ることがある
+  if ((raw ?? "").trim().startsWith("+81") && digits.startsWith("81")) {
+    digits = "0" + digits.slice(2);
+  }
   return digits.length >= 10 && digits.length <= 11 ? digits : null;
 }
 
