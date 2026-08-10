@@ -51,8 +51,9 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* アプリ内のスクロールに閉じる（引っ張って再読み込みを起こさない） */
-  overscroll-behavior-y: contain;
+  /* アプリ内のスクロールに閉じる。none で端の跳ね返り(バウンス)ごと止め、
+     一番上まで戻したときにヘッダーの上へ余白が見える現象を防ぐ */
+  overscroll-behavior-y: none;
 }
 
 h1,
