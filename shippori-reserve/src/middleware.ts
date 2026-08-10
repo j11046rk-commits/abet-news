@@ -8,13 +8,16 @@ import { createServerClient } from "@supabase/ssr";
  * ここで弾くのは1枚目の壁で、2枚目は DB の RLS。
  * ミドルウェアのバグだけで予約データが漏れることはない。
  */
-// /api/sales/ingest はセッションではなく x-api-key（SALES_INGEST_TOKEN）で守る。
-// ここに入れないと未ログインのPOSTが /login へ転送され、送信元は200(HTML)を成功と誤認する。
+// /api/sales/ingest と /api/insights はセッションではなく x-api-key で守る
+// （SALES_INGEST_TOKEN / INSIGHTS_TOKEN）。
+// ここに入れないと未ログインの要求が /login へ転送され、送信元は200(HTML)を成功と誤認する。
+// insights は集計しか返さない（氏名・電話番号は取得すらしない）。
 // /yoyaku と /api/public はお客様向けのネット予約（ログイン不要が仕様）。
 const PUBLIC_PATHS = [
   "/login",
   "/api/auth/login",
   "/api/sales/ingest",
+  "/api/insights",
   "/manifest.webmanifest",
   "/yoyaku",
   "/api/public",
