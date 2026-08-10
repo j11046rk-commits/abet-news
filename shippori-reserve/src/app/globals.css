@@ -1953,3 +1953,18 @@ textarea.field:-webkit-autofill {
   border: 1px solid var(--line);
   background: var(--bg-2);
 }
+
+/* 予約ページ左上の「ホームページへ戻る」 */
+.net__home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.3rem 0.9rem;
+  margin-bottom: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--gold-soft);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}

@@ -15,8 +15,11 @@ export const metadata: Metadata = {
 export default function NetLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="net">
+      <a className="net__home" href="https://shipporitei.jp">
+        ‹ ホームページ
+      </a>
       <header className="net__head">
-        <Image src="/logo-mark.png" alt="" width={44} height={44} priority />
+        <Image src="/logo-face.png" alt="" width={44} height={44} priority />
         <div>
           <p className="net__shop">おばんざい居酒屋 しっぽり亭</p>
           <h1 className="net__title">ネット予約</h1>
