@@ -306,7 +306,13 @@ async function twilioVerify(path: string, form: Record<string, string>) {
     },
     body: new URLSearchParams(form).toString(),
   });
-  const body = (await res.json().catch(() => null)) as { status?: string } | null;
+  const body = (await res.json().catch(() => null)) as
+    | { status?: string; code?: number; message?: string }
+    | null;
+  if (!res.ok) {
+    // 原因調査用（Vercelの関数ログにだけ出る。お客様には見えない）
+    console.error("twilio_verify_error", res.status, body?.code, body?.message);
+  }
   return { httpOk: res.ok, status: body?.status ?? "" };
 }
 
