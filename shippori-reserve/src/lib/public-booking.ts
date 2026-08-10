@@ -333,11 +333,7 @@ export async function startSmsVerification(
     Locale: "ja",
   });
   if (!r.httpOk) {
-    // 調査用にTwilioのエラー番号を一時的に画面へ出す（原因特定後に消す）
-    return {
-      ok: false,
-      error: `認証コードを送れませんでした。（診断: ${r.errorCode ?? "?"} / ${(r.errorMessage ?? "").slice(0, 120)}）`,
-    };
+    return { ok: false, error: "認証コードを送れませんでした。番号をご確認のうえ、少し待ってからお試しください。" };
   }
   return { ok: true };
 }
