@@ -1787,6 +1787,79 @@ textarea.field:-webkit-autofill {
 .fb__seat { margin-left: auto; color: #857c6d; font-size: 0.78rem; flex: none; }
 .fb__hp { flex: none; font-size: 0.68rem; border: 1px solid #b98136; color: #7a5c2e; border-radius: 999px; padding: 0 0.4rem; }
 
+/* 新規予約の停止（とても忙しいときだけ・記録が残る） */
+.fb__pausebtn {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #9a3412;
+  background: #fff;
+  border: 2px solid #e7b9a4;
+  border-radius: 10px;
+  padding: 0.25rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fb__pausebtn--on { color: #fff; background: #1a7f4b; border-color: #14663c; }
+.fb__pausebtn:disabled { color: #a9a294; border-color: #e4dfd4; cursor: default; }
+
+.fb__paused {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  background: #fdeceb;
+  border: 2px solid #d8503f;
+  border-radius: 12px;
+  padding: 0.6rem 0.9rem;
+  color: #8c2f22;
+}
+.fb__paused b { font-size: 1.05rem; }
+.fb__paused-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: #d8503f;
+  flex: none;
+  animation: fbpulse 1.4s ease-in-out infinite;
+}
+@keyframes fbpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.fb__paused-min { font-variant-numeric: tabular-nums; font-weight: 700; }
+.fb__paused-note { font-size: 0.82rem; }
+.fb__paused-btn {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1a7f4b;
+  border: none;
+  border-radius: 10px;
+  padding: 0.45rem 1.1rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fb__pausesum { margin: 0; font-size: 0.78rem; color: #857c6d; }
+
+.fb__alert--warn { animation: none; background: rgba(46, 42, 36, 0.55); }
+.fb__alert--warn .fb__alert-card { border-color: #d8503f; box-shadow: 0 0 40px rgba(216, 80, 63, 0.4); }
+.fb__alert--warn .fb__alert-title { color: #b23a29; }
+.fb__warnlist {
+  margin: 0 0 0.8rem;
+  padding-left: 1.1rem;
+  text-align: left;
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+.fb__warnnow {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  background: #f6f3ec;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+.fb__warnbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.fb__warnbtns .btn { color: #2e2a24; border-color: #d8d0bf; }
+.fb__warnok { color: #fff !important; background: #d8503f; border-color: #d8503f !important; }
+
 /* 新しいネット予約のお知らせ（確認するまで消えない） */
 .fb__alert {
   position: fixed;

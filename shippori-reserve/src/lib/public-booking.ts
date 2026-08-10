@@ -70,7 +70,7 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
 
 async function fetchRange(from: string, to: string) {
   const admin = createAdminClient();
-  const [settingsQ, daysQ, resvQ, unitsQ, boardQ] = await Promise.all([
+  const [settingsQ, daysQ, resvQ, unitsQ, boardQ, pauseQ] = await Promise.all([
     admin.from("settings").select("key, value"),
     admin.from("business_days").select("*").gte("biz_date", from).lte("biz_date", to),
     admin
@@ -81,6 +81,13 @@ async function fetchRange(from: string, to: string) {
       .in("status", [...activeStatuses]),
     admin.from("seat_units").select("*").eq("is_active", true).order("sort_order"),
     admin.from("seat_board").select("biz_date, key, occupied").gte("biz_date", from).lte("biz_date", to),
+    // 現場が受付を止めている日（席ボードの「新規予約停止」）
+    admin
+      .from("net_pause")
+      .select("biz_date")
+      .is("ended_at", null)
+      .gte("biz_date", from)
+      .lte("biz_date", to),
   ]);
 
   const settings = Object.fromEntries(
@@ -110,12 +117,17 @@ async function fetchRange(from: string, to: string) {
     if (cur) cur.counterUsed = Math.max(cur.counterUsed, n);
   }
 
+  const paused = new Set<string>(
+    ((pauseQ.data ?? []) as { biz_date: string }[]).map((p) => p.biz_date),
+  );
+
   const stayRaw = Number(settings.default_stay_min);
   return {
     settings,
     days,
     resv,
     board,
+    paused,
     units: (unitsQ.data ?? []) as SeatUnit[],
     stay: Number.isFinite(stayRaw) && stayRaw > 0 ? stayRaw : DEFAULT_STAY_MIN,
   };
@@ -249,6 +261,8 @@ function dayStatus(
 
   const { day, rows } = dayCore(date, ctx);
   if (day.is_closed) return "closed";
+  // 現場が受付を止めている日は、満席と同じく選べない
+  if (ctx.paused.has(date)) return "full";
 
   // その日の枠が1つでも「2時間前ルール」を満たすか（未来日は常に満たす）
   if (!slotMinutes().some((m) => slotLeadOk(date, m))) return "full";
@@ -302,6 +316,8 @@ export async function dayAvailability(date: string, party: number) {
     is_event: day.mode === "event",
     event_name: day.event_name,
     is_busy: day.is_busy,
+    // 満席ではなく「現場が受付を止めている」ときは、その旨をお客様に伝える
+    is_paused: ctx.paused.has(date),
     sms_required: smsEnabled(),
     slots,
     // イベント日は席の概念がない（お席自由）
@@ -528,6 +544,14 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   });
 
   if (error) {
+    if (/NET_PAUSED/.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "ただいま混み合っているため、この日のネット受付を一時停止しております。お電話（0897-47-4494）でお問い合わせください。",
+        code: "RETRY",
+      };
+    }
     // 押した瞬間に他の人が取ったケース。最新の空きで選び直してもらう
     if (/NET_FULL|NET_CLOSED/.test(error.message)) {
       return {

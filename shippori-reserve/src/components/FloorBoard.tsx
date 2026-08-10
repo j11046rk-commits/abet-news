@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fmtDateShort, startLabel } from "@/lib/time";
-import { getBoardSnapshot, setSeatState, type BoardSnapshot } from "@/app/(app)/board/actions";
+import {
+  getBoardSnapshot,
+  setNetPause,
+  setSeatState,
+  type BoardSnapshot,
+} from "@/app/(app)/board/actions";
 import { seatKind } from "@/lib/seats";
 
 /**
@@ -39,6 +44,9 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [resv, setResv] = useState(initial.reservations);
   const [alerts, setAlerts] = useState<BoardSnapshot["reservations"]>([]);
   const [saving, setSaving] = useState(false);
+  const [pause, setPause] = useState(initial.pause);
+  const [askPause, setAskPause] = useState(false);
+  const [openNow, setOpenNow] = useState(initial.open_now);
 
   const seenIds = useRef<Set<string>>(new Set(initial.recent_net.map((r) => r.id)));
   const audioCtx = useRef<AudioContext | null>(null);
@@ -124,6 +132,8 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         }
         setBoard(snap.board);
         setResv(snap.reservations);
+        setPause(snap.pause);
+        setOpenNow(snap.open_now);
       } catch {
         /* 次の周回で取り直す */
       }
@@ -149,6 +159,32 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   }
 
   const toggleUnit = (key: string) => save(key, (board[key] ?? 0) > 0 ? 0 : 1);
+
+  /** ネット予約の受付を止める／再開する。押した時刻はそのまま記録に残る */
+  async function switchPause(on: boolean) {
+    setAskPause(false);
+    setSaving(true);
+    const res = await setNetPause(on);
+    setSaving(false);
+    if (!res.ok) return;
+    const snap = await getBoardSnapshot();
+    setPause(snap.pause);
+  }
+
+  /** 分を「◯時間◯分」に。0分のときは「0分」 */
+  const hhmm = (min: number) =>
+    min >= 60 ? `${Math.floor(min / 60)}時間${min % 60}分` : `${min}分`;
+
+  // 停止中は経過時間を1分ごとに数え直して、止めっぱなしに気づけるようにする
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (!pause.on) return;
+    const timer = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [pause.on]);
+  const pausedMin = pause.since
+    ? Math.max(0, Math.round((Date.now() - new Date(pause.since).getTime()) / 60_000))
+    : 0;
 
   /** カウンターの丸椅子（C1〜C10）。座ったらその席をタップ、帰ったらもう一度 */
   const stoolOn = (n: number) => (board[`C${n}`] ?? 0) > 0;
@@ -219,11 +255,44 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           <p className="fb__cap" aria-label="いま受け入れできる人数">
             受入可 <b>{freeSeats}</b> 名
           </p>
+          {pause.on ? (
+            <button className="fb__pausebtn fb__pausebtn--on" onClick={() => switchPause(false)}>
+              受付を再開する
+            </button>
+          ) : (
+            <button
+              className="fb__pausebtn"
+              onClick={() => setAskPause(true)}
+              disabled={!openNow}
+              title={openNow ? undefined : "営業時間中だけ使えます"}
+            >
+              新規予約停止
+            </button>
+          )}
           <p className="fb__sum">
             予約 {resv.length}組 {guests}名 ／ カウンター使用 {counterUsed}席
           </p>
           {saving && <span className="fb__saving">保存中…</span>}
         </header>
+
+        {pause.on && (
+          <div className="fb__paused" role="status">
+            <span className="fb__paused-dot" />
+            <b>本日のネット予約を停止中</b>
+            <span className="fb__paused-min">{hhmm(pausedMin)}経過</span>
+            <span className="fb__paused-note">
+              この間に入るはずだったご予約は受けられません。空きが出たら早めに再開してください。
+            </span>
+            <button className="fb__paused-btn" onClick={() => switchPause(false)}>
+              受付を再開する
+            </button>
+          </div>
+        )}
+
+        <p className="fb__pausesum">
+          停止の記録：今日 {hhmm(pause.today_min)} ／ 今月 {hhmm(pause.month_min)}（
+          {pause.month_count}回）
+        </p>
 
         <div className="fb__body">
           <div className="fb__floor" ref={floorRef}>
@@ -309,6 +378,37 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
             )}
           </aside>
         </div>
+
+        {/* 停止は「押しにくく」する。何が起きるかを読ませてから確定させる */}
+        {askPause && (
+          <div className="fb__alert fb__alert--warn" role="alertdialog">
+            <div className="fb__alert-card">
+              <p className="fb__alert-title">本当に新規予約を止めますか？</p>
+              <ul className="fb__warnlist">
+                <li>
+                  <b>本日の</b>ネット予約が<b>1件も入らなくなります</b>（明日以降の予約は今までどおり受け付けます）。
+                </li>
+                <li>お客様の画面では「×（満席）」と表示されます。</li>
+                <li>
+                  止めた時刻と再開した時刻が記録され、
+                  <b>今月の停止時間として合計されます</b>。
+                </li>
+                <li>空きが出たら、必ず「受付を再開する」を押してください。</li>
+              </ul>
+              <p className="fb__warnnow">
+                今月はここまで <b>{hhmm(pause.month_min)}</b>（{pause.month_count}回）止めています
+              </p>
+              <div className="fb__warnbtns">
+                <button className="btn" onClick={() => setAskPause(false)}>
+                  やめる
+                </button>
+                <button className="btn fb__warnok" onClick={() => switchPause(true)}>
+                  停止する
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {alerts.length > 0 && (
           <div className="fb__alert" role="alertdialog">

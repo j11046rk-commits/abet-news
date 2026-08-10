@@ -27,6 +27,7 @@ type DayInfo = {
   is_event: boolean;
   event_name: string | null;
   is_busy: boolean;
+  is_paused: boolean;
   sms_required: boolean;
   slots: Slot[];
   seats: Seat[];
@@ -411,6 +412,11 @@ export default function NetBooking() {
           <p className="net__hint">先に日付をお選びください。</p>
         ) : dayInfo === null ? (
           <p className="net__hint">空き時間を確認しています…</p>
+        ) : dayInfo.is_paused ? (
+          <p className="net__busy">
+            申し訳ございません。ただいま大変混み合っているため、この日のネットでの受付を一時停止しております。
+            お電話（<a href={TEL_HREF}>{TEL}</a>）にてお問い合わせください。
+          </p>
         ) : (
           <>
             {dayInfo.is_event && (
