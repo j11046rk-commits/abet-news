@@ -1555,3 +1555,14 @@ textarea.field:-webkit-autofill {
   border-color: var(--line);
   transition: background-color 99999s ease-out;
 }
+
+/* カレンダー：予約1件ずつを白っぽく浮かせるカードに（店主指定・その25） */
+.mcard {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  padding: 0.34rem 0.6rem;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+}
+.mcard + .mcard { margin-top: 0.35rem; }
+.mcard .mline { padding: 0; }

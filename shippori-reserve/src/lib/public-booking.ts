@@ -25,7 +25,8 @@ import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
  */
 export const NET = {
   maxParty: 8,
-  minLeadMin: 120, // 開始の2時間前まで
+  minLeadMin: 30, // 予約は開始の30分前まで受ける（店主指定）
+  cancelLeadMin: 120, // Webキャンセルは開始の2時間前まで
   maxDaysAhead: 60,
   slotStep: 15,
   firstStart: 1080, // 18:00
@@ -197,7 +198,7 @@ export function slotMinutes(): number[] {
   return out;
 }
 
-/** この枠は「今から2時間後」より先か（当日の直前予約を締める） */
+/** この枠は「今から30分後」より先か（当日の直前予約を締める） */
 function slotLeadOk(date: string, min: number): boolean {
   const slotAt = new Date(minutesToIso(date, min)).getTime();
   return slotAt >= nowJst().getTime() + NET.minLeadMin * 60_000;
@@ -437,7 +438,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   if (!slotLeadOk(input.date, input.start_min)) {
     return {
       ok: false,
-      error: "直前のご予約はネットでは承れません（2時間前まで）。お電話ください。",
+      error: "直前のご予約はネットでは承れません（開始30分前まで）。お電話ください。",
       code: "RETRY",
     };
   }
@@ -539,7 +540,7 @@ export async function cancelNetReservation(
   if (r.status !== "tentative" && r.status !== "confirmed") {
     return { ok: false, error: "この予約はWebからは変更できません。お電話でご連絡ください。" };
   }
-  if (new Date(r.starts_at).getTime() < nowJst().getTime() + NET.minLeadMin * 60_000) {
+  if (new Date(r.starts_at).getTime() < nowJst().getTime() + NET.cancelLeadMin * 60_000) {
     return { ok: false, error: "開始2時間前を過ぎたキャンセルはお電話でお願いします。" };
   }
 

@@ -194,7 +194,7 @@ export default async function MonthPage({
                     .filter(Boolean)
                     .join("／");
                   return (
-                    <div key={r.id}>
+                    <div key={r.id} className="mcard">
                       <Link
                         href={`/reservations/${r.id}`}
                         className={`mline ${off ? "mline--off" : ""}`}
