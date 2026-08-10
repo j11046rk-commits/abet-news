@@ -104,24 +104,29 @@ export default function BusinessDayForm({
       return;
     }
     startTransition(async () => {
-      const res = await onSubmit({
-        biz_date: day.biz_date,
-        mode,
-        is_busy: isBusy,
-        is_closed: isClosed,
-        event_name: eventName,
-        event_capacity: mode === "event" ? capacity : null,
-        open_min: openMin,
-        close_min: closeMin,
-        flyer_url: flyerUrl || null,
-        note,
-      });
-      if (!res.ok) {
-        setError(res.error);
-        return;
+      try {
+        const res = await onSubmit({
+          biz_date: day.biz_date,
+          mode,
+          is_busy: isBusy,
+          is_closed: isClosed,
+          event_name: eventName,
+          event_capacity: mode === "event" ? capacity : null,
+          open_min: openMin,
+          close_min: closeMin,
+          flyer_url: flyerUrl || null,
+          note,
+        });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setSaved(true);
+        router.refresh();
+      } catch {
+        // 通信が切れた・再デプロイ直後などで、押しても何も起きないように見えるのを防ぐ
+        setError("保存できませんでした。通信環境をご確認のうえ、もう一度お試しください。");
       }
-      setSaved(true);
-      router.refresh();
     });
   }
 
@@ -318,8 +323,8 @@ export default function BusinessDayForm({
 
       {error ? <p className="err">{error}</p> : null}
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
-        {pending ? "保存中" : saved ? "保存しました" : "保存する"}
+      <button type="submit" className="btn btn-primary btn-block" disabled={pending || uploading}>
+        {uploading ? "アップロード中" : pending ? "保存中" : saved ? "保存しました" : "保存する"}
       </button>
     </form>
   );
