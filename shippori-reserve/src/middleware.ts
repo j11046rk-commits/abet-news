@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 
 /**
  * 未認証アクセスは全て /login へ。URLが漏れても中身が見えない状態にする。
@@ -48,13 +49,15 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // httpOnly と12時間の期限をここでも効かせる（既定は httpOnly なし・400日）
+      cookieOptions: AUTH_COOKIE_OPTIONS,
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (cookiesToSet) => {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            response.cookies.set(name, value, { ...options, ...AUTH_COOKIE_OPTIONS }),
           );
         },
       },

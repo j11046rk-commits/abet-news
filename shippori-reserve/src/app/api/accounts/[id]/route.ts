@@ -40,5 +40,22 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   const { error } = await admin.from("profiles").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: "更新できませんでした。" }, { status: 400 });
 
+  /*
+   * ★「無効にする」を、ログインそのものが通らない状態にする。
+   *
+   * これまでは profiles.is_active を false にするだけで、Supabase Auth 側の
+   * ユーザーとパスワードはそのまま生きていた。/api/auth/login は
+   * サインインが成功したあとで is_active を見て signOut しているだけなので、
+   * アプリを通さずに Supabase を直接叩けば、辞めた人が古いパスワードで
+   * トークンを取れてしまう（席を全部埋めてネット予約を止める、等ができる）。
+   *
+   * 出勤停止と同時に、鍵そのものを止める。
+   */
+  if (patch.is_active === false) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "876000h" }); // 実質永久
+  } else if (patch.is_active === true) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
+  }
+
   return NextResponse.json({ ok: true });
 }

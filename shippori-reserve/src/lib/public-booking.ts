@@ -384,14 +384,13 @@ async function twilioVerify(path: string, form: Record<string, string>) {
     | { status?: string; code?: number; message?: string }
     | null;
   if (!res.ok) {
-    console.error("twilio_verify_error", res.status, body?.code, body?.message);
+    // ★本文（body.message）はログに出さない。
+    //   Twilioの番号系エラーは本文に送信先の番号がそのまま入るので、
+    //   出すとお客様の電話番号が Vercel のログという第二の保管場所へ流れる。
+    //   原因調査に要るのはエラー番号だけ。詳細はTwilioコンソールに残っている。
+    console.error("twilio_verify_error", res.status, body?.code);
   }
-  return {
-    httpOk: res.ok,
-    status: body?.status ?? "",
-    errorCode: body?.code,
-    errorMessage: body?.message,
-  };
+  return { httpOk: res.ok, status: body?.status ?? "", errorCode: body?.code };
 }
 
 /** 認証コードを送る。成功: {ok:true} */
@@ -407,10 +406,13 @@ export async function startSmsVerification(
     Locale: "ja",
   });
   if (!r.httpOk) {
-    // 調査用にTwilioのエラー番号を一時的に画面へ出す（原因特定後に消す）
+    // ★Twilioのエラー番号も本文も画面に出さない。
+    //   番号を変えながら叩けば「その番号は実在するか・携帯か・ブロック中か」を
+    //   外から判定できる照会窓口になってしまう。お客様向けの一文だけ返す。
     return {
       ok: false,
-      error: `認証コードを送れませんでした。（診断: ${r.errorCode ?? "?"} / ${(r.errorMessage ?? "").slice(0, 120)}）`,
+      error:
+        "認証コードを送れませんでした。しばらく待ってからもう一度お試しいただくか、お電話（0897-47-4494）でご予約ください。",
     };
   }
   return { ok: true };
@@ -613,10 +615,25 @@ export async function cancelNetReservation(
 ): Promise<NetCancelResult> {
   const reference = (referenceRaw ?? "").trim().toUpperCase().replace(/\s/g, "");
   const phone = normalizePhone(phoneRaw ?? "");
-  if (!/^R-\d{4}-\d{4}$/.test(reference)) {
-    return { ok: false, error: "予約番号の形式が違います（例：R-2608-0038）。" };
-  }
-  if (!phone) return { ok: false, error: "電話番号を正しく入力してください。" };
+
+  /*
+   * ★返す文言を1本に統一する。
+   *
+   * 以前は「見つかりません」「すでにキャンセル済み」「2時間前を過ぎた」を
+   * 別々に返していた。予約番号は月ごとの連番なので、電話番号を1つ知っていれば
+   * 0001 から順に投げるだけで、どの番号が当たりかを応答の違いから判別できた。
+   * 当たった相手の予約を消せるだけでなく、消さなくても
+   * 「この電話番号の人がこの店に予約している」という事実が第三者に分かってしまう。
+   *
+   * 状態の違いを見せてよいのは、番号と電話が一致したあとだけ。
+   * 一致しない限り、どの経路でも同じ一文を返す。
+   */
+  const mismatch = {
+    ok: false as const,
+    error: "予約が見つかりません。番号と電話番号をご確認ください。",
+  };
+  if (!/^R-\d{4}-\d{4}$/.test(reference)) return mismatch;
+  if (!phone) return mismatch;
 
   const admin = createAdminClient();
   const { data: r } = await admin
@@ -625,10 +642,9 @@ export async function cancelNetReservation(
     .eq("reference", reference)
     .maybeSingle<Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">>();
 
-  // 見つからない場合も番号と電話の不一致も、同じ言い方で返す（総当たり対策）
-  const mismatch = { ok: false as const, error: "予約が見つかりません。番号と電話番号をご確認ください。" };
   if (!r || !r.phone || normalizePhone(r.phone) !== phone) return mismatch;
 
+  // ここから先は本人が確認できたあと。状態の違いを伝えてよい。
   if (r.status === "cancelled") return { ok: false, error: "この予約はすでにキャンセル済みです。" };
   if (r.status !== "tentative" && r.status !== "confirmed") {
     return { ok: false, error: "この予約はWebからは変更できません。お電話でご連絡ください。" };
