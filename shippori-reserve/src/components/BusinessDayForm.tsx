@@ -8,8 +8,12 @@ import { minutesToLabel } from "@/lib/time";
 import type { BusinessDay } from "@/lib/types";
 import type { BusinessDayInput, DayResult, FlyerResult } from "@/app/(app)/calendar/actions";
 
-/** Vercel が受け取れるリクエストの大きさに収まる範囲。画像は縮めてから送るので普通は届かない */
-const FLYER_MAX_BYTES = 4 * 1024 * 1024;
+/**
+ * 受け入れ上限。next.config の bodySizeLimit(4MB) より少し小さくしておく——
+ * 送信時には区切り文字などが上乗せされるので、同値だと境界のファイルが
+ * 理由の分からない失敗をする。画像は縮めてから送るので普通はここまで来ない。
+ */
+const FLYER_MAX_BYTES = 3.5 * 1024 * 1024;
 
 const OPEN_CHOICES = [1020, 1050, 1080, 1110, 1140]; // 17:00〜19:00
 const CLOSE_CHOICES = [1380, 1440, 1470, 1500, 1560]; // 23:00〜26:00

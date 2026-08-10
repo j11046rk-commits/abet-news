@@ -79,8 +79,8 @@ const FLYER_TYPES = [
   "image/heif",
   "application/pdf",
 ];
-/** Vercel が受け取れるリクエストの大きさの範囲内。画像はブラウザ側で縮めてから届く */
-const FLYER_MAX_BYTES = 4 * 1024 * 1024;
+/** next.config の bodySizeLimit(4MB) より少し小さく。画像はブラウザ側で縮めてから届く */
+const FLYER_MAX_BYTES = 3.5 * 1024 * 1024;
 const FLYER_EXTS = ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif", "pdf"];
 
 /**
@@ -100,7 +100,7 @@ export async function uploadFlyer(fd: FormData): Promise<FlyerResult> {
     return { ok: false, error: "日付が不正です。" };
   }
   if (file.size > FLYER_MAX_BYTES) {
-    return { ok: false, error: "ファイルが大きすぎます（4MBまで）。" };
+    return { ok: false, error: "ファイルが大きすぎます（3.5MBまで）。" };
   }
   if (!FLYER_TYPES.includes(file.type)) {
     return { ok: false, error: "画像（JPEG・PNG）かPDFを選んでください。" };
