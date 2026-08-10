@@ -388,7 +388,7 @@ HP（shipporitei.jp）の「ネット予約」から使う。空席の判定は�
 | メソッド/パス | 役割 |
 |---|---|
 | `GET /api/public/availability?ym=YYYY-MM&party=N` | 月カレンダー（◯/△/×/休）。予約の中身は返さない |
-| `GET /api/public/availability?date=YYYY-MM-DD&party=N` | その日の時間枠（30分刻み・2時間前まで） |
+| `GET /api/public/availability?date=YYYY-MM-DD&party=N` | その日の時間枠（15分刻み・開始15分前まで） |
 | `POST /api/public/reservations` | 即時確定（〜8名・60日先まで）。source=web_form で登録。席は自動割当 |
 | `POST /api/public/cancel` | Webキャンセル（予約番号＋電話番号で本人確認・開始2時間前まで） |
 

@@ -21,11 +21,11 @@ import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
  * 最後の砦は DB 関数 net_reserve（advisory lock + 再判定 + 登録が1トランザクション）。
  *
  * ここはログイン不要の入り口なので、受け付ける範囲を明確に絞る：
- *   〜8名・当日は2時間前まで・60日先まで。9名以上と直前はお電話へ誘導する。
+ *   〜8名・当日は開始15分前まで・60日先まで。9名以上と直前はお電話へ誘導する。
  */
 export const NET = {
   maxParty: 8,
-  minLeadMin: 30, // 予約は開始の30分前まで受ける（店主指定）
+  minLeadMin: 15, // 予約は開始の15分前まで受ける（店主指定・即時予約）
   cancelLeadMin: 120, // Webキャンセルは開始の2時間前まで
   maxDaysAhead: 60,
   slotStep: 15,
@@ -259,7 +259,7 @@ export function slotMinutes(): number[] {
   return out;
 }
 
-/** この枠は「今から30分後」より先か（当日の直前予約を締める） */
+/** この枠は「今から15分後」より先か（当日の直前予約を締める） */
 function slotLeadOk(date: string, min: number): boolean {
   const slotAt = new Date(minutesToIso(date, min)).getTime();
   return slotAt >= nowJst().getTime() + NET.minLeadMin * 60_000;
@@ -287,7 +287,7 @@ function dayStatus(
   // イベント営業のネット予約は前日まで（仕込みの都合・店主指定）
   if (day.mode === "event" && date <= today) return "full";
 
-  // その日の枠が1つでも「2時間前ルール」を満たすか（未来日は常に満たす）
+  // その日の枠が1つでも「15分前ルール」を満たすか（未来日は常に満たす）
   if (!slotMinutes().some((m) => slotLeadOk(date, m))) return "full";
 
   if (day.mode === "event") {
@@ -515,7 +515,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   if (!slotLeadOk(input.date, input.start_min)) {
     return {
       ok: false,
-      error: "直前のご予約はネットでは承れません（開始30分前まで）。お電話ください。",
+      error: "直前のご予約はネットでは承れません（開始15分前まで）。お電話ください。",
       code: "RETRY",
     };
   }

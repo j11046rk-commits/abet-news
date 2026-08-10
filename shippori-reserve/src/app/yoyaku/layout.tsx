@@ -8,7 +8,7 @@ import Image from "next/image";
 export const metadata: Metadata = {
   title: "ネット予約｜しっぽり亭（新居浜）",
   description:
-    "新居浜のおばんざい居酒屋「しっぽり亭」のネット予約。空席をその場で確認して、そのままご予約いただけます（8名様まで・当日は2時間前まで）。",
+    "新居浜のおばんざい居酒屋「しっぽり亭」のネット予約。空席をその場で確認して、その場でご予約が確定します（8名様まで・当日は開始15分前まで）。",
   robots: { index: true, follow: true },
 };
 

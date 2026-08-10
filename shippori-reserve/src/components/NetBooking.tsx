@@ -433,7 +433,7 @@ export default function NetBooking() {
           )}
         </div>
         {monthLoading && <p className="net__hint">空席を確認しています…</p>}
-        <p className="net__hint">◯ 空席あり ／ △ 残りわずか ／ × 満席 ／ 休 定休日（火曜）。当日は開始30分前まで承ります。</p>
+        <p className="net__hint">◯ 空席あり ／ △ 残りわずか ／ × 満席 ／ 休 定休日（火曜）。当日は開始15分前まで承ります。</p>
       </section>
 
       <section className="net__card" ref={timeRef}>
