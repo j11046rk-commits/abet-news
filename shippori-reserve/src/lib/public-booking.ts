@@ -310,10 +310,14 @@ async function twilioVerify(path: string, form: Record<string, string>) {
     | { status?: string; code?: number; message?: string }
     | null;
   if (!res.ok) {
-    // 原因調査用（Vercelの関数ログにだけ出る。お客様には見えない）
     console.error("twilio_verify_error", res.status, body?.code, body?.message);
   }
-  return { httpOk: res.ok, status: body?.status ?? "" };
+  return {
+    httpOk: res.ok,
+    status: body?.status ?? "",
+    errorCode: body?.code,
+    errorMessage: body?.message,
+  };
 }
 
 /** 認証コードを送る。成功: {ok:true} */
@@ -329,7 +333,11 @@ export async function startSmsVerification(
     Locale: "ja",
   });
   if (!r.httpOk) {
-    return { ok: false, error: "認証コードを送れませんでした。番号をご確認のうえ、少し待ってからお試しください。" };
+    // 調査用にTwilioのエラー番号を一時的に画面へ出す（原因特定後に消す）
+    return {
+      ok: false,
+      error: `認証コードを送れませんでした。（診断: ${r.errorCode ?? "?"} / ${(r.errorMessage ?? "").slice(0, 120)}）`,
+    };
   }
   return { ok: true };
 }
