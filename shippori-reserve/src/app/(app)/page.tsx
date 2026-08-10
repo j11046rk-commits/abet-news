@@ -4,7 +4,7 @@ import ScrollTo from "@/components/ScrollTo";
 import { requirePermission } from "@/lib/auth";
 import { SOURCE_SHORT } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
-import { computeSeatUsage, isSeatFull, seatShort } from "@/lib/seats";
+import { computeSeatUsage, isSeatFull, seatKind, seatShort } from "@/lib/seats";
 import { chipColors, surname } from "@/lib/staff";
 import {
   deriveBusinessDay,
@@ -194,7 +194,7 @@ export default async function MonthPage({
                     .filter(Boolean)
                     .join("／");
                   return (
-                    <div key={r.id} className="mcard">
+                    <div key={r.id} className={`mcard mcard--${seatKind(r.seat_note) || "none"}`}>
                       <Link
                         href={`/reservations/${r.id}`}
                         className={`mline ${off ? "mline--off" : ""}`}

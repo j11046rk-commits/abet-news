@@ -86,6 +86,17 @@ export default async function SettingsPage() {
           </dl>
         </section>
 
+        <h2 className="section-title">タブレット</h2>
+        <div className="card">
+          <a href="/board" className="btn" style={{ width: "100%", textAlign: "center" }}>
+            席ボードを開く（レジ横タブレット用）
+          </a>
+          <p className="micro" style={{ marginTop: "0.5rem" }}>
+            飛び込みのお客様をワンタップで記録すると、ネット予約の空席がリアルタイムで正確になります。
+            新しいネット予約が入ると音つきでお知らせします。
+          </p>
+        </div>
+
         <h2 className="section-title">アカウント</h2>
         <section className="stack">
           {can(me.role, "account.write") ? (

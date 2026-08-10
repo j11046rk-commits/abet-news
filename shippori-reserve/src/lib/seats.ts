@@ -42,3 +42,15 @@ export function isSeatFull(unit: SeatUnit, usage: SeatUsage, partySize: number):
 /** 暦の空き状況ストリップに載せる短い名前。カウンター→C、和室→和。 */
 export const seatShort = (unit: SeatUnit): string =>
   unit.is_shared ? "C" : unit.name === "和室" ? "和" : unit.name;
+
+/**
+ * 予約の席メモ → 表示上の席種（色分け用）。
+ * カレンダー・日別で「テーブルの予約」「和室の予約」が一目で分かるようにする。
+ */
+export function seatKind(seatNote: string | null | undefined): "table" | "room" | "counter" | "" {
+  const s = seatNote ?? "";
+  if (s.includes("和室")) return "room";
+  if (/T[1-9]/.test(s)) return "table";
+  if (s.includes(COUNTER_NAME)) return "counter";
+  return "";
+}

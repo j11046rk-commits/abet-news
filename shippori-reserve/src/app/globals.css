@@ -1566,3 +1566,172 @@ textarea.field:-webkit-autofill {
 }
 .mcard + .mcard { margin-top: 0.35rem; }
 .mcard .mline { padding: 0; }
+
+/* ═══════════ 売上グリッド：目標達成日は金色に光らせる（絵文字廃止・その26）═══════════ */
+.salescell--hit {
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--gold) 34%, transparent), transparent 70%),
+    color-mix(in srgb, var(--gold) 14%, var(--bg-2));
+  border-color: var(--gold);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--gold) 55%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--gold) 22%, transparent);
+  animation: hitglow 2.4s ease-in-out infinite;
+}
+.salescell--hit .salescell__a { color: var(--gold-soft); text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent); }
+@keyframes hitglow {
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 45%, transparent), inset 0 0 12px color-mix(in srgb, var(--gold) 18%, transparent); }
+  50% { box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 75%, transparent), inset 0 0 18px color-mix(in srgb, var(--gold) 30%, transparent); }
+}
+
+/* ═══════════ 席ボード（タブレット常設・/board）═══════════ */
+.fb {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: calc(0.8rem + var(--safe-t)) 1rem calc(var(--tabbar-h) + 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 100dvh;
+}
+.fb__head { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
+.fb__head h1 { margin: 0; font-family: var(--font-serif); font-size: 1.35rem; color: var(--gold-soft); }
+.fb__date { margin: 0; font-size: 1rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.fb__sum { margin: 0; margin-left: auto; font-size: 0.9rem; color: var(--text-dim); }
+.fb__saving { font-size: 0.8rem; color: var(--warn); }
+
+.fb__body { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
+@media (min-width: 760px) { .fb__body { grid-template-columns: 1.8fr 1fr; align-items: start; } }
+
+.fb__floor { display: flex; flex-direction: column; gap: 0.9rem; }
+.fb__row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 0.9rem; }
+.fb__tables { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+
+/* 卓（和室・テーブル）。タップで使用中⇔空き */
+.fb__unit {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.5rem;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  min-height: 9.5rem;
+}
+.fb__unit--room { min-height: 100%; }
+.fb__unit--on {
+  background: color-mix(in srgb, var(--seal) 26%, var(--bg-2));
+  border-color: var(--seal);
+}
+.fb__tabletop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  background: var(--bg-4);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 0.3rem;
+}
+.fb__unit--on .fb__tabletop { background: color-mix(in srgb, var(--seal) 38%, var(--bg-4)); }
+.fb__tabletop b { font-size: 1.05rem; }
+.fb__tabletop small { font-size: 0.7rem; color: var(--text-dim); }
+.fb__tabletop em {
+  font-style: normal;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ok);
+}
+.fb__unit--on .fb__tabletop em { color: #ffb3a7; }
+.fb__chairs { display: flex; justify-content: center; gap: 0.45rem; }
+.fb__chairs i {
+  width: 1.05rem;
+  height: 0.55rem;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--bg-4);
+  border: 1px solid var(--line);
+}
+.fb__unit--on .fb__chairs i { background: color-mix(in srgb, var(--seal) 45%, var(--bg-4)); border-color: color-mix(in srgb, var(--seal) 60%, var(--line)); }
+
+/* カウンター */
+.fb__counter {
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-2);
+  padding: 0.8rem;
+}
+.fb__counter-label { margin: 0 0 0.55rem; font-size: 0.95rem; }
+.fb__counter-label b { color: var(--gold-soft); }
+.fb__stools { display: flex; gap: 0.45rem; justify-content: space-between; }
+.fb__stool {
+  flex: 1;
+  aspect-ratio: 1;
+  max-width: 3.4rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.fb__stool--on {
+  background: color-mix(in srgb, var(--seal) 42%, var(--bg-3));
+  border-color: var(--seal);
+  color: #fff;
+  font-weight: 700;
+}
+.fb__hint { margin: 0.55rem 0 0; font-size: 0.75rem; color: var(--text-dim); }
+
+/* 右側：今日の予約 */
+.fb__side {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-2);
+  padding: 0.8rem;
+}
+.fb__side h2 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--gold-soft); }
+.fb__empty { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+.fb__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; max-height: 22rem; overflow-y: auto; }
+.fb__list li { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.88rem; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 0.35rem 0.5rem; }
+.fb__time { font-family: var(--font-serif); color: var(--gold-soft); font-variant-numeric: tabular-nums; flex: none; }
+.fb__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb__seat { margin-left: auto; color: var(--text-dim); font-size: 0.78rem; flex: none; }
+.fb__hp { flex: none; font-size: 0.68rem; border: 1px solid var(--gold); color: var(--gold-soft); border-radius: 999px; padding: 0 0.4rem; }
+
+/* 新しいネット予約のお知らせ（確認するまで消えない） */
+.fb__alert {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(8, 11, 20, 0.82);
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  animation: fbflash 1.6s ease-in-out infinite;
+}
+@keyframes fbflash {
+  0%, 100% { background: rgba(8, 11, 20, 0.82); }
+  50% { background: rgba(70, 40, 10, 0.82); }
+}
+.fb__alert-card {
+  width: min(30rem, 100%);
+  background: var(--bg-2);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 1.3rem;
+  text-align: center;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--gold) 40%, transparent);
+}
+.fb__alert-title { margin: 0 0 0.7rem; font-size: 1.3rem; font-weight: 700; color: var(--gold-soft); }
+.fb__alert-line { margin: 0.3rem 0; font-size: 1.05rem; line-height: 1.7; }
+.fb__alert-ok { width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1.1rem; }
+
+/* 席種の色分け（カレンダー・日別）: テーブル=青系・和室=茜系・カウンター=金系 */
+.mcard--table { border-left: 4px solid #5b8dd6; background: color-mix(in srgb, #5b8dd6 10%, rgba(255, 255, 255, 0.06)); }
+.mcard--room { border-left: 4px solid #c9603f; background: color-mix(in srgb, #c9603f 12%, rgba(255, 255, 255, 0.06)); }
+.mcard--counter { border-left: 4px solid var(--gold); }
+.card--seat-table { border-left: 4px solid #5b8dd6; background: color-mix(in srgb, #5b8dd6 9%, var(--bg-2)); }
+.card--seat-room { border-left: 4px solid #c9603f; background: color-mix(in srgb, #c9603f 11%, var(--bg-2)); }
+.card--seat-counter { border-left: 4px solid var(--gold); }

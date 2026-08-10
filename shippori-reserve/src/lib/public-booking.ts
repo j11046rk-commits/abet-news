@@ -70,7 +70,7 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
 
 async function fetchRange(from: string, to: string) {
   const admin = createAdminClient();
-  const [settingsQ, daysQ, resvQ, unitsQ] = await Promise.all([
+  const [settingsQ, daysQ, resvQ, unitsQ, boardQ] = await Promise.all([
     admin.from("settings").select("key, value"),
     admin.from("business_days").select("*").gte("biz_date", from).lte("biz_date", to),
     admin
@@ -80,6 +80,7 @@ async function fetchRange(from: string, to: string) {
       .lte("biz_date", to)
       .in("status", [...activeStatuses]),
     admin.from("seat_units").select("*").eq("is_active", true).order("sort_order"),
+    admin.from("seat_board").select("biz_date, key, occupied").gte("biz_date", from).lte("biz_date", to),
   ]);
 
   const settings = Object.fromEntries(
@@ -92,15 +93,28 @@ async function fetchRange(from: string, to: string) {
     list.push(r);
     resv.set(r.biz_date, list);
   }
+  // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる
+  const board = new Map<string, BoardState>();
+  for (const b of (boardQ.data ?? []) as { biz_date: string; key: string; occupied: number }[]) {
+    const cur = board.get(b.biz_date) ?? { taken: [], counterUsed: 0 };
+    if (b.key === "C") cur.counterUsed = b.occupied;
+    else if (b.occupied > 0) cur.taken.push(b.key);
+    board.set(b.biz_date, cur);
+  }
+
   const stayRaw = Number(settings.default_stay_min);
   return {
     settings,
     days,
     resv,
+    board,
     units: (unitsQ.data ?? []) as SeatUnit[],
     stay: Number.isFinite(stayRaw) && stayRaw > 0 ? stayRaw : DEFAULT_STAY_MIN,
   };
 }
+
+/** 席ボード（飛び込み）の状態。予約と重複しうるのでカウンターは大きい方を採る */
+export type BoardState = { taken: string[]; counterUsed: number };
 
 export type NetSeatKey = "counter" | "table" | "private";
 
@@ -126,14 +140,18 @@ export function seatGroups(
   rows: ResvRow[],
   units: SeatUnit[],
   party: number,
+  board?: BoardState,
 ): NetSeat[] {
   const usage = computeSeatUsage(rows as Reservation[]);
+  // 席ボード（飛び込み）を重ねる。カウンターは予約と重複しうるので大きい方
+  const taken = [...usage.taken, ...(board?.taken ?? [])];
+  const counterUsed = Math.max(usage.counter_used, board?.counterUsed ?? 0);
   const busyRule = day.is_busy && party <= 3;
   const out: NetSeat[] = [];
 
   const counter = units.find((u) => u.is_shared);
   if (counter) {
-    const remaining = Math.max(0, counter.capacity - usage.counter_used);
+    const remaining = Math.max(0, counter.capacity - counterUsed);
     out.push({
       key: "counter",
       label: `カウンター（残り${remaining}席）`,
@@ -146,7 +164,7 @@ export function seatGroups(
   const tables = units.filter((u) => !u.is_shared && u.area === "table");
   if (tables.length > 0) {
     const cap = Math.max(...tables.map((u) => u.capacity));
-    const free = tables.filter((u) => !usage.taken.includes(u.name)).length;
+    const free = tables.filter((u) => !taken.includes(u.name)).length;
     const tooSmall = cap < party;
     out.push({
       key: "table",
@@ -159,14 +177,14 @@ export function seatGroups(
 
   const priv = units.find((u) => !u.is_shared && u.area === "private");
   if (priv) {
-    const taken = usage.taken.includes(priv.name);
+    const privTaken = taken.includes(priv.name);
     const tooSmall = priv.capacity < party;
     out.push({
       key: "private",
       label: `個室掘りごたつ席（${priv.capacity}名掛け）`,
-      remaining: taken ? 0 : 1,
-      selectable: !taken && !tooSmall && !busyRule,
-      reason: busyRule ? "繁" : tooSmall ? "狭" : taken ? "埋" : "",
+      remaining: privTaken ? 0 : 1,
+      selectable: !privTaken && !tooSmall && !busyRule,
+      reason: busyRule ? "繁" : tooSmall ? "狭" : privTaken ? "埋" : "",
     });
   }
 
@@ -178,17 +196,19 @@ export function pickUnitFor(
   key: NetSeatKey,
   rows: ResvRow[],
   units: SeatUnit[],
+  board?: BoardState,
 ): string | null {
   const usage = computeSeatUsage(rows as Reservation[]);
+  const taken = [...usage.taken, ...(board?.taken ?? [])];
   if (key === "counter") return units.find((u) => u.is_shared)?.name ?? null;
   if (key === "table") {
     const free = units
-      .filter((u) => !u.is_shared && u.area === "table" && !usage.taken.includes(u.name))
+      .filter((u) => !u.is_shared && u.area === "table" && !taken.includes(u.name))
       .sort((a, b) => a.sort_order - b.sort_order);
     return free[0]?.name ?? null;
   }
   const priv = units.find((u) => !u.is_shared && u.area === "private");
-  return priv && !usage.taken.includes(priv.name) ? priv.name : null;
+  return priv && !taken.includes(priv.name) ? priv.name : null;
 }
 
 /** ネットで選べる入店時刻：18:00〜21:45 の15分刻み（店主指定・全営業日共通） */
@@ -207,7 +227,8 @@ function slotLeadOk(date: string, min: number): boolean {
 function dayCore(date: string, ctx: Awaited<ReturnType<typeof fetchRange>>) {
   const day = ctx.days.get(date) ?? deriveDay(date, ctx.settings);
   const rows = ctx.resv.get(date) ?? [];
-  return { day, rows };
+  const board = ctx.board.get(date);
+  return { day, rows, board };
 }
 
 function dayStatus(
@@ -231,7 +252,8 @@ function dayStatus(
     return cap - guests - party < 8 ? "few" : "ok";
   }
 
-  const selectable = seatGroups(day, rows, ctx.units, party).filter((s) => s.selectable);
+  const { board } = dayCore(date, ctx);
+  const selectable = seatGroups(day, rows, ctx.units, party, board).filter((s) => s.selectable);
   if (selectable.length === 0) return "full";
   return selectable.length === 1 ? "few" : "ok";
 }
@@ -258,7 +280,7 @@ export async function monthAvailability(ym: string, party: number) {
 /** 予約ページの時間選択用：その日の枠一覧 */
 export async function dayAvailability(date: string, party: number) {
   const ctx = await fetchRange(date, date);
-  const { day, rows } = dayCore(date, ctx);
+  const { day, rows, board } = dayCore(date, ctx);
   const status = dayStatus(date, ctx, party);
 
   const slots = slotMinutes().map((m) => ({
@@ -275,7 +297,7 @@ export async function dayAvailability(date: string, party: number) {
     sms_required: smsEnabled(),
     slots,
     // イベント日は席の概念がない（お席自由）
-    seats: day.mode === "event" ? [] : seatGroups(day, rows, ctx.units, party),
+    seats: day.mode === "event" ? [] : seatGroups(day, rows, ctx.units, party, board),
   };
 }
 
@@ -433,7 +455,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   }
 
   const ctx = await fetchRange(input.date, input.date);
-  const { day, rows } = dayCore(input.date, ctx);
+  const { day, rows, board } = dayCore(input.date, ctx);
 
   if (day.is_closed) return { ok: false, error: "この日は定休日です。", code: "RETRY" };
   if (!slotMinutes().includes(input.start_min)) {
@@ -453,7 +475,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     const guests = rows.reduce((a, r) => a + r.party_size, 0);
     if (guests + party > cap) return { ok: false, error: "満席です。", code: "RETRY" };
   } else {
-    const picked = seatGroups(day, rows, ctx.units, party).find(
+    const picked = seatGroups(day, rows, ctx.units, party, board).find(
       (s) => s.key === (input.seat ?? "").trim(),
     );
     if (!picked) return { ok: false, error: "お席を選んでください。", code: "RETRY" };
@@ -467,7 +489,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
         code: "RETRY",
       };
     }
-    const unit = pickUnitFor(picked.key, rows, ctx.units);
+    const unit = pickUnitFor(picked.key, rows, ctx.units, board);
     if (!unit) {
       return { ok: false, error: "その席は選べなくなりました。空席を選び直してください。", code: "RETRY" };
     }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SourceBadge } from "@/components/Badges";
 import { startLabel } from "@/lib/time";
+import { seatKind } from "@/lib/seats";
 import type { Reservation } from "@/lib/types";
 
 export default function ReservationCard({
@@ -19,8 +20,10 @@ export default function ReservationCard({
 }) {
   const cancelled = r.status === "cancelled" || r.status === "no_show";
 
+  const kind = seatKind(r.seat_note);
+
   return (
-    <article className={`card ${attention ? "card--flag" : ""}`}>
+    <article className={`card ${attention ? "card--flag" : ""} ${kind ? `card--seat-${kind}` : ""}`}>
       <Link href={`/reservations/${r.id}`} className="resv" style={{ color: "inherit" }}>
         <div className="resv__time">{startLabel(r)}</div>
         <div>

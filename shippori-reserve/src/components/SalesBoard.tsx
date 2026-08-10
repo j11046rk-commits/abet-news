@@ -242,7 +242,7 @@ export default function SalesBoard({
                 達成まで あと <strong>{fmtYen(shownRemaining)}</strong>
               </span>
             ) : (
-              <span className="salesnum--hit">目標達成🎯 ＋{fmtYen(shownRemaining)}</span>
+              <span className="salesnum--hit">目標達成 ＋{fmtYen(shownRemaining)}</span>
             )}
           </p>
         ) : null}
@@ -291,7 +291,7 @@ export default function SalesBoard({
             <Link
               key={d.date}
               href={`/day/${d.date}`}
-              className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""}`}
+              className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""} ${hit ? "salescell--hit" : ""}`}
               aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 実績${d.actual != null ? fmtYen(d.actual) : "なし"}`}
             >
               <span
@@ -304,7 +304,7 @@ export default function SalesBoard({
               ) : (
                 <>
                   <span className={`salescell__a ${hit ? "salescell__a--hit" : ""}`}>
-                    {d.actual != null ? `${d.actual.toLocaleString()}${hit ? "🎯" : ""}` : "ー"}
+                    {d.actual != null ? d.actual.toLocaleString() : "ー"}
                   </span>
                   <span className="salescell__t">{d.target ? d.target.toLocaleString() : ""}</span>
                 </>
@@ -315,7 +315,7 @@ export default function SalesBoard({
       </div>
 
       <p className="micro" style={{ textAlign: "center", margin: 0 }}>
-        上段＝実績（<span className="salesnum--hit">金色🎯＝目標達成</span>）・下段＝目標（円）。タップでその日の詳細へ。
+        上段＝実績（<span className="salesnum--hit">金色に光る日＝目標達成</span>）・下段＝目標（円）。タップでその日の詳細へ。
       </p>
 
       {/* C: 達成貢献⭐ */}
