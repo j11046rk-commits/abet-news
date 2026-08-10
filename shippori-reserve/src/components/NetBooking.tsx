@@ -28,6 +28,8 @@ type DayInfo = {
   event_name: string | null;
   is_busy: boolean;
   is_paused: boolean;
+  flyer_url: string | null;
+  is_event_late: boolean;
   sms_required: boolean;
   slots: Slot[];
   seats: Seat[];
@@ -82,6 +84,10 @@ export default function NetBooking() {
   const [smsSent, setSmsSent] = useState(false);
   const [smsSending, setSmsSending] = useState(false);
   const [smsCode, setSmsCode] = useState("");
+  // イベント日は「通常営業と違う」ことへの同意を取ってから先へ進める
+  const [eventAgreed, setEventAgreed] = useState(false);
+  // チラシが読み込めなかったとき、壊れた画像を出さずに文字のリンクだけ残す
+  const [flyerBroken, setFlyerBroken] = useState(false);
 
   const timeRef = useRef<HTMLDivElement>(null);
   const seatRef = useRef<HTMLDivElement>(null);
@@ -295,7 +301,29 @@ export default function NetBooking() {
         <p className="net__fineprint">
           キャンセルは開始2時間前までWebで、それ以降はお電話でお願いします。
         </p>
-        {smsRequired && (
+        {isEvent && (
+          <div className="net__agree">
+            {dayInfo?.flyer_url && (
+              <p className="net__agree-link">
+                <a href={dayInfo.flyer_url} target="_blank" rel="noreferrer">
+                  イベントのチラシをもう一度見る
+                </a>
+              </p>
+            )}
+            <label className="net__agree-box">
+              <input
+                type="checkbox"
+                checked={eventAgreed}
+                onChange={(e) => setEventAgreed(e.target.checked)}
+              />
+              <span>
+                ご予約の日はイベント営業であり、通常営業とメニューや価格設定が違うことを確認し、
+                了承しました。
+              </span>
+            </label>
+          </div>
+        )}
+        {smsRequired && (!isEvent || eventAgreed) && (
           <div className="net__sms">
             <p className="net__sms-title">携帯電話番号の確認</p>
             {smsSent ? (
@@ -331,7 +359,9 @@ export default function NetBooking() {
           <button
             className="btn btn-primary net__grow"
             onClick={submit}
-            disabled={sending || (smsRequired && smsCode.length < 4)}
+            disabled={
+              sending || (isEvent && !eventAgreed) || (smsRequired && smsCode.length < 4)
+            }
           >
             {sending ? "送信中…" : "この内容で予約する"}
           </button>
@@ -412,6 +442,12 @@ export default function NetBooking() {
           <p className="net__hint">先に日付をお選びください。</p>
         ) : dayInfo === null ? (
           <p className="net__hint">空き時間を確認しています…</p>
+        ) : dayInfo.is_event_late ? (
+          <p className="net__busy">
+            この日は「{dayInfo.event_name ?? "イベント営業"}」です。
+            イベント当日のネットでのご予約は締め切りました。
+            お電話（<a href={TEL_HREF}>{TEL}</a>）にて承ります。
+          </p>
         ) : dayInfo.is_paused ? (
           <p className="net__busy">
             申し訳ございません。ただいま大変混み合っているため、この日のネットでの受付を一時停止しております。
@@ -420,7 +456,33 @@ export default function NetBooking() {
         ) : (
           <>
             {dayInfo.is_event && (
-              <p className="net__event">この日は「{dayInfo.event_name ?? "イベント営業"}」です（18:00〜24:00・お席は自由です）。</p>
+              <div className="net__event">
+                <p>
+                  この日は<b>通常営業と異なるイベント営業</b>「
+                  {dayInfo.event_name ?? "イベント営業"}」になります（18:00〜24:00・お席は自由です）。
+                  <b>メニューや価格設定が通常営業と異なります。</b>
+                </p>
+                {dayInfo.flyer_url && (
+                  <p className="net__flyerlink">
+                    詳細は
+                    <a href={dayInfo.flyer_url} target="_blank" rel="noreferrer">
+                      こちら（チラシ）
+                    </a>
+                    をご覧ください。
+                  </p>
+                )}
+                {dayInfo.flyer_url && !flyerBroken && !/\.pdf(\?|$)/i.test(dayInfo.flyer_url) && (
+                  <a href={dayInfo.flyer_url} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className="net__flyer"
+                      src={dayInfo.flyer_url}
+                      alt="イベントのチラシ"
+                      onError={() => setFlyerBroken(true)}
+                    />
+                  </a>
+                )}
+              </div>
             )}
             <div className="net__chips">
               {dayInfo.slots.map((s) => (
@@ -510,7 +572,7 @@ export default function NetBooking() {
         <button
           className="btn btn-primary net__confirm-btn"
           disabled={!canConfirm}
-          onClick={() => { setError(""); setSmsSent(false); setSmsCode(""); setStep("confirm"); }}
+          onClick={() => { setError(""); setSmsSent(false); setSmsCode(""); setEventAgreed(false); setStep("confirm"); }}
         >
           予約内容を確認する
         </button>

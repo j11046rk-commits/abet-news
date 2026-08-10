@@ -56,6 +56,8 @@ export type BusinessDay = {
   event_capacity: number | null;
   open_min: number; // その日の 0:00 からの経過分。18:00 = 1080
   close_min: number; // 25:00 = 1500
+  /** イベント営業のチラシ（画像またはPDF）の公開URL。イベント日は必須 */
+  flyer_url: string | null;
   note: string | null;
   updated_by: string | null;
   updated_at: string;

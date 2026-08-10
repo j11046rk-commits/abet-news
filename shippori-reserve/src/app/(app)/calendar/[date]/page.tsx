@@ -11,7 +11,7 @@ import {
   getDefaultEventCapacity,
   getSalesDay,
 } from "@/lib/queries";
-import { saveBusinessDay } from "../actions";
+import { saveBusinessDay, uploadFlyer } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +73,7 @@ export default async function BusinessDayPage({
             guestCount={summary.guest_count}
             defaultCapacity={defaultCapacity}
             onSubmit={saveBusinessDay}
+            onUploadFlyer={uploadFlyer}
           />
         ) : (
           <p className="micro">営業日を変更する権限がありません。</p>

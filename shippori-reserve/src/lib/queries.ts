@@ -65,6 +65,7 @@ export function deriveBusinessDay(
     is_closed: closedWeekdays.includes(dow),
     event_name: null,
     event_capacity: null,
+    flyer_url: null,
     open_min: Number(settings.default_open_min) || DEFAULT_OPEN_MIN,
     close_min: dow === 5 || dow === 6 ? FRI_SAT_CLOSE_MIN : DEFAULT_CLOSE_MIN,
     note: null,

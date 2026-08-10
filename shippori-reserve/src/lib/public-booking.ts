@@ -42,6 +42,7 @@ type DayRow = {
   is_closed: boolean;
   event_name: string | null;
   event_capacity: number | null;
+  flyer_url: string | null;
   open_min: number;
   close_min: number;
 };
@@ -63,6 +64,7 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
     is_closed: closedWeekdays.includes(dow),
     event_name: null,
     event_capacity: null,
+    flyer_url: null,
     open_min: Number(settings.default_open_min) || DEFAULT_OPEN_MIN,
     close_min: dow === 5 || dow === 6 ? FRI_SAT_CLOSE_MIN : DEFAULT_CLOSE_MIN,
   };
@@ -263,6 +265,8 @@ function dayStatus(
   if (day.is_closed) return "closed";
   // 現場が受付を止めている日は、満席と同じく選べない
   if (ctx.paused.has(date)) return "full";
+  // イベント営業のネット予約は前日まで（仕込みの都合・店主指定）
+  if (day.mode === "event" && date <= today) return "full";
 
   // その日の枠が1つでも「2時間前ルール」を満たすか（未来日は常に満たす）
   if (!slotMinutes().some((m) => slotLeadOk(date, m))) return "full";
@@ -315,6 +319,10 @@ export async function dayAvailability(date: string, party: number) {
     status,
     is_event: day.mode === "event",
     event_name: day.event_name,
+    /** イベントのチラシ（お客様に内容と料金を見てもらう） */
+    flyer_url: day.mode === "event" ? day.flyer_url : null,
+    /** イベント当日：ネットは締切（お電話へ） */
+    is_event_late: day.mode === "event" && date <= todayBizDate(),
     is_busy: day.is_busy,
     // 満席ではなく「現場が受付を止めている」ときは、その旨をお客様に伝える
     is_paused: ctx.paused.has(date),
@@ -544,6 +552,14 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   });
 
   if (error) {
+    if (/NET_EVENT_TODAY/.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "イベント営業日の当日のご予約は、お電話（0897-47-4494）にて承ります。",
+        code: "RETRY",
+      };
+    }
     if (/NET_PAUSED/.test(error.message)) {
       return {
         ok: false,

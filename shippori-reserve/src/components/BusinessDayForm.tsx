@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { EVENT_CLOSE_MIN, EVENT_OPEN_MIN } from "@/lib/constants";
 import { minutesToLabel } from "@/lib/time";
 import type { BusinessDay } from "@/lib/types";
-import type { BusinessDayInput, DayResult } from "@/app/(app)/calendar/actions";
+import type { BusinessDayInput, DayResult, FlyerResult } from "@/app/(app)/calendar/actions";
 
 const OPEN_CHOICES = [1020, 1050, 1080, 1110, 1140]; // 17:00〜19:00
 const CLOSE_CHOICES = [1380, 1440, 1470, 1500, 1560]; // 23:00〜26:00
@@ -15,11 +15,13 @@ export default function BusinessDayForm({
   guestCount,
   defaultCapacity,
   onSubmit,
+  onUploadFlyer,
 }: {
   day: BusinessDay;
   guestCount: number;
   defaultCapacity: number;
   onSubmit: (input: BusinessDayInput) => Promise<DayResult>;
+  onUploadFlyer: (fd: FormData) => Promise<FlyerResult>;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"normal" | "event">(day.mode);
@@ -30,6 +32,8 @@ export default function BusinessDayForm({
   const [openMin, setOpenMin] = useState(day.open_min);
   const [closeMin, setCloseMin] = useState(day.close_min);
   const [note, setNote] = useState(day.note ?? "");
+  const [flyerUrl, setFlyerUrl] = useState(day.flyer_url ?? "");
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -51,9 +55,31 @@ export default function BusinessDayForm({
     }
   }
 
+  /** チラシを選んだらすぐ預かる。保存ボタンを押す前に、載る絵を確かめられるように */
+  async function pickFlyer(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setSaved(false);
+    setUploading(true);
+    const fd = new FormData();
+    fd.set("file", file);
+    fd.set("date", day.biz_date);
+    const res = await onUploadFlyer(fd);
+    setUploading(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setFlyerUrl(res.url);
+  }
+
   function submit() {
     setError(null);
     setSaved(false);
+    if (mode === "event" && !flyerUrl) {
+      setError("イベント営業の日はチラシの画像（またはPDF）が必要です。");
+      return;
+    }
     startTransition(async () => {
       const res = await onSubmit({
         biz_date: day.biz_date,
@@ -64,6 +90,7 @@ export default function BusinessDayForm({
         event_capacity: mode === "event" ? capacity : null,
         open_min: openMin,
         close_min: closeMin,
+        flyer_url: flyerUrl || null,
         note,
       });
       if (!res.ok) {
@@ -143,6 +170,48 @@ export default function BusinessDayForm({
               現在この日には {guestCount} 名の予約が入っています。
             </p>
           </div>
+
+          <div>
+            <label className="field-label" htmlFor="flyer">
+              チラシ<span className="req">必須</span>
+            </label>
+            <p className="micro" style={{ marginBottom: "0.4rem" }}>
+              予約ページでお客様に見せます。イベントの内容・料金がわかる画像（写真でも可）か
+              PDFを選んでください。
+            </p>
+            <input
+              id="flyer"
+              className="field"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+              onChange={(e) => pickFlyer(e.target.files?.[0])}
+            />
+            {uploading ? <p className="micro">アップロード中…</p> : null}
+            {flyerUrl ? (
+              <div className="flyer-preview">
+                {/\.pdf(\?|$)/i.test(flyerUrl) ? (
+                  <a href={flyerUrl} target="_blank" rel="noreferrer">
+                    登録済みのチラシ（PDF）を開く
+                  </a>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={flyerUrl} alt="登録済みのチラシ" />
+                )}
+                <button type="button" className="btn btn-sm" onClick={() => setFlyerUrl("")}>
+                  取り消す
+                </button>
+              </div>
+            ) : (
+              <p className="micro" style={{ color: "var(--seal)" }}>
+                まだチラシが登録されていません。
+              </p>
+            )}
+          </div>
+
+          <p className="notice">
+            イベント営業の日は、ネット予約を<b>前日まで</b>で締め切ります（当日はお電話のみ）。
+            お客様には予約時にチラシを見せ、通常営業とメニュー・価格が違うことへの同意をいただきます。
+          </p>
 
           {switchingToEvent ? (
             <p className="notice notice-strong">
