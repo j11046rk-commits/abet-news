@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { setDirty } from "@/lib/dirty";
 import { useRouter } from "next/navigation";
 import { confirmMonthShifts, submitMyRequests } from "@/app/(app)/shifts/actions";
 import { isHoliday } from "@/lib/holidays";
@@ -64,6 +65,8 @@ export default function ShiftBoard({
 
   // 出勤日数バーはアプリバーのすぐ下に貼り付く。アプリバーは副題の折り返しや
   // 文字サイズ設定で高さが変わるので、決め打ちせず実測して合わせる。
+  useEffect(() => () => setDirty(false), []);
+
   const countbarRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const bar = countbarRef.current;
@@ -95,6 +98,7 @@ export default function ShiftBoard({
 
   function toggleDraft(date: string, id: string) {
     setSaved(null);
+    setDirty(true);
     setDraft((prev) => {
       const list = prev[date] ?? [];
       return {
@@ -106,6 +110,7 @@ export default function ShiftBoard({
 
   function toggleMyDay(date: string) {
     setSaved(null);
+    setDirty(true);
     setMyDays((prev) => {
       const next = new Set(prev);
       if (next.has(date)) next.delete(date);
@@ -123,6 +128,7 @@ export default function ShiftBoard({
       }
       setError(null);
       setSaved(doneMsg);
+      setDirty(false);
       router.refresh();
     });
 

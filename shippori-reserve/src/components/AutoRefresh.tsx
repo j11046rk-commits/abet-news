@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { isDirty } from "@/lib/dirty";
 
 /**
  * みんなで共有して使うので、画面を常に最新に保つ。
@@ -14,7 +15,8 @@ export default function AutoRefresh() {
 
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      // 入力途中(未保存)の画面があるときは最新化を見送る。保存されたら再開する
+      if (document.visibilityState === "visible" && !isDirty()) router.refresh();
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
