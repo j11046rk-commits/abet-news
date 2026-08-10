@@ -1595,7 +1595,7 @@ textarea.field:-webkit-autofill {
   margin-top: calc(-1 * var(--safe-t));
 }
 .fb {
-  max-width: 68rem;
+  max-width: 100rem;
   margin: 0 auto;
   padding: calc(0.8rem + var(--safe-t)) 1rem calc(var(--tabbar-h) + 1.5rem);
   display: flex;
@@ -1634,8 +1634,8 @@ textarea.field:-webkit-autofill {
 .fb__sum { margin: 0; margin-left: auto; font-size: 0.9rem; color: #6b6459; }
 .fb__saving { font-size: 0.8rem; color: #a15c00; }
 
+/* 図に幅を目一杯回す。横に並べると図が縮んで席が押しにくくなる */
 .fb__body { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
-@media (min-width: 1200px) { .fb__body { grid-template-columns: 2.4fr 1fr; align-items: start; } }
 
 /* フロア図：1000×430 の固定キャンバスを画面幅に合わせて等倍で縮小・拡大する。
    位置は座標で固定＝1枚の絵と同じ扱いなので、端末や画面サイズが変わっても配置は崩れない */
@@ -1649,29 +1649,18 @@ textarea.field:-webkit-autofill {
 .fb__canvas { position: relative; transform-origin: top left; }
 .fb__canvas > * { position: absolute; margin: 0; }
 
-/* ── 和室（個室・掘りごたつ 両側4人掛け）：茜 ── */
-.fb__zashiki {
+/* ── 和室（個室・掘りごたつ）：茜 ── */
+.fb__room {
   border-radius: 14px;
   border: 2.5px solid #c9603f;
   background: #fff;
   color: #2e2a24;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* 押すのは席。枠は見た目だけ */
 }
-.fb__zashiki--on { background: #c9603f; color: #fff; }
-.fbc__zcol { display: flex; flex-direction: column; align-items: center; gap: 15px; }
-.fbc__chairrow { display: flex; gap: 18px; }
-.fbc__chairrow i {
-  display: block;
-  width: 32px;
-  height: 15px;
-  border-radius: 4px 4px 2px 2px;
-  background: #efe9dd;
-  border: 1px solid #d8d0bf;
-}
-.fb__ztable {
+.fb__room--on { background: color-mix(in srgb, #c9603f 16%, #fff); }
+.fb__roomtop {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1679,14 +1668,12 @@ textarea.field:-webkit-autofill {
   gap: 3px;
   width: 190px;
   height: 96px;
-  background: color-mix(in srgb, #c9603f 10%, #fff);
+  background: color-mix(in srgb, #c9603f 12%, #fff);
   border: 1px solid color-mix(in srgb, #c9603f 45%, #fff);
   border-radius: 12px;
 }
-.fb__zashiki--on .fb__ztable { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.4); }
-.fb__zashiki--on .fbc__chairrow i { background: rgba(255, 255, 255, 0.3); border-color: rgba(255, 255, 255, 0.45); }
-.fb__ztable b { font-size: 17px; }
-.fb__ztable small { font-size: 11px; opacity: 0.75; white-space: nowrap; }
+.fb__roomtop b { font-size: 17px; }
+.fb__roomtop small { font-size: 11px; opacity: 0.75; white-space: nowrap; }
 
 /* ── L型カウンター（金）── */
 .fb__hbar {
@@ -1698,15 +1685,45 @@ textarea.field:-webkit-autofill {
   color: #5b4426;
   font-size: 15px;
   font-weight: 700;
+  pointer-events: none;
 }
 .fb__vbar {
   border-radius: 0 0 10px 10px;
   background: linear-gradient(90deg, #dcbd8d, #cfa96f);
   border: 1px solid #b8946757;
   border-top: none;
+  pointer-events: none;
 }
-.fb__stool {
-  border-radius: 50%;
+.fb__hint { font-size: 12px; color: #857c6d; pointer-events: none; }
+.fb__mark { object-fit: contain; opacity: 0.16; pointer-events: none; }
+
+/* ── テーブル3卓（6名掛け）：青 ── */
+.fb__tbl {
+  border-radius: 14px;
+  border: 2.5px solid #5b8dd6;
+  background: #fff;
+  color: #2e2a24;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 6px;
+  pointer-events: none;
+}
+.fb__tbl--on { background: color-mix(in srgb, #5b8dd6 16%, #fff); }
+.fb__tbllabel { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.fb__tbllabel b { font-size: 17px; }
+.fb__tbllabel small { font-size: 11px; opacity: 0.75; }
+/* 天板（席の間に置く板。文字は載せない） */
+.fb__tbltop {
+  background: color-mix(in srgb, #5b8dd6 14%, #fff);
+  border: 1px solid color-mix(in srgb, #5b8dd6 45%, #fff);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+/* ── 席（36個すべて共通のタップ対象）── */
+.fb__seat {
+  border-radius: 12px;
   border: 2.5px solid #cbb389;
   background: #fff;
   color: #937f58;
@@ -1715,54 +1732,19 @@ textarea.field:-webkit-autofill {
   display: grid;
   place-items: center;
   padding: 0;
+  z-index: 2;
 }
-.fb__stool--on {
-  background: #b98136;
-  border-color: #a06a24;
+.fb__seat--counter { border-radius: 50%; }
+.fb__seat--table { border-color: #9dbbe6; color: #4f76b0; }
+.fb__seat--room { border-color: #e0a08a; color: #a9563c; }
+.fb__seat--on {
   color: #fff;
   font-weight: 700;
+  background: #b98136;
+  border-color: #a06a24;
 }
-.fb__hint { font-size: 12px; color: #857c6d; }
-.fb__mark { object-fit: contain; opacity: 0.16; pointer-events: none; }
-
-/* ── テーブル3卓（6名掛け・縦向き）：青 ── */
-.fb__table {
-  border-radius: 14px;
-  border: 2.5px solid #5b8dd6;
-  background: #fff;
-  color: #2e2a24;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 0;
-}
-.fb__table--on { background: #5b8dd6; color: #fff; }
-.fbc__tcol { display: flex; flex-direction: column; gap: 24px; }
-.fbc__tcol i {
-  display: block;
-  width: 12px;
-  height: 28px;
-  border-radius: 4px;
-  background: #efe9dd;
-  border: 1px solid #d8d0bf;
-}
-.fb__ttop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 76px;
-  height: 150px;
-  background: color-mix(in srgb, #5b8dd6 10%, #fff);
-  border: 1px solid color-mix(in srgb, #5b8dd6 45%, #fff);
-  border-radius: 10px;
-}
-.fb__table--on .fb__ttop { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.4); }
-.fb__table--on .fbc__tcol i { background: rgba(255, 255, 255, 0.3); border-color: rgba(255, 255, 255, 0.45); }
-.fb__ttop b { font-size: 16px; }
-.fb__ttop small { font-size: 10px; opacity: 0.75; white-space: nowrap; }
+.fb__seat--table.fb__seat--on { background: #5b8dd6; border-color: #4573b5; }
+.fb__seat--room.fb__seat--on { background: #c9603f; border-color: #ab4b2d; }
 
 /* 状態表示（空き=緑 / 使用中=白抜き） */
 .fb__state { font-style: normal; font-size: 13px; font-weight: 700; color: #1a7f4b; white-space: nowrap; }
@@ -1784,7 +1766,7 @@ textarea.field:-webkit-autofill {
 .fb__list li.fb__li--counter { box-shadow: inset 3px 0 0 #d2a25c; }
 .fb__time { font-family: var(--font-serif); color: #7a5c2e; font-variant-numeric: tabular-nums; flex: none; }
 .fb__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb__seat { margin-left: auto; color: #857c6d; font-size: 0.78rem; flex: none; }
+.fb__seatnote { margin-left: auto; color: #857c6d; font-size: 0.78rem; flex: none; }
 .fb__hp { flex: none; font-size: 0.68rem; border: 1px solid #b98136; color: #7a5c2e; border-radius: 999px; padding: 0 0.4rem; }
 
 /* 新規予約の停止（とても忙しいときだけ・記録が残る） */

@@ -70,6 +70,22 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
   };
 }
 
+/**
+ * 席ボードのキー → 卓の名前（seat_units.name）。
+ *
+ * DB側の seat_slots テーブルと同じ対応を持つ（net_reserve は
+ * `coalesce(seat_slots.unit_name, key)` で同じ結論を出す）。
+ * ここがズレると「埋まっている卓を空きと誤認して予約を取ってしまう」ので、
+ * 変更するときは必ず 0029_seat_log.sql と一緒に直すこと。
+ */
+export function unitOfSeatKey(key: string): string {
+  const table = /^(T\d+)-\d+$/.exec(key);
+  if (table) return table[1];
+  if (/^Z\d+$/.test(key)) return "和室";
+  if (/^C\d*$/.test(key)) return COUNTER_NAME;
+  return key; // 旧キー（'T1' '和室'）はそれ自体が卓名
+}
+
 async function fetchRange(from: string, to: string) {
   const admin = createAdminClient();
   const [settingsQ, daysQ, resvQ, unitsQ, boardQ, pauseQ] = await Promise.all([
@@ -103,7 +119,7 @@ async function fetchRange(from: string, to: string) {
     resv.set(r.biz_date, list);
   }
   // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる。
-  // カウンターは旧'C'（合計値）と'C1'〜'C10'（1席ずつ）の両方式に対応し大きい方を採る
+  // 席は1席ずつ記録されるが、予約の空席判定は「1席でも埋まっていればその卓は満席」（店主指定）
   const board = new Map<string, BoardState>();
   const stools = new Map<string, number>();
   for (const b of (boardQ.data ?? []) as { biz_date: string; key: string; occupied: number }[]) {
@@ -111,7 +127,10 @@ async function fetchRange(from: string, to: string) {
     if (b.key === "C") cur.counterUsed = Math.max(cur.counterUsed, b.occupied);
     else if (/^C\d+$/.test(b.key)) {
       if (b.occupied > 0) stools.set(b.biz_date, (stools.get(b.biz_date) ?? 0) + 1);
-    } else if (b.occupied > 0) cur.taken.push(b.key);
+    } else if (b.occupied > 0) {
+      const unit = unitOfSeatKey(b.key);
+      if (!cur.taken.includes(unit)) cur.taken.push(unit);
+    }
     board.set(b.biz_date, cur);
   }
   for (const [d, n] of stools) {

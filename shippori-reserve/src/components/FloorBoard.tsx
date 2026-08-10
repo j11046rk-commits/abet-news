@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { fmtDateShort, startLabel } from "@/lib/time";
 import {
   getBoardSnapshot,
@@ -21,22 +21,52 @@ import { seatKind } from "@/lib/seats";
 
 const POLL_MS = 15_000;
 
-/** 固定キャンバスの設計サイズ */
-const CANVAS_W = 1200;
-const CANVAS_H = 375;
-const STOOL = 48; // 丸椅子の直径
+/**
+ * 固定キャンバスの設計サイズ。
+ * 席は36個あるので、指で押せる大きさ（44px前後）を確保できる寸法にしてある。
+ */
+const CANVAS_W = 1240;
+const CANVAS_H = 430;
+const SEAT = 46; // 席1つの当たり判定
 
-// カウンターの椅子は長手も短手も中心間62pxで統一
-/** 横バーの上に並ぶ1〜7番（左から） */
-const STOOLS_TOP = [1, 2, 3, 4, 5, 6, 7].map((n, i) => ({ n, x: 300 + i * 62, y: 24 }));
-/** L字に折れた縦バーの右に並ぶ8〜10番（上から） */
-const STOOLS_SIDE = [8, 9, 10].map((n, i) => ({ n, x: 734, y: 152 + i * 62 }));
-/** テーブル3卓の枠位置 */
+/** 和室（左）：座卓を挟んで奥に4席・手前に4席 */
+const ZASHIKI = { x: 12, y: 24, w: 250, h: 300 };
+const Z_SEATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+  key: `Z${n}`,
+  n,
+  x: ZASHIKI.x + 22 + ((n - 1) % 4) * 54,
+  y: n <= 4 ? ZASHIKI.y + 20 : ZASHIKI.y + ZASHIKI.h - 20 - SEAT,
+}));
+
+/** L型カウンター（中央）：横バーの上に1〜7番、折れた先の右に8〜10番 */
+const C_TOP = [1, 2, 3, 4, 5, 6, 7].map((n, i) => ({ key: `C${n}`, n, x: 292 + i * 56, y: 30 }));
+const C_SIDE = [8, 9, 10].map((n, i) => ({ key: `C${n}`, n, x: 700, y: 168 + i * 56 }));
+const HBAR = { x: 292, y: 92, w: 396, h: 56 };
+const VBAR = { x: 632, y: 148, w: 56, h: 172 };
+
+/**
+ * テーブル3卓（右）：天板を挟んで左右に3席ずつ。
+ * 卓名は枠の上端に置く（天板に重ねると席番号と重なって読めない）。
+ */
+const T_W = 150;
+const T_H = 230;
 const TABLES = [
-  { key: "T1", x: 810 },
-  { key: "T2", x: 940 },
-  { key: "T3", x: 1070 },
-];
+  { key: "T1", x: 766 },
+  { key: "T2", x: 924 },
+  { key: "T3", x: 1082 },
+].map((t) => ({
+  ...t,
+  y: 96,
+  w: T_W,
+  h: T_H,
+  top: { x: t.x + 52, y: 96 + 44, w: 46, h: 168 },
+  seats: [1, 2, 3, 4, 5, 6].map((n) => ({
+    key: `${t.key}-${n}`,
+    n,
+    x: n <= 3 ? t.x + 2 : t.x + T_W - 2 - SEAT,
+    y: 96 + 44 + ((n - 1) % 3) * 62,
+  })),
+}));
 
 export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [date, setDate] = useState(initial.date);
@@ -186,58 +216,39 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     ? Math.max(0, Math.round((Date.now() - new Date(pause.since).getTime()) / 60_000))
     : 0;
 
-  /** カウンターの丸椅子（C1〜C10）。座ったらその席をタップ、帰ったらもう一度 */
-  const stoolOn = (n: number) => (board[`C${n}`] ?? 0) > 0;
-  const toggleStool = (n: number) => save(`C${n}`, stoolOn(n) ? 0 : 1);
+  /** 席をタップ。座ったら点け、帰ったらもう一度押して消す */
+  const seatOn = (key: string) => (board[key] ?? 0) > 0;
+  const toggleSeat = (key: string) => save(key, seatOn(key) ? 0 : 1);
 
-  const counterUsed = [...STOOLS_TOP, ...STOOLS_SIDE].filter((s) => stoolOn(s.n)).length;
-  const zashikiOn = (board["和室"] ?? 0) > 0;
-  const tablesFree = TABLES.filter((t) => !((board[t.key] ?? 0) > 0)).length;
-  /** いま席ボード上で空いている席数＝飛び込みを受け入れられる目安 */
-  const freeSeats = 10 - counterUsed + tablesFree * 6 + (zashikiOn ? 0 : 8);
+  const counterUsed = [...C_TOP, ...C_SIDE].filter((s) => seatOn(s.key)).length;
+  const zashikiUsed = Z_SEATS.filter((s) => seatOn(s.key)).length;
+  const tableUsed = (t: (typeof TABLES)[number]) => t.seats.filter((s) => seatOn(s.key)).length;
+
+  // 予約から見た卓の空きは「1席でも埋まっていれば満席」（店主指定）。
+  // 席の空き数そのものは、飛び込みを何名まで受け入れられるかの目安に使う
+  const freeSeats =
+    10 -
+    counterUsed +
+    TABLES.reduce((a, t) => a + (tableUsed(t) > 0 ? 0 : 6), 0) +
+    (zashikiUsed > 0 ? 0 : 8);
   const guests = resv.reduce((a, r) => a + r.party_size, 0);
 
-  const stoolBtn = ({ n, x, y }: { n: number; x: number; y: number }) => (
+  const seatBtn = (
+    seat: { key: string; n: number; x: number; y: number },
+    kind: "counter" | "table" | "room",
+    label: string,
+  ) => (
     <button
-      key={n}
-      className={`fb__stool${stoolOn(n) ? " fb__stool--on" : ""}`}
-      style={{ left: x, top: y, width: STOOL, height: STOOL }}
-      onClick={() => toggleStool(n)}
-      aria-pressed={stoolOn(n)}
-      aria-label={`カウンター${n}番`}
+      key={seat.key}
+      className={`fb__seat fb__seat--${kind}${seatOn(seat.key) ? " fb__seat--on" : ""}`}
+      style={{ left: seat.x, top: seat.y, width: SEAT, height: SEAT }}
+      onClick={() => toggleSeat(seat.key)}
+      aria-pressed={seatOn(seat.key)}
+      aria-label={label}
     >
-      {n}
+      {seat.n}
     </button>
   );
-
-  const tableCard = ({ key, x }: { key: string; x: number }) => {
-    const on = (board[key] ?? 0) > 0;
-    return (
-      <button
-        key={key}
-        className={`fb__table${on ? " fb__table--on" : ""}`}
-        style={{ left: x, top: 120, width: 120, height: 200 }}
-        onClick={() => toggleUnit(key)}
-        aria-pressed={on}
-      >
-        <span className="fbc__tcol">
-          {Array.from({ length: 3 }, (_, i) => (
-            <i key={i} />
-          ))}
-        </span>
-        <span className="fb__ttop">
-          <b>{key}</b>
-          <small>6名掛け</small>
-          <em className="fb__state">{on ? "使用中" : "空き"}</em>
-        </span>
-        <span className="fbc__tcol">
-          {Array.from({ length: 3 }, (_, i) => (
-            <i key={i} />
-          ))}
-        </span>
-      </button>
-    );
-  };
 
   return (
     <div className="fbwrap">
@@ -301,54 +312,71 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 className="fb__canvas"
                 style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${scale})` }}
               >
-                {/* 和室（掘りごたつは横向き・手前と奥に4人ずつ） */}
-                <button
-                  className={`fb__zashiki${zashikiOn ? " fb__zashiki--on" : ""}`}
-                  style={{ left: 12, top: 20, width: 260, height: 250 }}
-                  onClick={() => toggleUnit("和室")}
-                  aria-pressed={zashikiOn}
+                {/* 和室：座卓を挟んで奥に4席・手前に4席 */}
+                <div
+                  className={`fb__room${zashikiUsed > 0 ? " fb__room--on" : ""}`}
+                  style={{ left: ZASHIKI.x, top: ZASHIKI.y, width: ZASHIKI.w, height: ZASHIKI.h }}
                 >
-                  <span className="fbc__zcol">
-                    <span className="fbc__chairrow">
-                      {Array.from({ length: 4 }, (_, i) => (
-                        <i key={i} />
-                      ))}
-                    </span>
-                    <span className="fb__ztable">
-                      <b>和室</b>
-                      <small>個室・8名掛け</small>
-                      <em className="fb__state">{zashikiOn ? "使用中" : "空き"}</em>
-                    </span>
-                    <span className="fbc__chairrow">
-                      {Array.from({ length: 4 }, (_, i) => (
-                        <i key={i} />
-                      ))}
-                    </span>
+                  <span className="fb__roomtop">
+                    <b>和室</b>
+                    <small>個室・8名掛け</small>
+                    <em className="fb__state">
+                      {zashikiUsed > 0 ? `使用中 ${zashikiUsed}/8席` : "空き"}
+                    </em>
                   </span>
-                </button>
+                </div>
+                {Z_SEATS.map((s2) => seatBtn(s2, "room", `和室${s2.n}番`))}
 
                 {/* L型カウンター：横バー＋右端から下へ折れる縦バー */}
-                <div className="fb__hbar" style={{ left: 300, top: 86, width: 420, height: 60 }}>
+                <div
+                  className="fb__hbar"
+                  style={{ left: HBAR.x, top: HBAR.y, width: HBAR.w, height: HBAR.h }}
+                >
                   カウンター（残り{10 - counterUsed}席）
                 </div>
-                <div className="fb__vbar" style={{ left: 660, top: 146, width: 60, height: 180 }} />
-                {STOOLS_TOP.map(stoolBtn)}
-                {STOOLS_SIDE.map(stoolBtn)}
-                <p className="fb__hint" style={{ left: 300, top: 348, width: 380 }}>
+                <div
+                  className="fb__vbar"
+                  style={{ left: VBAR.x, top: VBAR.y, width: VBAR.w, height: VBAR.h }}
+                />
+                {C_TOP.map((s2) => seatBtn(s2, "counter", `カウンター${s2.n}番`))}
+                {C_SIDE.map((s2) => seatBtn(s2, "counter", `カウンター${s2.n}番`))}
+
+                {/* テーブル3卓：天板を挟んで左右に3席ずつ */}
+                {TABLES.map((t) => {
+                  const used = tableUsed(t);
+                  return (
+                    // 位置は座標で決めるので、包む要素を挟むと基準がずれる。Fragment で並べる
+                    <Fragment key={t.key}>
+                      <div
+                        className={`fb__tbl${used > 0 ? " fb__tbl--on" : ""}`}
+                        style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
+                      >
+                        <span className="fb__tbllabel">
+                          <b>{t.key}</b>
+                          <small>6名掛け</small>
+                          <em className="fb__state">{used > 0 ? `${used}/6席` : "空き"}</em>
+                        </span>
+                      </div>
+                      <div
+                        className="fb__tbltop"
+                        style={{ left: t.top.x, top: t.top.y, width: t.top.w, height: t.top.h }}
+                      />
+                      {t.seats.map((s2) => seatBtn(s2, "table", `${t.key} ${s2.n}番`))}
+                    </Fragment>
+                  );
+                })}
+
+                <p className="fb__hint" style={{ left: 292, top: 352, width: 400 }}>
                   座った席をタップ（帰ったらもう一度タップで空きに戻る）
                 </p>
 
-                {/* 入口まわりは席がないので、ここに屋号の徳利を薄く置く */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo-face.png"
                   alt=""
                   className="fb__mark"
-                  style={{ left: 77, top: 282, width: 130, height: 130 }}
+                  style={{ left: 72, top: 336, width: 120, height: 90 }}
                 />
-
-                {/* テーブル3卓 */}
-                {TABLES.map(tableCard)}
               </div>
             </div>
           </div>
@@ -369,7 +397,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                       <span className="fb__name">
                         {r.customer_name} 様 {r.party_size}名
                       </span>
-                      <span className="fb__seat">{r.seat_note ?? ""}</span>
+                      <span className="fb__seatnote">{r.seat_note ?? ""}</span>
                       {r.source === "web_form" && <span className="fb__hp">HP</span>}
                     </li>
                   );
