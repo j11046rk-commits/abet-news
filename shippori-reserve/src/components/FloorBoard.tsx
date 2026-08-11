@@ -81,6 +81,11 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const seenIds = useRef<Set<string>>(new Set(initial.recent_net.map((r) => r.id)));
   const audioCtx = useRef<AudioContext | null>(null);
 
+  // この時刻までは、取り直した席の状態を画面に当てない（自分のタップを守る猶予）。
+  // 保存が終わってからも少し置くのは、保存より前に飛んでいった取り直しが
+  // あとから返ってくることがあるため。
+  const quietUntil = useRef(0);
+
   // デジタル時計。秒まで動かして「画面が生きている」ことが分かるように（店主の希望）
   const [clock, setClock] = useState("");
   useEffect(() => {
@@ -160,7 +165,11 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
             setAlerts((prev) => [...prev, ...fresh]);
           }
         }
-        setBoard(snap.board);
+        // 席の状態は、いま自分が押した直後だけ上書きしない。
+        // 取り直しは15秒に1回で、押してから保存が届くまでの間に返ってきた
+        // 一周前の姿を当ててしまうと、点けたばかりの席がふっと消える。
+        // 消えた席をもう一度押すと今度は逆に点く——お客様がいないのに使用中になる。
+        if (quietUntil.current < Date.now()) setBoard(snap.board);
         setResv(snap.reservations);
         setPause(snap.pause);
         setOpenNow(snap.open_now);
@@ -181,10 +190,12 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
 
   async function save(key: string, value: number) {
     const prev = board[key] ?? 0;
+    quietUntil.current = Date.now() + 8_000;
     setBoard((b) => ({ ...b, [key]: value }));
     setSaving(true);
     const res = await setSeatState(key, value);
     setSaving(false);
+    quietUntil.current = Date.now() + 5_000;
     if (!res.ok) setBoard((b) => ({ ...b, [key]: prev }));
   }
 

@@ -42,8 +42,9 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
       getCourses(),
     ]);
 
-  // シフトは店長が「確定」した月だけ表示する
-  const shiftIds = shiftsPublishedAt ? shiftIdsRaw : [];
+  // シフトは店長が「確定」した月だけ表示する。
+  // 休業日も出さない（確定後に臨時休業にすると、その日のシフトの行だけが残るため）。
+  const shiftIds = shiftsPublishedAt && !summary.is_closed ? shiftIdsRaw : [];
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));

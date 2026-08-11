@@ -103,7 +103,9 @@ export default async function MonthPage({
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);
           const rows = resvMap.get(date) ?? [];
-          const shiftIds = shiftMap.get(date) ?? [];
+          // 休業日は誰も出勤しない。確定したあとで臨時休業にした日は
+          // シフトの行が残るので、ここで出さない（「休」なのに名前が並ぶのを防ぐ）。
+          const shiftIds = day.is_closed ? [] : (shiftMap.get(date) ?? []);
           const dow = weekdayOf(date);
           const guests = summaries.get(date)?.guest_count ?? 0;
           const usage = computeSeatUsage(rows);

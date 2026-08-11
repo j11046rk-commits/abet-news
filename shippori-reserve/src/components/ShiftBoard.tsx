@@ -87,14 +87,23 @@ export default function ShiftBoard({
     () => new Set(days.filter((d) => (requests[d.date] ?? []).includes(myId)).map((d) => d.date)),
   );
 
-  /** 出勤日数（下書きベース・リアルタイム） */
+  // 休業日。確定したあとで臨時休業にした日は、その日のチップが画面から消えるので
+  // 店長が外せない。数える側・保存する側で外しておかないと、
+  // 「休」の日の出勤が出勤日数に混ざったまま確定し直されてしまう。
+  const closedDates = useMemo(
+    () => new Set(days.filter((d) => d.closed).map((d) => d.date)),
+    [days],
+  );
+
+  /** 出勤日数（下書きベース・リアルタイム）。休業日は数えない。 */
   const counts = useMemo(() => {
     const c = new Map<string, number>(staff.map((p) => [p.id, 0]));
-    for (const list of Object.values(draft)) {
+    for (const [date, list] of Object.entries(draft)) {
+      if (closedDates.has(date)) continue;
       for (const id of list) c.set(id, (c.get(id) ?? 0) + 1);
     }
     return c;
-  }, [draft, staff]);
+  }, [draft, staff, closedDates]);
 
   function toggleDraft(date: string, id: string) {
     setSaved(null);
@@ -180,7 +189,13 @@ export default function ShiftBoard({
           type="button"
           className="btn btn-primary btn-block"
           disabled={pending || !requestOpen}
-          onClick={() => run(() => submitMyRequests(ym, [...myDays]), "希望シフトを提出しました。")}
+          onClick={() =>
+            run(
+              // 提出後に休業日になった日は落とす（画面では「休」で押せないのに残っているため）
+              () => submitMyRequests(ym, [...myDays].filter((d) => !closedDates.has(d))),
+              "希望シフトを提出しました。",
+            )
+          }
         >
           {pending ? "提出中" : mySubmittedAt ? "希望シフトを出し直す" : "希望シフトを提出する"}
         </button>
@@ -272,9 +287,9 @@ export default function ShiftBoard({
                 () =>
                   confirmMonthShifts(
                     ym,
-                    Object.entries(draft).flatMap(([date, ids]) =>
-                      ids.map((profile_id) => ({ date, profile_id })),
-                    ),
+                    Object.entries(draft)
+                      .filter(([date]) => !closedDates.has(date))
+                      .flatMap(([date, ids]) => ids.map((profile_id) => ({ date, profile_id }))),
                   ),
                 "シフトを確定しました。カレンダーに表示されます。",
               )
