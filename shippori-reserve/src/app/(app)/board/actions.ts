@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
+import { can } from "@/lib/constants";
 import { getBusinessDay } from "@/lib/queries";
 import { nowJst, todayBizDate } from "@/lib/time";
 import type { Reservation } from "@/lib/types";
@@ -132,7 +133,10 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
  * 再開はいつでもできる——止まったままにしておく理由はないので。
  */
 export async function setNetPause(on: boolean): Promise<{ ok: boolean; error?: string }> {
-  await requireProfile();
+  // 閲覧のみ（viewer）のアカウントでも押せてしまっていた。
+  // ネット予約を止めるのは売上に直結するので、予約を書ける人だけに絞る。
+  const me = await requireProfile();
+  if (!can(me.role, "reservation.write")) return { ok: false, error: "権限がありません。" };
   const date = todayBizDate();
   if (on) {
     const day = await getBusinessDay(date);
@@ -151,7 +155,10 @@ export async function setSeatState(
   key: string,
   value: number,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireProfile();
+  // 席の埋まり具合はネット予約の空席判定に直結する（全部埋めれば予約が止まる）。
+  // 閲覧のみのアカウントには触らせない。
+  const me = await requireProfile();
+  if (!can(me.role, "reservation.write")) return { ok: false, error: "権限がありません。" };
   const supabase = await createClient();
   const { error } = await supabase.rpc("set_seat_board", {
     p_date: todayBizDate(),

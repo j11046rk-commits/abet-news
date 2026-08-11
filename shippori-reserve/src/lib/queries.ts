@@ -22,10 +22,26 @@ import type {
   SeatUsage,
 } from "@/lib/types";
 
+/**
+ * 取得に失敗したことを、せめてログに残す。
+ *
+ * これまでは `const { data } = await ...` と error を捨てていたので、
+ * 通信やRLSの失敗が「データが1件も無い」と見分けがつかなかった。
+ * 予約の一覧が空なら「今夜は予約ゼロ」に見えるし、売上が空なら
+ * 「まだ実績が入っていない」に見える。どちらも嘘になる。
+ *
+ * 個人情報は出さない（テーブル名とコードだけ）。Vercelのログに残る。
+ */
+function warnQuery(where: string, error: { code?: string; message?: string } | null): void {
+  if (error) console.error("query_failed", where, error.code ?? "?");
+}
+
+
 /** settings テーブルをキーバリューのまま返す（1リクエスト1回） */
 export const getSettings = cache(async function getSettings(): Promise<Record<string, unknown>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("settings").select("key, value");
+  const { data, error } = await supabase.from("settings").select("key, value");
+  warnQuery("getSettings", error);
   return Object.fromEntries((data ?? []).map((r) => [r.key as string, r.value]));
 });
 
@@ -77,11 +93,12 @@ export function deriveBusinessDay(
 /** その日の営業設定。行が無ければ曜日から導出したものを返す。 */
 export async function getBusinessDay(date: string): Promise<BusinessDay> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("business_days")
     .select("*")
     .eq("biz_date", date)
     .maybeSingle<BusinessDay>();
+  warnQuery("getBusinessDay", error);
 
   return data ?? deriveBusinessDay(date, await getSettings());
 }
@@ -89,11 +106,16 @@ export async function getBusinessDay(date: string): Promise<BusinessDay> {
 /** その日のサマリー（件数・人数・残定員）。行が無ければ 0 件の日として返す。 */
 export async function getDailySummary(date: string): Promise<DailySummary> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_daily_summary")
     .select("*")
     .eq("biz_date", date)
     .maybeSingle<DailySummary>();
+  // 空とエラーを取り違えると「今夜は予約ゼロ」に見えてしまう。ここは隠さず投げる。
+  if (error) {
+    console.error("query_failed", "getDailySummary", error.code ?? "?");
+    throw new Error("予約を読み込めませんでした。");
+  }
 
   if (data) return data;
 
@@ -119,12 +141,13 @@ export async function getMonthSummaries(ym: string): Promise<Map<string, DailySu
   const from = grid[0];
   const to = grid[grid.length - 1];
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_daily_summary")
     .select("*")
     .gte("biz_date", from)
     .lte("biz_date", to)
     .returns<DailySummary[]>();
+  warnQuery("getMonthSummaries", error);
 
   return new Map((data ?? []).map((d) => [d.biz_date, d]));
 }
@@ -133,13 +156,18 @@ export async function getMonthSummaries(ym: string): Promise<Map<string, DailySu
 export async function getMonthReservations(ym: string): Promise<Map<string, Reservation[]>> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reservations")
     .select("*")
     .gte("biz_date", from)
     .lte("biz_date", to)
     .order("starts_at", { ascending: true })
     .returns<Reservation[]>();
+  // 空とエラーを取り違えると「今夜は予約ゼロ」に見えてしまう。ここは隠さず投げる。
+  if (error) {
+    console.error("query_failed", "getMonthReservations", error.code ?? "?");
+    throw new Error("予約を読み込めませんでした。");
+  }
 
   const map = new Map<string, Reservation[]>();
   for (const r of data ?? []) {
@@ -154,11 +182,12 @@ export async function getMonthReservations(ym: string): Promise<Map<string, Rese
 export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("shifts")
     .select("biz_date, profile_id")
     .gte("biz_date", from)
     .lte("biz_date", to);
+  warnQuery("getMonthShifts", error);
 
   const map = new Map<string, string[]>();
   for (const row of data ?? []) {
@@ -178,11 +207,12 @@ export async function getSeatUsage(date: string, excludeId?: string): Promise<Se
 export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sales_daily")
     .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen")
     .gte("biz_date", from)
     .lte("biz_date", to);
+  warnQuery("getMonthSales", error);
 
   return new Map((data ?? []).map((r) => [r.biz_date as string, r as SalesDay]));
 }
@@ -190,22 +220,24 @@ export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> 
 /** 月間売上目標（端数なしの正の数字。日毎の合計とは別に持つ） */
 export async function getMonthlySalesTarget(ym: string): Promise<number | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sales_monthly")
     .select("target_yen")
     .eq("ym", ym)
     .maybeSingle<{ target_yen: number }>();
+  warnQuery("getMonthlySalesTarget", error);
   return data?.target_yen ?? null;
 }
 
 /** 1日ぶんの売上（営業日の設定画面が使う） */
 export async function getSalesDay(date: string): Promise<SalesDay | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sales_daily")
     .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen")
     .eq("biz_date", date)
     .maybeSingle<SalesDay>();
+  warnQuery("getSalesDay", error);
   return data ?? null;
 }
 
@@ -213,11 +245,12 @@ export async function getSalesDay(date: string): Promise<SalesDay | null> {
 export async function getMonthShiftRequests(ym: string): Promise<Map<string, string[]>> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("shift_requests")
     .select("biz_date, profile_id")
     .gte("biz_date", from)
     .lte("biz_date", to);
+  warnQuery("getMonthShiftRequests", error);
 
   const map = new Map<string, string[]>();
   for (const row of data ?? []) {
@@ -231,40 +264,48 @@ export async function getMonthShiftRequests(ym: string): Promise<Map<string, str
 /** 月の希望提出の記録（profile_id → 提出日時） */
 export async function getShiftSubmissions(ym: string): Promise<Map<string, string>> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("shift_request_submissions")
     .select("profile_id, submitted_at")
     .eq("ym", ym);
+  warnQuery("getShiftSubmissions", error);
   return new Map((data ?? []).map((r) => [r.profile_id as string, r.submitted_at as string]));
 }
 
 /** その月のシフトが確定（公開）済みか。確定日時を返す。未確定なら null。 */
 export async function getShiftPublication(ym: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("shift_publications")
     .select("published_at")
     .eq("ym", ym)
     .maybeSingle<{ published_at: string }>();
+  warnQuery("getShiftPublication", error);
   return data?.published_at ?? null;
 }
 
 /** その日のシフト（profile_id の配列） */
 export async function getShiftProfileIds(date: string): Promise<string[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("shifts").select("profile_id").eq("biz_date", date);
+  const { data, error } = await supabase.from("shifts").select("profile_id").eq("biz_date", date);
+  warnQuery("getShiftProfileIds", error);
   return (data ?? []).map((r) => r.profile_id as string);
 }
 
 /** その営業日の予約。時刻順。 */
 export async function getReservationsByDate(date: string): Promise<Reservation[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reservations")
     .select("*")
     .eq("biz_date", date)
     .order("starts_at", { ascending: true })
     .returns<Reservation[]>();
+  // 空とエラーを取り違えると「今夜は予約ゼロ」に見えてしまう。ここは隠さず投げる。
+  if (error) {
+    console.error("query_failed", "getReservationsByDate", error.code ?? "?");
+    throw new Error("予約を読み込めませんでした。");
+  }
 
   return data ?? [];
 }
@@ -309,22 +350,24 @@ export async function searchReservations(f: ReservationFilter): Promise<Reservat
     }
   }
 
-  const { data } = await query
+  const { data, error } = await query
     .order("biz_date", { ascending: !f.desc })
     .order("starts_at", { ascending: !f.desc })
     .limit(300)
     .returns<Reservation[]>();
+  warnQuery("searchReservations", error);
 
   return data ?? [];
 }
 
 export async function getReservation(id: string): Promise<Reservation | null> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reservations")
     .select("*")
     .eq("id", id)
     .maybeSingle<Reservation>();
+  warnQuery("getReservation", error);
 
   return data ?? null;
 }
@@ -332,49 +375,53 @@ export async function getReservation(id: string): Promise<Reservation | null> {
 /** 流入元「オーナー直接」で選ばせる相手（オーナー3名） */
 export const getOwnerContacts = cache(async function getOwnerContacts(): Promise<Profile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("is_owner_contact", true)
     .eq("is_active", true)
     .order("sort_order")
     .returns<Profile[]>();
+  warnQuery("getOwnerContacts", error);
 
   return data ?? [];
 });
 
 export const getCourses = cache(async function getCourses(): Promise<Course[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("courses")
     .select("*")
     .eq("is_active", true)
     .order("sort_order")
     .returns<Course[]>();
+  warnQuery("getCourses", error);
 
   return data ?? [];
 });
 
 export const getSeatUnits = cache(async function getSeatUnits(): Promise<SeatUnit[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("seat_units")
     .select("*")
     .eq("is_active", true)
     .order("sort_order")
     .returns<SeatUnit[]>();
+  warnQuery("getSeatUnits", error);
 
   return data ?? [];
 });
 
 export async function getAllProfiles(): Promise<Profile[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .order("sort_order")
     .order("login_id")
     .returns<Profile[]>();
+  warnQuery("getAllProfiles", error);
 
   return data ?? [];
 }
@@ -382,6 +429,7 @@ export async function getAllProfiles(): Promise<Profile[]> {
 /** 予約に添える「誰が登録したか」用の名前引き */
 export async function getProfileNames(): Promise<Map<string, string>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("id, display_name");
+  const { data, error } = await supabase.from("profiles").select("id, display_name");
+  warnQuery("getProfileNames", error);
   return new Map((data ?? []).map((p) => [p.id as string, p.display_name as string]));
 }

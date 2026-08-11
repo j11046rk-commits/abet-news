@@ -69,11 +69,14 @@ alter default privileges in schema public revoke execute on functions from publi
 -- どこからも import されていないので、anon が DB を直接触る経路は存在しない。
 
 -- ─────────────────────────────────────────────────────────────
--- 4) 席ボードと予約停止を「有効なスタッフ」だけに
+-- 4) 席ボードと予約停止を「予約を書ける有効なスタッフ」だけに
 --
--- いまの検査は auth.uid() is null だけ。退職者は profiles.is_active を
--- false にしても Supabase Auth 側は生きているので、古いパスワードで
--- トークンを取れば席を全部埋められる＝ネット予約を止められる。
+-- いまの検査は auth.uid() is null だけ。2つ穴がある。
+--   ・退職者は profiles.is_active を false にしても Supabase Auth 側は生きて
+--     いるので、古いパスワードでトークンを取れば席を全部埋められる
+--   ・閲覧のみ（viewer）のアカウントでも押せる
+-- どちらもネット予約を止める＝売上に直結する操作なので、
+-- has_permission('reservation.write') に上げる（この関数は is_active も見る）。
 -- ─────────────────────────────────────────────────────────────
 do $$
 declare v_src text;
@@ -83,7 +86,9 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'set_seat_board';
   if v_src is not null then
-    v_src := replace(v_src, 'if auth.uid() is null then', 'if not public.is_active_user() then');
+    v_src := replace(v_src, 'if auth.uid() is null then',
+                            'if not public.has_permission(''reservation.write'') then');
+    v_src := replace(v_src, 'ログインが必要です', '権限がありません。');
     execute v_src;
   end if;
 
@@ -91,7 +96,9 @@ begin
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'set_net_pause';
   if v_src is not null then
-    v_src := replace(v_src, 'if auth.uid() is null then', 'if not public.is_active_user() then');
+    v_src := replace(v_src, 'if auth.uid() is null then',
+                            'if not public.has_permission(''reservation.write'') then');
+    v_src := replace(v_src, 'ログインが必要です', '権限がありません。');
     execute v_src;
   end if;
 end $$;
