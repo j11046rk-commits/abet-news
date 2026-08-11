@@ -7,6 +7,7 @@ const MIN = 8;
 
 export default function PasswordForm({ first }: { first: boolean }) {
   const router = useRouter();
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function PasswordForm({ first }: { first: boolean }) {
     const res = await fetch("/api/auth/password", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, current }),
     });
     const body = await res.json().catch(() => ({}));
     setBusy(false);
@@ -47,6 +48,25 @@ export default function PasswordForm({ first }: { first: boolean }) {
 
   return (
     <form onSubmit={onSubmit} className="gate__form">
+      {/* 初回（お店から渡されたパスワードを打ち替えるとき）は、
+          たったいまログインで同じものを打った直後なので聞かない。 */}
+      {!first ? (
+        <div>
+          <label className="field-label" htmlFor="current_password">
+            いま使っているパスワード
+          </label>
+          <input
+            id="current_password"
+            type="password"
+            className="field"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </div>
+      ) : null}
+
       <div>
         <label className="field-label" htmlFor="new_password">
           新しいパスワード（{MIN}文字以上）

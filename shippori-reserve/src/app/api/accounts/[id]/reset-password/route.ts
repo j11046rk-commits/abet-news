@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { getProfile, generateInitialPassword } from "@/lib/auth";
+import { apiProfile, generateInitialPassword } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { can } from "@/lib/constants";
 
 /**
  * パスワードの再発行。新しい初期パスワードを1度だけ返す。
  * 受け取った本人は次のログインで必ず変更させられる。
  */
 export async function POST(_request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await getProfile();
-  if (!me || !can(me.role, "account.write")) {
-    return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
-  }
+  const gate = await apiProfile("account.write");
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
   const { id } = await ctx.params;
   const password = generateInitialPassword();

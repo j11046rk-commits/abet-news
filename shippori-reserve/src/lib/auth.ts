@@ -31,7 +31,7 @@ export function generateInitialPassword(length = 12): string {
  * requireProfile は (app) のレイアウトとほぼ全ページの両方から呼ばれるので、
  * 素のままだと画面を1枚描くたびに Supabase Auth への往復を2回している。
  */
-export const getProfile = cache(async function getProfile(): Promise<Profile | null> {
+const getProfile = cache(async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -65,6 +65,29 @@ export async function requireProfile(): Promise<Profile> {
   if (!profile.is_active) redirect("/login?e=inactive");
   if (profile.must_change_password) redirect("/password");
   return profile;
+}
+
+/**
+ * ルートハンドラ（/api/…）用の入口。
+ *
+ * ページ側の requireProfile は redirect() で弾けるが、APIは画面を持たないので
+ * 同じ判定を JSON で返す。ここを通さずに素の profile を取れるようにしておくと、
+ * 「在籍・有効・初期パスワードのまま」の3つのうちどれかを見落とした口が必ず生まれる。
+ *
+ * とくに3つめ——ログインした時点で Cookie はもう出ているので、
+ * お店から渡された初期パスワードのまま画面を1枚も開かずに
+ * アカウント発行APIを直接叩けてしまう状態だった。
+ */
+export async function apiProfile(
+  perm: PermissionCode,
+): Promise<{ ok: true; me: Profile } | { ok: false; status: number; error: string }> {
+  const me = await getProfile();
+  if (!me) return { ok: false, status: 401, error: "ログインが必要です。" };
+  if (me.must_change_password) {
+    return { ok: false, status: 403, error: "先にパスワードを変更してください。" };
+  }
+  if (!can(me.role, perm)) return { ok: false, status: 403, error: "権限がありません。" };
+  return { ok: true, me };
 }
 
 /** 権限が要るページ用。足りなければトップへ戻す。 */

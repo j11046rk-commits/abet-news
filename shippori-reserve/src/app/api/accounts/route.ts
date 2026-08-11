@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getProfile, generateInitialPassword, isValidLoginId, loginIdToEmail } from "@/lib/auth";
+import { apiProfile, generateInitialPassword, isValidLoginId, loginIdToEmail } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { can } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 
 const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
@@ -12,10 +11,8 @@ const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
  * 口頭で本人に渡し、本人が初回ログイン時に変更する。
  */
 export async function POST(request: Request) {
-  const me = await getProfile();
-  if (!me || !can(me.role, "account.write")) {
-    return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
-  }
+  const gate = await apiProfile("account.write");
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
   const body = await request.json().catch(() => null);
   const loginId = String(body?.login_id ?? "")

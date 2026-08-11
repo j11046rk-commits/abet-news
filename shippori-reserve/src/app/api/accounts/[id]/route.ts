@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { apiProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { can } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 
 const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
 
 /** 表示名・ロール・有効/無効・オーナー直通の対象かどうかを変更する */
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await getProfile();
-  if (!me || !can(me.role, "account.write")) {
-    return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
-  }
+  const gate = await apiProfile("account.write");
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const me = gate.me;
 
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
