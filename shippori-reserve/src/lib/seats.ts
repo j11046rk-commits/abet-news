@@ -2,6 +2,8 @@ import type { Reservation, SeatUnit, SeatUsage } from "@/lib/types";
 
 export const NO_SEAT = "指定なし";
 export const COUNTER_NAME = "カウンター";
+/** 貸切の予約に入れる席メモ。席を1つずつ選ぶ代わりの1語。 */
+export const EXCLUSIVE_SEAT = "貸切";
 
 /**
  * その日の席の埋まり具合を予約の一覧から出す。
@@ -13,10 +15,14 @@ export const COUNTER_NAME = "カウンター";
 export function computeSeatUsage(rows: Reservation[], excludeId?: string): SeatUsage {
   const taken: string[] = [];
   let counterUsed = 0;
+  let exclusive = false;
 
   for (const r of rows) {
     if (r.id === excludeId) continue;
     if (r.status === "cancelled" || r.status === "no_show") continue;
+
+    // 貸切はお店ごと押さえる予約。席が1つも選ばれていなくてもその日は全部ふさがる。
+    if (r.is_exclusive) exclusive = true;
 
     const parts = (r.seat_note ?? "")
       .split("＋")
@@ -30,11 +36,12 @@ export function computeSeatUsage(rows: Reservation[], excludeId?: string): SeatU
     }
   }
 
-  return { taken, counter_used: counterUsed };
+  return { taken, counter_used: counterUsed, exclusive };
 }
 
 /** その席が選べないか（カウンターは残席で、専有席は行の有無で見る） */
 export function isSeatFull(unit: SeatUnit, usage: SeatUsage, partySize: number): boolean {
+  if (usage.exclusive) return true; // 貸切の日は席が1つも残らない
   if (unit.is_shared) return usage.counter_used + partySize > unit.capacity;
   return usage.taken.includes(unit.name);
 }

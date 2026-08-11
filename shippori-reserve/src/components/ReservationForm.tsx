@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SELECTABLE_SOURCES } from "@/lib/constants";
-import { isSeatFull, NO_SEAT } from "@/lib/seats";
+import { EXCLUSIVE_SEAT, isSeatFull, NO_SEAT } from "@/lib/seats";
 import DateJa from "@/components/DateJa";
 import { isoToMinutes, minutesToLabel } from "@/lib/time";
 import type { Course, DailySummary, Reservation, SeatUnit, SeatUsage } from "@/lib/types";
@@ -59,6 +59,7 @@ export default function ReservationForm({
     const known = new Set([NO_SEAT, ...seatUnits.map((u) => u.name)]);
     return note.split("＋").filter((s) => known.has(s));
   });
+  const [exclusive, setExclusive] = useState(reservation?.is_exclusive ?? false);
   const [courseId, setCourseId] = useState(reservation?.course_id ?? "");
   const [memo, setMemo] = useState(reservation?.memo ?? "");
 
@@ -78,9 +79,22 @@ export default function ReservationForm({
   const [busyConfirm, setBusyConfirm] = useState(false);
   const needsBusyConfirm =
     !isEvent &&
+    !exclusive &&
     day.is_busy &&
     partySize <= 3 &&
     seats.some((s) => seatUnits.some((u) => u.name === s && !u.is_shared));
+
+  /*
+   * 貸切は「お店ごと押さえる」予約。入れた瞬間に、その日の他のご予約は
+   * 座る場所が無くなり、ネット予約も止まる。取り返しがつきにくいので、
+   * すでに他のご予約が入っている日だけ、確定の直前に一度だけ確認を挟む。
+   */
+  const [exclusiveConfirm, setExclusiveConfirm] = useState(false);
+  const otherResvCount = Math.max(
+    0,
+    day.reservation_count - (editing && reservation?.biz_date === bizDate ? 1 : 0),
+  );
+  const needsExclusiveConfirm = !isEvent && exclusive && otherResvCount > 0;
 
   /*
    * 日付が変わったら、その日の営業設定を取り直す。
@@ -96,7 +110,7 @@ export default function ReservationForm({
       .then((d: (DailySummary & { usage?: SeatUsage }) | null) => {
         if (cancelled || !d) return;
         setDay(d);
-        const u = d.usage ?? { taken: [], counter_used: 0 };
+        const u: SeatUsage = d.usage ?? { taken: [], counter_used: 0, exclusive: false };
         setUsage(u);
         setStartMin((m) => (m < d.open_min || m > d.close_min - 30 ? d.open_min : m));
         // 変えた先の日で埋まっている席は選択から外す
@@ -146,7 +160,7 @@ export default function ReservationForm({
     }
   }
 
-  function submit(skipBusyConfirm = false) {
+  function submit(skipConfirm = false) {
     setError(null);
 
     // 日付を変えた直後で、その日の営業設定（イベント日かどうか等）が届く前は保存しない
@@ -158,13 +172,15 @@ export default function ReservationForm({
       setError("お名前を入力してください。");
       return;
     }
-    if (!isEvent && seats.length === 0) {
+    // 貸切はお店全体なので席を選ばない（選ぶ画面も出していない）
+    if (!isEvent && !exclusive && seats.length === 0) {
       setError("席を選んでください（「指定なし」も選べます）。");
       return;
     }
     const counter = seatUnits.find((u) => u.is_shared);
     if (
       !isEvent &&
+      !exclusive &&
       counter &&
       seats.includes(counter.name) &&
       usage.counter_used + partySize > counter.capacity
@@ -175,8 +191,12 @@ export default function ReservationForm({
       return;
     }
 
-    // 他の検査を全部通ってから、繁忙日の3名様以下だけ一度確認を挟む
-    if (!skipBusyConfirm && needsBusyConfirm) {
+    // 他の検査を全部通ってから、確認を一度だけ挟む
+    if (!skipConfirm && needsExclusiveConfirm) {
+      setExclusiveConfirm(true);
+      return;
+    }
+    if (!skipConfirm && needsBusyConfirm) {
       setBusyConfirm(true);
       return;
     }
@@ -189,7 +209,8 @@ export default function ReservationForm({
       customer_name: name,
       phone,
       source,
-      seat_note: isEvent ? "" : seats.join("＋"),
+      seat_note: isEvent ? "" : exclusive ? EXCLUSIVE_SEAT : seats.join("＋"),
+      is_exclusive: !isEvent && exclusive,
       course_id: isEvent ? "" : courseId,
       memo,
     };
@@ -387,46 +408,73 @@ export default function ReservationForm({
       {!isEvent ? (
         <div>
           <label className="field-label">
-            席<span className="req">必須</span>
-            {multiAllowed ? (
+            席{exclusive ? null : <span className="req">必須</span>}
+            {!exclusive && multiAllowed ? (
               <span className="micro" style={{ marginLeft: "0.5rem" }}>
                 7名様以上はつなげて複数選べます
               </span>
             ) : null}
           </label>
-          <div className="chips">
-            {seatUnits.map((u) => {
-              const full = isSeatFull(u, usage, partySize);
-              const selected = seats.includes(u.name);
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  className="chip"
-                  aria-pressed={selected}
-                  disabled={full && !selected}
-                  onClick={() => pickSeat(u.name)}
-                >
-                  {u.name}
-                  <span className="micro" style={{ marginLeft: "0.3rem" }}>
-                    {u.is_shared
-                      ? `残${Math.max(0, u.capacity - usage.counter_used)}`
-                      : full
-                        ? "済"
-                        : u.capacity}
-                  </span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              className="chip"
-              aria-pressed={seats.includes(NO_SEAT)}
-              onClick={() => pickSeat(NO_SEAT)}
-            >
-              {NO_SEAT}
-            </button>
-          </div>
+
+          {/* 貸切＝お店ごと。席を1つずつ選ぶ話ではなくなるので、チップは引っ込める。 */}
+          <label className="switch" style={{ marginBottom: "0.4rem" }}>
+            <span>
+              貸切にする（お店全体）
+              <span className="micro" style={{ display: "block" }}>
+                25名様〜が目安。席は選びません
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={exclusive}
+              onChange={(e) => setExclusive(e.target.checked)}
+            />
+          </label>
+
+          {exclusive ? (
+            <p className="micro">
+              この日は<strong>ネット予約が自動で止まります</strong>。
+              他のご予約もこの画面で受けられなくなります。
+            </p>
+          ) : usage.exclusive ? (
+            <p className="notice notice-strong">
+              この日はすでに貸切のご予約が入っています。席は受けられません。
+            </p>
+          ) : (
+            <div className="chips">
+              {seatUnits.map((u) => {
+                const full = isSeatFull(u, usage, partySize);
+                const selected = seats.includes(u.name);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    className="chip"
+                    aria-pressed={selected}
+                    disabled={full && !selected}
+                    onClick={() => pickSeat(u.name)}
+                  >
+                    {u.name}
+                    <span className="micro" style={{ marginLeft: "0.3rem" }}>
+                      {u.is_shared
+                        ? `残${Math.max(0, u.capacity - usage.counter_used)}`
+                        : full
+                          ? "済"
+                          : u.capacity}
+                    </span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={seats.includes(NO_SEAT)}
+                onClick={() => pickSeat(NO_SEAT)}
+              >
+                {NO_SEAT}
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -472,6 +520,42 @@ export default function ReservationForm({
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
         {pending ? "保存中" : editing ? "変更を保存" : "この内容で登録"}
       </button>
+
+      {/* 貸切にすると、その日の他のご予約は座る場所が無くなる。数を見せてから一度だけ聞く。 */}
+      {exclusiveConfirm ? (
+        <div className="veil" role="dialog" aria-modal="true" aria-label="貸切の確認">
+          <div className="veil__card">
+            <p style={{ margin: "0 0 0.9rem", lineHeight: 1.7 }}>
+              この日はすでに <strong>{otherResvCount}件</strong> のご予約が入っています。
+              <br />
+              貸切にすると、その方々の席が無くなります。
+              <br />
+              先にご連絡が済んでいますか？
+            </p>
+            <div className="row" style={{ gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  setExclusiveConfirm(false);
+                  submit(true);
+                }}
+              >
+                このまま登録
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => setExclusiveConfirm(false)}
+              >
+                戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* 繁忙日の3名様以下×テーブル・和室の確認。一度だけ挟む（店主指定）。 */}
       {busyConfirm ? (

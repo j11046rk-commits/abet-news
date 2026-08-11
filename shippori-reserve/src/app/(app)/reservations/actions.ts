@@ -10,7 +10,7 @@ import {
   getStayMinutes,
 } from "@/lib/queries";
 import { can, SOURCES, STATUSES } from "@/lib/constants";
-import { computeSeatUsage, NO_SEAT } from "@/lib/seats";
+import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
 import { minutesToIso } from "@/lib/time";
 import type { ReservationSource, ReservationStatus } from "@/lib/types";
 
@@ -78,8 +78,7 @@ async function seatConflictError(
     .split("＋")
     .map((s) => s.trim())
     .filter(Boolean)
-    .filter((s) => s !== NO_SEAT);
-  if (seats.length === 0) return null;
+    .filter((s) => s !== NO_SEAT && s !== EXCLUSIVE_SEAT);
 
   const [day, rows, units] = await Promise.all([
     getDailySummary(input.biz_date),
@@ -89,6 +88,16 @@ async function seatConflictError(
   if (day.mode === "event") return null;
 
   const usage = computeSeatUsage(rows, excludeId);
+
+  // 貸切の日はお店ごと押さえてある。あとから席を1つだけ入れられると、
+  // 当日その組と貸切のお客様が鉢合わせる——一番やってはいけない形。
+  // 貸切をやめる（この予約を編集して外す）のが先。
+  if (usage.exclusive) {
+    return input.is_exclusive
+      ? "この日はすでに貸切のご予約が入っています。"
+      : "この日は貸切のご予約が入っています。先に貸切の予約をご確認ください。";
+  }
+  if (seats.length === 0) return null;
 
   for (const name of seats) {
     const unit = units.find((u) => u.name === name);

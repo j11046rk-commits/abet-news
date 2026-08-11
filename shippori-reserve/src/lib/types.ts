@@ -149,6 +149,8 @@ export type SeatUsage = {
   taken: string[];
   /** カウンターに入っている人数の合計 */
   counter_used: number;
+  /** その日に貸切のご予約が入っているか（入っていれば席は全部ふさがる） */
+  exclusive: boolean;
 };
 
 export type Shift = {

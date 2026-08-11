@@ -201,6 +201,9 @@ export function seatGroups(
   const taken = [...usage.taken, ...(board?.taken ?? [])];
   const counterUsed = Math.max(usage.counter_used, board?.counterUsed ?? 0);
   const busyRule = day.is_busy && party <= 3;
+  // 貸切の日はお店ごと押さえてある。dayStatus が先に「満席」を返すので
+  // ここまで来ないはずだが、席を出す口はここ1つなので念のため閉じておく。
+  const blocked = usage.exclusive;
   const out: NetSeat[] = [];
 
   const counter = units.find((u) => u.is_shared);
@@ -210,8 +213,8 @@ export function seatGroups(
       key: "counter",
       label: `カウンター（残り${remaining}席）`,
       remaining,
-      selectable: remaining >= party,
-      reason: remaining >= party ? "" : "埋",
+      selectable: !blocked && remaining >= party,
+      reason: !blocked && remaining >= party ? "" : "埋",
     });
   }
 
@@ -224,8 +227,8 @@ export function seatGroups(
       key: "table",
       label: `テーブル席（${cap}名掛け・残り${free}卓）`,
       remaining: free,
-      selectable: free > 0 && !tooSmall && !busyRule,
-      reason: busyRule ? "繁" : tooSmall ? "狭" : free > 0 ? "" : "埋",
+      selectable: !blocked && free > 0 && !tooSmall && !busyRule,
+      reason: blocked ? "埋" : busyRule ? "繁" : tooSmall ? "狭" : free > 0 ? "" : "埋",
     });
   }
 
@@ -237,8 +240,8 @@ export function seatGroups(
       key: "private",
       label: `個室掘りごたつ席（${priv.capacity}名掛け）`,
       remaining: privTaken ? 0 : 1,
-      selectable: !privTaken && !tooSmall && !busyRule,
-      reason: busyRule ? "繁" : tooSmall ? "狭" : privTaken ? "埋" : "",
+      selectable: !blocked && !privTaken && !tooSmall && !busyRule,
+      reason: blocked ? "埋" : busyRule ? "繁" : tooSmall ? "狭" : privTaken ? "埋" : "",
     });
   }
 
@@ -253,6 +256,7 @@ export function pickUnitFor(
   board?: BoardState,
 ): string | null {
   const usage = computeSeatUsage(rows as Reservation[]);
+  if (usage.exclusive) return null; // 貸切の日は割り当てる席が無い
   const taken = [...usage.taken, ...(board?.taken ?? [])];
   if (key === "counter") return units.find((u) => u.is_shared)?.name ?? null;
   if (key === "table") {
