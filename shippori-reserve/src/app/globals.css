@@ -1567,6 +1567,10 @@ textarea.field {
 .net__pagefoot p { margin: 0.15rem 0; }
 .net__pagefoot a { color: var(--gold-soft); }
 
+/* スタッフの戻り道。お客様には用が無いので、探せば見つかる程度に落とす */
+.net__staff { margin-top: 0.9rem !important; }
+.net__staff a { color: var(--text-dim); font-size: 0.75rem; }
+
 /* ネット予約：席選択と姓名2列 */
 .net__seats { display: flex; flex-direction: column; gap: 0.5rem; }
 .net__seat {
