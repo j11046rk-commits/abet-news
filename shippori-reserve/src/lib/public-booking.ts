@@ -47,7 +47,20 @@ type DayRow = {
   close_min: number;
 };
 
-type ResvRow = Pick<Reservation, "id" | "biz_date" | "party_size" | "status" | "seat_note">;
+type ResvRow = Pick<
+  Reservation,
+  "id" | "biz_date" | "party_size" | "status" | "seat_note" | "is_exclusive"
+>;
+
+/**
+ * その日に貸切（25名様〜・フロア一体）が入っているか。
+ *
+ * 貸切は店を丸ごと押さえる予約なので、席が個別に埋まっていなくても
+ * その日はもうネット予約を受けられない。
+ * ここを見ていなかったため、貸切の日でも予約ページが「◯空席あり」を出し、
+ * お客様が予約できてしまっていた（来店して初めて貸切だと分かる）。
+ */
+export const hasExclusive = (rows: ResvRow[]): boolean => rows.some((r) => r.is_exclusive);
 
 const activeStatuses = ["tentative", "confirmed", "seated"] as const;
 
@@ -93,7 +106,7 @@ async function fetchRange(from: string, to: string) {
     admin.from("business_days").select("*").gte("biz_date", from).lte("biz_date", to),
     admin
       .from("reservations")
-      .select("id, biz_date, party_size, status, seat_note")
+      .select("id, biz_date, party_size, status, seat_note, is_exclusive")
       .gte("biz_date", from)
       .lte("biz_date", to)
       .in("status", [...activeStatuses]),
@@ -282,6 +295,8 @@ function dayStatus(
 
   const { day, rows } = dayCore(date, ctx);
   if (day.is_closed) return "closed";
+  // 貸切の日は店ごと押さえられているので、席の空きにかかわらず受けられない
+  if (hasExclusive(rows)) return "full";
   // 現場が受付を止めている日は、満席と同じく選べない
   if (ctx.paused.has(date)) return "full";
   // イベント営業のネット予約は前日まで（仕込みの都合・店主指定）
@@ -590,7 +605,9 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
       };
     }
     // 押した瞬間に他の人が取ったケース。最新の空きで選び直してもらう
-    if (/NET_FULL|NET_CLOSED/.test(error.message)) {
+    // NET_EXCLUSIVE は貸切の日。理由は外に出さず、満席と同じ言い方にする
+    // （「その日は貸切です」と返すと、店の予定を誰でも確かめられてしまう）
+    if (/NET_FULL|NET_CLOSED|NET_EXCLUSIVE/.test(error.message)) {
       return {
         ok: false,
         error: "申し訳ありません、たった今この枠が埋まりました。別の日時をお選びください。",
