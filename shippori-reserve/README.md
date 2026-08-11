@@ -124,6 +124,9 @@ DBのマイグレーションは `supabase/migrations/` にある。動かすま
    ```
 5. Vercel にデプロイし、同じ環境変数を設定する（リージョン `hnd1`・Root Directory は `shippori-reserve`）。
    売上の自動取り込みを使う場合は `SALES_INGEST_TOKEN`（長いランダムな合言葉）も追加する。
+   ストーリー告知リマインダー（`shippori-story-reminder/`）と繋ぐ場合は
+   `BUSINESS_DAY_TOKEN`（別の長いランダムな合言葉）も追加する。
+   これが未設定だと `GET /api/public/business-day` は常に 401 を返す。
 6. DNS に `yoyaku` の CNAME を1行足して、Vercel のドメインに向ける（任意。まずは `〜.vercel.app` でも動く）。
 7. **エアレジ実績の自動取り込み**：店のMacで shippori-report リポジトリの `APP-INGEST.md` の3手順
    （合言葉ファイル作成 → 過去実績837日の一括投入 → 毎朝7:30のlaunchd登録）。

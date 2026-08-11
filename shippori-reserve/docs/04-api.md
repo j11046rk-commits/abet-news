@@ -96,6 +96,7 @@
 |---|---|---|---|
 | POST | `/api/public/reservations` | Turnstile＋レート制限＋Origin制限 | **HP予約フォームからの受付** |
 | GET | `/api/public/business-days?from=&to=` | レート制限 | 休業日・イベント日だけを返す（個人情報なし） |
+| GET | `/api/public/business-day?date=` | `x-api-key` 合言葉 | **1日ぶんの営業設定**（実装済み。ストーリー告知リマインダー用） |
 | POST | `/api/webhooks/line` | `X-Line-Signature` HMAC検証 | 公式LINEのメッセージ受信（Phase 5） |
 | POST | `/api/webhooks/instagram` | Meta署名検証 | Instagram DM（Phase 6・要審査） |
 
@@ -356,6 +357,30 @@
 - 満席・イベント営業日でも受け付ける（断るのは人間の仕事）。ただし `day_notice` で案内を返す：
   `"8月16日はビアホールイベント（相席）の日です。ご了承のうえお申し込みください。"`
 - レスポンスに**空席情報を一切含めない**（未認証者に店の埋まり具合を渡さない）。
+
+### GET `/api/public/business-day?date=2026-08-11`
+
+**ログイン無しで1日ぶんの営業設定を読む。** しっぽり亭ストーリー告知リマインダー
+（別ディレクトリの Cloudflare Worker）が、17:45 のリマインドを送る前に
+「今日は営業日か」を確かめに来る。
+
+```
+GET /api/public/business-day?date=2026-08-11
+x-api-key: <BUSINESS_DAY_TOKEN>
+```
+
+```json
+{ "biz_date": "2026-08-11", "is_closed": true, "mode": "normal", "is_busy": false,
+  "event_name": null, "open_min": 1080, "close_min": 1440 }
+```
+
+- `date` を省くと `todayBizDate()`（深夜0〜4時は前日の営業として扱う）。
+- `business_days` に行が無い日は `deriveBusinessDay()` で曜日から導出する。画面と同じ判定。
+- **予約も客の情報も返さない。** 読み取りは service role だが、返す列は
+  ルート側で明示的に組み立てる（`updated_by` はスタッフの profile id なので外に出さない）。
+- 呼び手が Worker 1つだけなので、上表の `business-days`（期間・レート制限）と違い
+  合言葉ヘッダーで閉じている。HP予約フォームから使うようになったら期間版を別途足す。
+- 環境変数 `BUSINESS_DAY_TOKEN` が未設定なら常に 401（口が開きっぱなしにならない）。
 
 ### POST `/api/webhooks/line`（Phase 5）
 

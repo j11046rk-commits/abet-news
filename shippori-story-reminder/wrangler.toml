@@ -5,10 +5,12 @@ compatibility_date = "2026-08-01"
 # /test-push を叩くための *.workers.dev URL を有効化
 workers_dev = true
 
-# cronはUTC指定
-# 月曜 00:30 JST = 日曜 15:30 UTC
+# cronはUTC指定。src/index.js の JOBS のキーと1対1で対応させること。
 [triggers]
-crons = ["30 15 * * 0"]
+crons = [
+  "30 15 * * 0", # 定休日告知   月曜 00:30 JST = 日曜 15:30 UTC
+  "45 8 * * *",  # おすすめ告知 毎日 17:45 JST = 毎日 08:45 UTC（休業日はWorker側でスキップ）
+]
 
 # push失敗時のログをダッシュボードで確認できるようにする
 [observability]

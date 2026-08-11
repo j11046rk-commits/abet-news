@@ -1,0 +1,4 @@
+# wrangler dev のローカル秘密（合言葉・トークンが入る）。絶対にコミットしない
+.dev.vars
+.wrangler/
+node_modules/
