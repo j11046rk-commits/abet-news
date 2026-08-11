@@ -1,0 +1,15 @@
+name = "shippori-story-reminder"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# /test-push を叩くための *.workers.dev URL を有効化
+workers_dev = true
+
+# cronはUTC指定
+# 月曜 00:30 JST = 日曜 15:30 UTC
+[triggers]
+crons = ["30 15 * * 0"]
+
+# push失敗時のログをダッシュボードで確認できるようにする
+[observability]
+enabled = true
