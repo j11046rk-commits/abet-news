@@ -39,19 +39,25 @@ begin
     raise exception 'net_reserve の中に NET_PAUSED の判定が見つかりません。定義が想定と違います。';
   end if;
 
+  -- 差し込む前と後を、そのままの姿で書く（$old$ … $old$ で囲めば引用符も改行も素通し）。
+  -- エスケープの積み木で組むと、読む人が「実際どういう文字列になるのか」を
+  -- 頭の中で組み立てないと分からなくなる。ここは1文字違えば置換が外れる場所なので。
   v_new := replace(
     v_src,
-    E'    raise exception \'NET_PAUSED\';\n  end if;',
-    E'    raise exception \'NET_PAUSED\';\n  end if;\n\n'
-      '  -- 貸切は店ごと押さえる予約。席の空きにかかわらずネットからは受けない。\n'
-      '  if exists (\n'
-      '    select 1 from reservations\n'
-      '     where biz_date = p_date\n'
-      '       and is_exclusive\n'
-      '       and status in (''tentative'',''confirmed'',''seated'')\n'
-      '  ) then\n'
-      E'    raise exception \'NET_EXCLUSIVE\';\n'
-      '  end if;'
+$old$    raise exception 'NET_PAUSED';
+  end if;$old$,
+$new$    raise exception 'NET_PAUSED';
+  end if;
+
+  -- 貸切は店ごと押さえる予約。席の空きにかかわらずネットからは受けない。
+  if exists (
+    select 1 from reservations
+     where biz_date = p_date
+       and is_exclusive
+       and status in ('tentative','confirmed','seated')
+  ) then
+    raise exception 'NET_EXCLUSIVE';
+  end if;$new$
   );
 
   if v_new = v_src then
