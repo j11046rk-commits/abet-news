@@ -17,15 +17,21 @@ export async function middleware(request: NextRequest) {
    * 認証に用が無いパスは Supabase への往復より前に返す。
    * manifestはホーム画面登録時にブラウザが Cookie 無しで取りに来る。
    *
-   * /api/public/* は docs/04-api.md の「公開・外部連携（認証不要／別の防御）」。
+   * /api/public/* と /api/sales/ingest は docs/04-api.md の
+   * 「公開・外部連携（認証不要／別の防御）」。
    * セッションを持たない相手（外部サービス・HPのフォーム）が叩くので、
    * ここでログインへ飛ばしてしまうと成立しない。
    * 代わりに各ルートが自前で守る（合言葉ヘッダー・Turnstile・レート制限）。
+   *
+   * 外部連携の口を足すときは /api/public/ の下に置けばこの分岐は触らなくていい。
+   * sales/ingest だけ例外なのは、店のMacの取り込みスクリプト（shippori-report）が
+   * 既にこのURLを叩いているため。パスを変えると向こうも直す必要がある。
    */
   if (
     pathname === "/api/ping" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
+    pathname === "/api/sales/ingest" ||
     pathname.startsWith("/api/public/")
   ) {
     return NextResponse.next({ request });
