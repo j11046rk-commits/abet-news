@@ -24,6 +24,24 @@ const PUBLIC_PATHS = [
   "/api/public",
 ];
 
+/*
+ * 「この端末はスタッフが使っている」という目印。中身は "1" だけで、
+ * 誰なのかは入っていない（入れる必要が無いし、入れれば守るものが増える）。
+ *
+ * 以前はログインのCookie（sb-…auth-token）が残っているかで見ていた。
+ * それが12時間で消えるようにした途端、朝いちばんにブックマークから開いた
+ * スタッフが、全員お客様の予約ページへ送られるようになった。
+ * 判定に使っていいのは「消えても困らないもの」だけ。
+ */
+const STAFF_HINT = "shippori_staff";
+const STAFF_HINT_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 60 * 60 * 24 * 400,
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -73,14 +91,14 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     // 素のドメイン（yoyaku.shipporitei.jp）を開くのは、ふつうお客様。
-    // チラシに短いURLだけを載せられるよう、予約ページへ送る。
+    // 短いURLだけを刷り物に載せられるよう、予約ページへ送る。
     //
-    // ただし一度ログインした端末には Supabase のCookieが残る。
-    // それが残っているのに user が取れない＝スタッフの期限切れなので、
-    // 予約ページで行き止まりにせずログイン画面へ送る（ホーム画面のアプリはここを通る）。
-    const staffDevice = request.cookies
-      .getAll()
-      .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+    // ただし一度でもログインした端末には目印が残る。
+    // 目印があるのに user が取れない＝スタッフの期限切れなので、
+    // 予約ページで行き止まりにせずログイン画面へ送る。
+    const staffDevice =
+      request.cookies.has(STAFF_HINT) ||
+      request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
     const toBooking = pathname === "/" && !staffDevice;
     url.pathname = toBooking ? "/yoyaku" : "/login";
     url.search = toBooking || pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
@@ -91,7 +109,15 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";
-    return NextResponse.redirect(url);
+    const redirected = NextResponse.redirect(url);
+    redirected.cookies.set(STAFF_HINT, "1", STAFF_HINT_OPTIONS);
+    return redirected;
+  }
+
+  // ログインが通っている間に目印を置く。次の朝、期限が切れていても
+  // ブックマークとホーム画面のアプリはログイン画面に着く。
+  if (user && !request.cookies.has(STAFF_HINT)) {
+    response.cookies.set(STAFF_HINT, "1", STAFF_HINT_OPTIONS);
   }
 
   return response;
