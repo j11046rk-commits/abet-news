@@ -24,24 +24,6 @@ const PUBLIC_PATHS = [
   "/api/public",
 ];
 
-/*
- * 「この端末はスタッフが使っている」という目印。中身は "1" だけで、
- * 誰なのかは入っていない（入れる必要が無いし、入れれば守るものが増える）。
- *
- * 以前はログインのCookie（sb-…auth-token）が残っているかで見ていた。
- * それが12時間で消えるようにした途端、朝いちばんにブックマークから開いた
- * スタッフが、全員お客様の予約ページへ送られるようになった。
- * 判定に使っていいのは「消えても困らないもの」だけ。
- */
-const STAFF_HINT = "shippori_staff";
-const STAFF_HINT_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-  maxAge: 60 * 60 * 24 * 400,
-};
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -88,20 +70,25 @@ export async function middleware(request: NextRequest) {
 
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
+  /*
+   * 未ログインは行き先を1つに決める——必ずログイン画面。
+   *
+   * かつては素のドメイン（yoyaku.shipporitei.jp）を開いた人を
+   * 「たぶんお客様」と見て予約ページへ送っていた。刷り物に短いURLだけを
+   * 載せられるように、という理由で。スタッフかどうかは端末に残る何かで
+   * 見分けるつもりだったが、その「何か」は必ず消える——
+   * セッションを12時間にすれば朝には消え、ホーム画面のアプリは
+   * ブラウザとは別の入れ物を持ち、履歴を消せばまとめて消える。
+   * 消えるたびに、スタッフが黙ってお客様の画面に着く。
+   *
+   * 見分けるのをやめた。スタッフは必ずログイン画面に着き、
+   * お客様は（万一こちらに来ても）そこから1タップで予約ページへ行ける。
+   * 当てにいって外すより、決め打って迷わせないほうがいい。
+   */
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
-    // 素のドメイン（yoyaku.shipporitei.jp）を開くのは、ふつうお客様。
-    // 短いURLだけを刷り物に載せられるよう、予約ページへ送る。
-    //
-    // ただし一度でもログインした端末には目印が残る。
-    // 目印があるのに user が取れない＝スタッフの期限切れなので、
-    // 予約ページで行き止まりにせずログイン画面へ送る。
-    const staffDevice =
-      request.cookies.has(STAFF_HINT) ||
-      request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
-    const toBooking = pathname === "/" && !staffDevice;
-    url.pathname = toBooking ? "/yoyaku" : "/login";
-    url.search = toBooking || pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+    url.pathname = "/login";
+    url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 
@@ -109,15 +96,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";
-    const redirected = NextResponse.redirect(url);
-    redirected.cookies.set(STAFF_HINT, "1", STAFF_HINT_OPTIONS);
-    return redirected;
-  }
-
-  // ログインが通っている間に目印を置く。次の朝、期限が切れていても
-  // ブックマークとホーム画面のアプリはログイン画面に着く。
-  if (user && !request.cookies.has(STAFF_HINT)) {
-    response.cookies.set(STAFF_HINT, "1", STAFF_HINT_OPTIONS);
+    return NextResponse.redirect(url);
   }
 
   return response;

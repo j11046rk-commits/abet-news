@@ -602,6 +602,18 @@ textarea.field {
   line-height: 1.8;
 }
 
+/* 迷って着いたお客様の逃げ道。押せることが分かる大きさで、けれど主役ではない */
+.gate__guest {
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.gate__guest a {
+  color: var(--gold-soft);
+  font-size: 0.9rem;
+}
+
 .brand-dot {
   color: var(--gold);
 }
