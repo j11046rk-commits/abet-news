@@ -113,6 +113,23 @@ export default function SalesBoard({
   shiftsPublished: boolean;
 }) {
   const { dailySum, cumTarget, cumLabel, actualTotal, retailTotal, retailDays, inMonth } = useMemo(() => {
+    /*
+     * 「ここまでの目標」の締め日。
+     *
+     * 実績はエアレジから翌朝に入るので、昼間に開くと今日のぶんはまだ無い。
+     * それなのに今日の目標まで足して比べると、達成率は毎日、
+     * 今日の目標1日ぶんだけ低く出る。夕方に見るほど悪く見えるのに、
+     * 何もしていないのに翌朝には戻る——数字が信用されなくなる。
+     *
+     * 締め日は「実績が入っている最後の日」に合わせる（＝ふつうは昨日）。
+     * 日付を決め打ちにしないのは、取り込みが何日か止まったときに
+     * 締め日がその日のまま止まり、画面の見出しがそれを教えてくれるから。
+     */
+    const lastWithActual = days.reduce<string | null>(
+      (last, d) => (d.total != null && d.date <= today ? d.date : last),
+      null,
+    );
+
     let dailySum = 0;
     let cumTarget = 0;
     let actualTotal = 0;
@@ -121,7 +138,7 @@ export default function SalesBoard({
     for (const d of days) {
       if (d.target) {
         dailySum += d.target;
-        if (d.date <= today) cumTarget += d.target;
+        if (lastWithActual && d.date <= lastWithActual) cumTarget += d.target;
       }
       // 月間は合計（物販込み）で積む。店内合計は下で引き算して出すので、
       // 画面に並ぶ「店内 ＋ 物販 ＝ 合計」は必ず合う。
@@ -132,9 +149,11 @@ export default function SalesBoard({
       }
     }
     const inMonth = days.some((d) => d.isToday);
-    const cumLabel = inMonth
-      ? `${Number(today.slice(5, 7))}/${Number(today.slice(8))}までの目標`
-      : "現時点の目標";
+    const cumLabel = lastWithActual
+      ? `${Number(lastWithActual.slice(5, 7))}/${Number(lastWithActual.slice(8))}までの目標`
+      : inMonth
+        ? "ここまでの目標"
+        : "現時点の目標";
     return { dailySum, cumTarget, cumLabel, actualTotal, retailTotal, retailDays, inMonth };
   }, [days, today]);
 
@@ -289,7 +308,11 @@ export default function SalesBoard({
         ) : null}
       </section>
 
-      {/* 現時点（月初〜今日の日毎目標の累計）に対する実績。ここは物販込みの合計で見る */}
+      {/*
+        ここまでの実績と、それと同じ日までの日毎目標の累計。ここは物販込みの合計で見る。
+        3つの数字は必ず同じ締め日で揃える（真ん中の見出しがその日付を出している）。
+        片方だけ今日まで数えると、今日のぶんが入る翌朝まで達成率が低く出続ける。
+      */}
       <section className="summary">
         <div className="summary__item">
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
@@ -305,7 +328,7 @@ export default function SalesBoard({
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
             {cumRate === null ? "—" : `${(shownCumRate / 10).toFixed(1)}%`}
           </span>
-          <span className="summary__label">現時点の達成率</span>
+          <span className="summary__label">達成率</span>
         </div>
       </section>
 
