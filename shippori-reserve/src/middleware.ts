@@ -14,11 +14,15 @@ import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 // ここに入れないと未ログインの要求が /login へ転送され、送信元は200(HTML)を成功と誤認する。
 // insights は集計しか返さない（氏名・電話番号は取得すらしない）。
 // /yoyaku と /api/public はお客様向けのネット予約（ログイン不要が仕様）。
+// /api/cron は Vercel の定期実行が呼ぶ。セッションを持たないので
+// ここで弾くと毎回ログイン画面へ転送され、掃除が一度も走らないまま
+// 「動いているつもり」になる。守りは CRON_SECRET（合言葉）側で見る。
 const PUBLIC_PATHS = [
   "/login",
   "/api/auth/login",
   "/api/sales/ingest",
   "/api/insights",
+  "/api/cron",
   "/manifest.webmanifest",
   "/yoyaku",
   "/api/public",

@@ -19,7 +19,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export type Limit = { windowMin: number; max: number };
 
 export type RateRule = {
-  kind: "sms" | "cancel" | "login";
+  kind: "sms" | "cancel" | "login" | "booking";
   /** 相手ごと（電話番号・予約番号・ログインID） */
   perSubject: Limit;
   /** 送信元ごと */
@@ -48,6 +48,27 @@ export const RATE: Record<RateRule["kind"], RateRule> = {
     perSubject: { windowMin: 15, max: 5 },
     perIp: { windowMin: 15, max: 20 },
     overall: { windowMin: 15, max: 100 },
+  },
+  /*
+   * ネット予約そのもの。ここの天井は「客を締め出す装置」になりやすい。
+   *
+   * もとは「直近10分に web_form の予約が20件あったら全員に429」だった。
+   * 店全体で1つの数え方なので、攻撃者と本物のお客様を区別しない。
+   * しかも数えていたのは成功した予約の件数で、キャンセルすれば減る——
+   * 20件入れて消す、を10分ごとに繰り返せば、ネット予約を永久に止められた。
+   * 画面には「ただいま混み合っています」としか出ないので、
+   * 店から見れば繁盛しているようにしか見えない。
+   *
+   * 数える対象を「入った予約」から「試した回数」に変えた（消しても減らない）。
+   * そのうえで、当たる相手を送信元と電話番号に絞り、全体の天井は
+   * この店の実力ではまず届かない高さに上げる。
+   * 天井を残すのは異常の最後の受け皿としてで、日常の制限ではない。
+   */
+  booking: {
+    kind: "booking",
+    perSubject: { windowMin: 60, max: 6 },
+    perIp: { windowMin: 60, max: 10 },
+    overall: { windowMin: 10, max: 60 },
   },
 };
 
