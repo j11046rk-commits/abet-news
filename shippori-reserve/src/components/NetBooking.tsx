@@ -354,6 +354,30 @@ export default function NetBooking() {
           </div>
         )}
         {error && <p className="net__error">{error}</p>}
+
+        {/*
+          お預かりする情報の説明。個人情報保護法21条1項（利用目的の通知）と
+          28条（外国にある第三者への提供＝Twilio）にあたる。
+          置き場所は送信ボタンのすぐ上——電話番号を渡す前に読める位置でないと、
+          書いてあっても知らせたことにならない。
+        */}
+        <section className="net__privacy">
+          <p className="net__privacy-title">お預かりする情報について</p>
+          <p>
+            お名前・電話番号は、ご予約の確認とご連絡（変更・確認のお電話、認証SMS）にのみ使います。
+            ほかの目的には使わず、法令に基づく場合を除いて第三者には渡しません。
+          </p>
+          <p>
+            ご来店日から<strong>13か月</strong>を過ぎたら、お名前と電話番号は自動的に消去します。
+          </p>
+          <p>
+            認証SMSの送信には Twilio（米国）のサービスを利用しており、電話番号がそちらに送られます。
+          </p>
+          <p>
+            ご確認・削除のご依頼は <a href="tel:0897474494">0897-47-4494</a> へお申し付けください。
+          </p>
+        </section>
+
         <div className="net__btnrow">
           <button className="btn" onClick={() => setStep("pick")} disabled={sending}>戻る</button>
           <button

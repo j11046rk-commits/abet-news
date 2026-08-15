@@ -1491,6 +1491,26 @@ textarea.field {
 .net__hint a, .net__note a, .net__foot a, .net__event a { color: var(--gold-soft); }
 .net__event { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--beer); }
 
+/* お預かりする情報の説明。読める大きさは保ちつつ、入力の邪魔にならない位置と濃さで */
+.net__privacy {
+  margin: 1rem 0 0.9rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  font-size: 0.8rem;
+  line-height: 1.75;
+  color: var(--text-dim);
+}
+.net__privacy p { margin: 0 0 0.45rem; }
+.net__privacy p:last-child { margin-bottom: 0; }
+.net__privacy a { color: var(--gold-soft); }
+.net__privacy-title {
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
 .net__monthnav { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-bottom: 0.7rem; }
 .net__month { font-size: 1.02rem; font-weight: 600; min-width: 7rem; text-align: center; }
 
