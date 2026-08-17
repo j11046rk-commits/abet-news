@@ -1,7 +1,15 @@
 /**
- * 初期アカウント9名を発行する。
+ * 初期アカウントを発行する。
  *
  *   node scripts/seed-accounts.mjs
+ *
+ * 名簿は scripts/members.json（gitに入れない）から読む。
+ * 形は scripts/members.example.json と同じ。
+ *
+ * ★名簿をこのファイルに書かないこと。
+ *   もともとスタッフ9名の本名がここに直接書かれていて、リポジトリに
+ *   入っていた。アカウントを作るのは最初の1回だけなのに、氏名は
+ *   コードとして残り、履歴からも消えない。名簿は名簿として外に置く。
  *
  * .env.local の NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / AUTH_EMAIL_DOMAIN を読む。
  * 初期パスワードは実行時にランダム生成し、**この標準出力にだけ**出る。
@@ -32,17 +40,27 @@ if (!URL_ || !KEY) {
   process.exit(1);
 }
 
-const MEMBERS = [
-  { login_id: "koga", display_name: "古賀 龍馬", role: "owner", is_owner_contact: true, sort_order: 10 },
-  { login_id: "yamamoto", display_name: "山本 善洋", role: "owner", is_owner_contact: true, sort_order: 20 },
-  { login_id: "oka", display_name: "岡 宣行", role: "owner", is_owner_contact: true, sort_order: 30 },
-  { login_id: "watanabe", display_name: "渡邊 祐人", role: "manager", is_owner_contact: false, sort_order: 40 },
-  { login_id: "ando", display_name: "安藤 正", role: "staff", is_owner_contact: false, sort_order: 50 },
-  { login_id: "kanemoto", display_name: "金本 絵美", role: "staff", is_owner_contact: false, sort_order: 60 },
-  { login_id: "yasui", display_name: "安井 琉惺", role: "staff", is_owner_contact: false, sort_order: 70 },
-  { login_id: "takagi", display_name: "高木 雅也", role: "staff", is_owner_contact: false, sort_order: 80 },
-  { login_id: "shiraishi", display_name: "白石 湧駕", role: "staff", is_owner_contact: false, sort_order: 90 },
-];
+const MEMBERS = (() => {
+  const path = new URL("./members.json", import.meta.url);
+  try {
+    const list = JSON.parse(readFileSync(path, "utf8"));
+    if (!Array.isArray(list) || list.length === 0) throw new Error("empty");
+    for (const m of list) {
+      if (!m?.login_id || !m?.display_name || !m?.role) {
+        throw new Error(`login_id / display_name / role が足りない行があります: ${JSON.stringify(m)}`);
+      }
+    }
+    return list.map((m, i) => ({
+      is_owner_contact: false,
+      sort_order: (i + 1) * 10,
+      ...m,
+    }));
+  } catch (e) {
+    console.error("scripts/members.json が読めませんでした:", e.message);
+    console.error("scripts/members.example.json をコピーして名簿を書いてください（gitには入りません）。");
+    process.exit(1);
+  }
+})();
 
 /** 口頭で読み上げる前提なので、紛らわしい文字（l/1/O/0）を除く */
 function password(length = 12) {

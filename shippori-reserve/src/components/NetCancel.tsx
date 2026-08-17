@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 
-/** 予約番号＋電話番号で本人確認してキャンセルする（ログイン不要） */
-export default function NetCancel() {
+/**
+ * 予約のキャンセル（ログイン不要）。入口は2つ。
+ *
+ * 1. 完了画面のリンク（?t=合言葉）——推測できない値なので、そのまま押せば確認だけで済む
+ * 2. 予約番号＋電話番号——リンクを控え忘れた人向け。番号は連番で秘密にならないので、
+ *    電話番号との一致で本人確認する（回数制限つき）
+ *
+ * リンクの経路を足しても、こちらは残す。控え忘れた人が電話でしか
+ * キャンセルできないと、その多くが当日の無断キャンセルに化けてしまう。
+ */
+export default function NetCancel({ token }: { token?: string }) {
   const [reference, setReference] = useState("");
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
@@ -18,7 +27,7 @@ export default function NetCancel() {
       const res = await fetch("/api/public/cancel", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reference, phone }),
+        body: JSON.stringify(token ? { token } : { reference, phone }),
       });
       const data = await res.json();
       if (data.ok) setDone(true);
@@ -35,10 +44,32 @@ export default function NetCancel() {
         <p className="net__done-mark">✅</p>
         <h2>キャンセルを承りました</h2>
         <p className="net__done-lead">
-          ご予約（{reference.trim().toUpperCase()}）をキャンセルしました。
-          またのご利用をお待ちしております。
+          {reference.trim() ? `ご予約（${reference.trim().toUpperCase()}）を` : "ご予約を"}
+          キャンセルしました。またのご利用をお待ちしております。
         </p>
         <p className="net__note"><a href="/yoyaku">新しく予約する</a></p>
+      </div>
+    );
+  }
+
+  // リンクから来た場合。番号も電話番号も要らないので、押し間違い防止の確認だけ置く。
+  if (token) {
+    return (
+      <div className="net__card">
+        <h2 className="net__step-title">ご予約のキャンセル</h2>
+        <p className="net__hint">
+          このリンクのご予約をキャンセルします。よろしければ下のボタンを押してください。
+          開始2時間前を過ぎている場合は お電話（<a href="tel:0897474494">0897-47-4494</a>）でお願いします。
+        </p>
+        {error && <p className="net__error">{error}</p>}
+        <button
+          className="btn btn-primary net__confirm-btn"
+          disabled={sending}
+          onClick={submit}
+        >
+          {sending ? "手続き中…" : "この予約をキャンセルする"}
+        </button>
+        <p className="net__foot"><a href="/yoyaku">← 予約ページに戻る</a></p>
       </div>
     );
   }

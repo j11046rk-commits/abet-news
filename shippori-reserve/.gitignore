@@ -10,3 +10,6 @@ next-env.d.ts
 .env*.local
 .vercel
 .env*
+
+# 名簿（本名が入る）。見本は members.example.json
+scripts/members.json

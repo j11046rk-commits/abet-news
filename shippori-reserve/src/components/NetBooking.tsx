@@ -79,6 +79,7 @@ export default function NetBooking() {
   const [error, setError] = useState("");
   const [doneRef, setDoneRef] = useState("");
   const [doneSeat, setDoneSeat] = useState("");
+  const [doneToken, setDoneToken] = useState("");
 
   // SMS認証（サーバー側が有効なときだけ使う）
   const [smsSent, setSmsSent] = useState(false);
@@ -210,6 +211,7 @@ export default function NetBooking() {
       if (data.ok) {
         setDoneRef(data.reference as string);
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
+        setDoneToken(typeof data.cancel_token === "string" ? data.cancel_token : "");
         setStep("done");
       } else if (data.code === "SMS") {
         // コード違いは確認画面のままやり直せる
@@ -278,8 +280,28 @@ export default function NetBooking() {
           <div><dt>お名前</dt><dd>{fullName} 様</dd></div>
         </dl>
         <div className="net__note">
-          <p><b>予約番号をお控えください</b>（スクリーンショット推奨）。</p>
-          <p>キャンセル・人数変更は <a href="/yoyaku/cancel">こちらのページ</a>（開始2時間前まで）または お電話（<a href={TEL_HREF}>{TEL}</a>）で承ります。</p>
+          <p><b>この画面をお控えください</b>（スクリーンショット推奨）。</p>
+          {/*
+            キャンセル用のリンクには合言葉（cancel_token）を載せる。
+            予約番号は月ごとの連番で秘密にならないので、番号だけでは鍵にできない。
+            リンクを控えておけば、電話番号を打ち直さずにキャンセルできる。
+            控え忘れた人のために、番号＋電話番号の入り口も残してある。
+          */}
+          {doneToken ? (
+            <p>
+              キャンセルは{" "}
+              <a href={`/yoyaku/cancel?t=${encodeURIComponent(doneToken)}`}>
+                <b>このリンク</b>
+              </a>{" "}
+              から（開始2時間前まで・リンクも一緒にお控えください）。
+            </p>
+          ) : (
+            <p>
+              キャンセルは <a href="/yoyaku/cancel">こちらのページ</a>（開始2時間前まで）から、
+              予約番号と電話番号をご入力ください。
+            </p>
+          )}
+          <p>お電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
         </div>
       </div>
     );

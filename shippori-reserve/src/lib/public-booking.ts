@@ -461,7 +461,7 @@ export type NetBookingInput = {
 };
 
 export type NetBookingResult =
-  | { ok: true; reference: string; seat_note: string }
+  | { ok: true; reference: string; seat_note: string; cancel_token?: string }
   | { ok: false; error: string; code?: "RETRY" | "REJECT" | "SMS" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -625,10 +625,63 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   if (!row?.reference) {
     return { ok: false, error: "予約を確定できませんでした。お電話でお問い合わせください。" };
   }
-  return { ok: true, reference: row.reference as string, seat_note: seatNote };
+  const reference = row.reference as string;
+
+  /*
+   * キャンセル用の合言葉を取ってくる。
+   *
+   * 予約番号（R-2608-0038）は月ごとの連番なので、秘密にならない。
+   * 0033 で推測できない合言葉を持たせたので、完了画面のキャンセル用リンクには
+   * こちらを載せる。番号＋電話の入力も残す——リンクを閉じてしまった人が
+   * 電話でしかキャンセルできなくなると、当日の無断キャンセルに化ける。
+   *
+   * 取れなくても予約自体は成立している。リンクが出ないだけなので、
+   * ここで失敗にはしない。
+   */
+  let cancelToken: string | undefined;
+  try {
+    const { data: t } = await createAdminClient()
+      .from("reservations")
+      .select("cancel_token")
+      .eq("reference", reference)
+      .maybeSingle<{ cancel_token: string }>();
+    cancelToken = t?.cancel_token ?? undefined;
+  } catch {
+    // リンクなしで続ける
+  }
+
+  return { ok: true, reference, seat_note: seatNote, cancel_token: cancelToken };
 }
 
 export type NetCancelResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * 合言葉（cancel_token）だけでキャンセルする。
+ *
+ * 完了画面のリンクから来た人向け。推測できない値なので電話番号は要らない。
+ * 番号を総当たりされる心配が無いぶん、こちらのほうが安全でもある。
+ */
+export async function cancelNetReservationByToken(tokenRaw: string): Promise<NetCancelResult> {
+  const token = (tokenRaw ?? "").trim().toLowerCase();
+  const notFound = {
+    ok: false as const,
+    error: "このリンクからはキャンセルできません。お電話（0897-47-4494）でご連絡ください。",
+  };
+  // UUID の形だけは見る（違う形をDBに投げると型エラーで落ちる）
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(token)) {
+    return notFound;
+  }
+
+  const admin = createAdminClient();
+  const { data: r } = await admin
+    .from("reservations")
+    .select("id, biz_date, starts_at, status, phone, source")
+    .eq("cancel_token", token)
+    .maybeSingle<Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">>();
+  if (!r) return notFound;
+
+  return finishCancel(admin, r);
+}
 
 export async function cancelNetReservation(
   referenceRaw: string,
@@ -665,7 +718,19 @@ export async function cancelNetReservation(
 
   if (!r || !r.phone || normalizePhone(r.phone) !== phone) return mismatch;
 
-  // ここから先は本人が確認できたあと。状態の違いを伝えてよい。
+  return finishCancel(admin, r);
+}
+
+/**
+ * 本人だと分かったあとの共通処理。
+ * ここから先は状態の違いを伝えてよい（当たり外れを推測させる心配が無い）。
+ *
+ * 番号＋電話の経路と合言葉の経路で、締切や状態の扱いが食い違わないよう1か所にまとめる。
+ */
+async function finishCancel(
+  admin: ReturnType<typeof createAdminClient>,
+  r: Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">,
+): Promise<NetCancelResult> {
   if (r.status === "cancelled") return { ok: false, error: "この予約はすでにキャンセル済みです。" };
   if (r.status !== "tentative" && r.status !== "confirmed") {
     return { ok: false, error: "この予約はWebからは変更できません。お電話でご連絡ください。" };

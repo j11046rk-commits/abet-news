@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cancelNetReservation } from "@/lib/public-booking";
+import { cancelNetReservation, cancelNetReservationByToken } from "@/lib/public-booking";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 
 /**
@@ -12,7 +12,7 @@ import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/li
  *   (2) ここで回数を絞って、そもそも総当たりが成立しないようにする。
  */
 export async function POST(request: Request) {
-  let body: { reference?: string; phone?: string };
+  let body: { reference?: string; phone?: string; token?: string };
   try {
     body = await request.json();
   } catch {
@@ -21,11 +21,14 @@ export async function POST(request: Request) {
 
   const phone = (body.phone ?? "").trim();
   const reference = (body.reference ?? "").trim();
+  const token = (body.token ?? "").trim();
   const ip = clientIp(request.headers);
 
   // 数える相手は電話番号にする。予約番号を変えながら回す攻撃を止めたいので、
   // 番号ごとに数えると素通りしてしまう。
-  if (!(await withinLimit(RATE.cancel, phone || (ip ?? "-"), ip))) {
+  // 合言葉での来訪は、数える相手を合言葉そのものにする（電話番号を持たないため）。
+  const subject = token || phone || (ip ?? "-");
+  if (!(await withinLimit(RATE.cancel, subject, ip))) {
     return NextResponse.json(
       {
         ok: false,
@@ -36,8 +39,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await cancelNetReservation(reference, phone);
-  await recordAttempt("cancel", phone || (ip ?? "-"), ip, result.ok);
+  const result = token
+    ? await cancelNetReservationByToken(token)
+    : await cancelNetReservation(reference, phone);
+  await recordAttempt("cancel", subject, ip, result.ok);
   void sweepSometimes();
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
