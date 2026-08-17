@@ -221,7 +221,12 @@ export default function ReservationForm({
         setError(res.error);
         return;
       }
-      router.push(editing ? `/reservations/${res.id}` : `/day/${bizDate}`);
+      // 登録したら暦へ戻す（店主指示 2026-08-17）。日別に留まると、次の1件を
+      // 入れるにも別の日を見るにも一度戻る手間がかかる。暦なら次の動きが全部そこから。
+      // ?d= を付けて、いま入れた日の位置で開く（入った予約がその行に見える）。
+      router.push(
+        editing ? `/reservations/${res.id}` : `/?m=${bizDate.slice(0, 7)}&d=${bizDate}`,
+      );
       router.refresh();
     });
   }

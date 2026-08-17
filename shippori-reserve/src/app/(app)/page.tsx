@@ -35,9 +35,14 @@ import type { Reservation } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 const YM_RE = /^\d{4}-\d{2}$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * 暦（ホーム）。縦スクロールの1か月。開いた位置は今日。
+ *
+ * ?d=YYYY-MM-DD を付けると、今日ではなくその日の位置で開く。
+ * 予約を登録したあとここへ戻すため（店主指示 2026-08-17）——
+ * 暦に戻るだけだと、いま入れた予約が画面のどこにあるか探すことになる。
  *
  * 店で使ってきたカレンダーアプリの良さ——シフトが一目・受付者が一目・
  * その日をタップすればすぐ入力——をこの1画面に引き継ぐ。
@@ -46,12 +51,14 @@ const YM_RE = /^\d{4}-\d{2}$/;
 export default async function MonthPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; d?: string }>;
 }) {
   await requirePermission("reservation.read");
   const sp = await searchParams;
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
+  // 開いた位置。指定が無ければ今日。別の月を指されていたら効かせない。
+  const focus = DATE_RE.test(sp.d ?? "") && sp.d!.slice(0, 7) === ym ? sp.d! : null;
 
   const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap] =
     await Promise.all([
@@ -226,7 +233,11 @@ export default async function MonthPage({
         <div style={{ height: "2rem" }} />
       </div>
 
-      {ym === today.slice(0, 7) ? <ScrollTo id={`d-${today}`} /> : null}
+      {focus ? (
+        <ScrollTo id={`d-${focus}`} />
+      ) : ym === today.slice(0, 7) ? (
+        <ScrollTo id={`d-${today}`} />
+      ) : null}
     </>
   );
 }
