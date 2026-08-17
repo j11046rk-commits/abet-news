@@ -54,6 +54,15 @@ const jaDate = (date: string) => {
   return `${y}年${m}月${d}日(${w})`;
 };
 
+/**
+ * GA4のイベントを送る。タグが入っていない環境（開発・計測オフ）では何もしない。
+ * 個人情報は渡さない——渡さないことをここ1か所で守れるように、経路を1本にしてある。
+ */
+function track(event: string, params: Record<string, string | number>): void {
+  const g = (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag;
+  if (typeof g === "function") g("event", event, params);
+}
+
 export default function NetBooking() {
   const thisYm = ymOf(new Date());
   const maxYm = addMonths(thisYm, 2);
@@ -212,6 +221,17 @@ export default function NetBooking() {
         setDoneRef(data.reference as string);
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setDoneToken(typeof data.cancel_token === "string" ? data.cancel_token : "");
+        /*
+         * 予約が確定した回数を数える（GA4）。転換率を出すのに必要な片方。
+         * 見た人数はページの計測で分かるが、確定した数はここでしか分からない。
+         *
+         * 送るのは人数と席の種別だけ。氏名・電話番号・予約番号・合言葉は送らない。
+         * 日付も送らない——「いつ来るか」は店の中の情報で、外に出す理由が無い。
+         */
+        track("reserve_complete", {
+          party,
+          seat_kind: isEvent ? "event" : (seat?.key ?? "unknown"),
+        });
         setStep("done");
       } else if (data.code === "SMS") {
         // コード違いは確認画面のままやり直せる
@@ -394,6 +414,10 @@ export default function NetBooking() {
           </p>
           <p>
             認証SMSの送信には Twilio（米国）のサービスを利用しており、電話番号がそちらに送られます。
+          </p>
+          <p>
+            このページの利用状況の把握に Google アナリティクスを使用しています
+            （どのページが何回見られたかの集計で、お名前・電話番号は送っていません）。
           </p>
           <p>
             ご確認・削除のご依頼は <a href="tel:0897474494">0897-47-4494</a> へお申し付けください。

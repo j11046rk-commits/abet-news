@@ -13,6 +13,14 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" }
       ]
+    },
+    {
+      "//": "お客様向けの予約ページだけは検索に載せる。上の noindex を打ち消す。",
+      "//2": "ページ側の metadata は index:true を宣言しているのに、HTTPヘッダーの noindex が",
+      "//3": "それを上から消していた（ヘッダーのほうが強い）。宣言と実際が食い違ったまま、",
+      "//4": "「しっぽり亭 予約」で検索しても出ない状態だった。キャンセルページは載せない。",
+      "source": "/yoyaku",
+      "headers": [{ "key": "X-Robots-Tag", "value": "index, follow" }]
     }
   ]
 }

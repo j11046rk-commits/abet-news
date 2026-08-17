@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Script from "next/script";
 
 /**
  * ネット予約（お客様向け・ログイン不要）の共通枠。
@@ -12,9 +13,41 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+/*
+ * アクセス計測（GA4）。お客様向けのページだけに入れる。
+ *
+ * 公式サイト（shipporitei.jp）と同じ測定IDを使うので、
+ * 「HPを見た人が予約ページに来て、何人が予約まで進んだか」が1本で追える。
+ * 何人が見たかが分からないと、予約が少ないときに
+ * 「フォームのどこかで諦められている」のか「そもそも来ていない」のかが
+ * 区別できず、打つ手が真逆になる。
+ *
+ * ★スタッフ用の画面には入れない。
+ *   予約者の氏名と電話番号が並ぶ画面なので、外部のタグを置かない。
+ *
+ * ★URLの「?」以降は送らない。
+ *   キャンセルのリンクは /yoyaku/cancel?t=<合言葉> の形で、
+ *   これは他人の予約を消せる鍵そのもの。GA4は既定でURLを丸ごと送るので、
+ *   明示的にパスだけに差し替える。
+ */
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "";
+
 export default function NetLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="net">
+      {GA_ID ? (
+        <>
+          <Script
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+            strategy="afterInteractive"
+          />
+          <Script id="ga4-net" strategy="afterInteractive">
+            {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+gtag('js',new Date());
+gtag('config','${GA_ID}',{page_location:location.origin+location.pathname,page_path:location.pathname});`}
+          </Script>
+        </>
+      ) : null}
       <a className="net__home" href="https://shipporitei.jp">
         ‹ ホームページ
       </a>
