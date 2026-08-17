@@ -6,7 +6,7 @@
 |---|---|---|
 | フレームワーク | **Next.js 15（App Router）+ TypeScript** | サーバー側で認証・権限を判定できる。同一プロジェクトでUIとAPIを持てる。**同じリポジトリの `the-oldman/` で既に稼働中＝実績がある** |
 | UI | **Tailwind CSS v4** | 設定ファイルが要らず、スマホ実装が速い。`the-oldman/` と同じ |
-| DB / 認証 | **Supabase（PostgreSQL + Auth + RLS）** | 行レベルセキュリティをDBに置ける。ログインID＋パスワード運用が既に確立済み |
+| DB / 認証 | **Supabase（PostgreSQL + Auth + RLS）**<br>プロジェクト `ytqjgomnktkmoddidypd`・**東京（AWS `ap-northeast-1`）** | 行レベルセキュリティをDBに置ける。ログインID＋パスワード運用が既に確立済み。リージョンは個人情報の所在なので明記する（法28条・確認 2026-08-17） |
 | ホスティング | **Vercel（リージョン `hnd1` = 東京）** | Next.jsの標準。`the-oldman/vercel.json` と同じ設定を流用できる |
 | PWA | **manifest + Service Worker（自前・軽量）** | ライブラリを増やさない。iOS Safari の挙動は自分で握る |
 | 公開フォーム | **既存Astroサイトに静的ページを追加** | 既存のデザイン資産をそのまま使える。サイトの構成を変えずに済む |
