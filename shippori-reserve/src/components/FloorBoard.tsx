@@ -72,6 +72,9 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [date, setDate] = useState(initial.date);
   const [board, setBoard] = useState<Record<string, number>>(initial.board);
   const [resv, setResv] = useState(initial.reservations);
+  // 予約から作った席の下書き（点線で出す）。DBには入っていない・毎回作り直される。
+  const [planned, setPlanned] = useState(initial.planned);
+  const [unplanned, setUnplanned] = useState(initial.unplanned);
   const [alerts, setAlerts] = useState<BoardSnapshot["reservations"]>([]);
   const [saving, setSaving] = useState(false);
   const [pause, setPause] = useState(initial.pause);
@@ -171,6 +174,8 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         // 消えた席をもう一度押すと今度は逆に点く——お客様がいないのに使用中になる。
         if (quietUntil.current < Date.now()) setBoard(snap.board);
         setResv(snap.reservations);
+        setPlanned(snap.planned);
+        setUnplanned(snap.unplanned);
         setPause(snap.pause);
         setOpenNow(snap.open_now);
       } catch {
@@ -227,13 +232,29 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     ? Math.max(0, Math.round((Date.now() - new Date(pause.since).getTime()) / 60_000))
     : 0;
 
-  /** 席をタップ。座ったら点け、帰ったらもう一度押して消す */
+  /*
+   * 席は3つの状態を持つ。
+   *   空き   … 何も無い
+   *   予約   … 予約から作った下書き（点線）。まだお客様は来ていない
+   *   着席   … タップして点けた席（塗り）。実際に座っている
+   *
+   * 分けるのは、ボードを見て「あと何組まだ来ていないか」が分かるようにするため。
+   * 予約ぶんを着席と同じ見た目にすると、開店直後から全部埋まって見えて、
+   * 誰を待っているのかが画面から消える。
+   *
+   * 下書きの席は当日ズレる（お客様の希望・組の入れ替わり）。ズレたら
+   * 点線を押して実際の席を点ける——それだけで直る作りにしてある。
+   */
   const seatOn = (key: string) => (board[key] ?? 0) > 0;
+  const seatPlanned = (key: string) => !seatOn(key) && planned[key] !== undefined;
   const toggleSeat = (key: string) => save(key, seatOn(key) ? 0 : 1);
 
-  const counterUsed = [...C_TOP, ...C_SIDE].filter((s) => seatOn(s.key)).length;
-  const zashikiUsed = Z_SEATS.filter((s) => seatOn(s.key)).length;
-  const tableUsed = (t: (typeof TABLES)[number]) => t.seats.filter((s) => seatOn(s.key)).length;
+  // 「使用中」は着席と予約の両方を数える。予約ぶんを空きに数えると、
+  // 飛び込みを受けたあとに予約のお客様の席が無くなる。
+  const inUse = (key: string) => seatOn(key) || seatPlanned(key);
+  const counterUsed = [...C_TOP, ...C_SIDE].filter((s) => inUse(s.key)).length;
+  const zashikiUsed = Z_SEATS.filter((s) => inUse(s.key)).length;
+  const tableUsed = (t: (typeof TABLES)[number]) => t.seats.filter((s) => inUse(s.key)).length;
 
   // 予約から見た卓の空きは「1席でも埋まっていれば満席」（店主指定）。
   // 席の空き数そのものは、飛び込みを何名まで受け入れられるかの目安に使う
@@ -251,13 +272,24 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   ) => (
     <button
       key={seat.key}
-      className={`fb__seat fb__seat--${kind}${seatOn(seat.key) ? " fb__seat--on" : ""}`}
+      className={`fb__seat fb__seat--${kind}${seatOn(seat.key) ? " fb__seat--on" : ""}${
+        seatPlanned(seat.key) ? " fb__seat--planned" : ""
+      }`}
       style={{ left: seat.x, top: seat.y, width: SEAT, height: SEAT }}
       onClick={() => toggleSeat(seat.key)}
       aria-pressed={seatOn(seat.key)}
-      aria-label={label}
+      aria-label={
+        seatPlanned(seat.key)
+          ? `${label}（${planned[seat.key]?.label} 様のご予約・まだご来店前）`
+          : label
+      }
+      title={seatPlanned(seat.key) ? `${planned[seat.key]?.label} 様（予約）` : undefined}
     >
-      {seat.n}
+      {seatPlanned(seat.key) ? (
+        <span className="fb__seat-name">{planned[seat.key]?.label}</span>
+      ) : (
+        seat.n
+      )}
     </button>
   );
 
@@ -296,6 +328,18 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           </p>
           {saving && <span className="fb__saving">保存中…</span>}
         </header>
+
+        {/*
+          下書きで席が決まらなかった予約。黙って落とすと、数が合わないことに
+          誰も気づかないまま当日を迎える。名指しで出して、手で置いてもらう。
+        */}
+        {unplanned.length > 0 && (
+          <p className="fb__nofit">
+            席が決まっていないご予約が {unplanned.length}組：
+            {unplanned.map((u) => ` ${u.label}様（${u.party}名）`).join("・")}
+            {" "}— 空いている席をタップして置いてください。
+          </p>
+        )}
 
         {pause.on && (
           <div className="fb__paused" role="status">

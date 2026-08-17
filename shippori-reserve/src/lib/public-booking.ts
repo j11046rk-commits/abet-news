@@ -9,6 +9,7 @@ import {
   FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
 import { computeSeatUsage, COUNTER_NAME, NO_SEAT } from "@/lib/seats";
+import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { minutesToIso, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
 
@@ -49,7 +50,7 @@ type DayRow = {
 
 type ResvRow = Pick<
   Reservation,
-  "id" | "biz_date" | "party_size" | "status" | "seat_note" | "is_exclusive"
+  "id" | "biz_date" | "party_size" | "status" | "seat_note" | "is_exclusive" | "starts_at"
 >;
 
 /**
@@ -106,7 +107,7 @@ async function fetchRange(from: string, to: string) {
     admin.from("business_days").select("*").gte("biz_date", from).lte("biz_date", to),
     admin
       .from("reservations")
-      .select("id, biz_date, party_size, status, seat_note, is_exclusive")
+      .select("id, biz_date, party_size, status, seat_note, is_exclusive, starts_at")
       .gte("biz_date", from)
       .lte("biz_date", to)
       .in("status", [...activeStatuses]),
@@ -134,21 +135,67 @@ async function fetchRange(from: string, to: string) {
   // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる。
   // 席は1席ずつ記録されるが、予約の空席判定は「1席でも埋まっていればその卓は満席」（店主指定）
   const board = new Map<string, BoardState>();
-  const stools = new Map<string, number>();
+  // カウンターは「何席か」ではなく「どの席か」で持つ。
+  // 飛び込みの記録と予約の下書きを合わせるとき、数だけだと重なりを見分けられず、
+  // 別の席に座っている2組を1組ぶんに数えてしまう（＝空いているように見える）。
+  const stools = new Map<string, Set<string>>();
   for (const b of (boardQ.data ?? []) as { biz_date: string; key: string; occupied: number }[]) {
     const cur = board.get(b.biz_date) ?? { taken: [], counterUsed: 0 };
     if (b.key === "C") cur.counterUsed = Math.max(cur.counterUsed, b.occupied);
     else if (/^C\d+$/.test(b.key)) {
-      if (b.occupied > 0) stools.set(b.biz_date, (stools.get(b.biz_date) ?? 0) + 1);
+      if (b.occupied > 0) {
+        const set = stools.get(b.biz_date) ?? new Set<string>();
+        set.add(b.key);
+        stools.set(b.biz_date, set);
+      }
     } else if (b.occupied > 0) {
       const unit = unitOfSeatKey(b.key);
       if (!cur.taken.includes(unit)) cur.taken.push(unit);
     }
     board.set(b.biz_date, cur);
   }
-  for (const [d, n] of stools) {
+
+  /*
+   * 予約から作った席の下書きも、埋まりとして数える。
+   *
+   * ★ここが二重予約の穴を塞いでいる。
+   *   席メモが「指定なし」の予約は computeSeatUsage が読み飛ばすので、
+   *   3名の指定なし予約が3組入っていても、ネット予約からは
+   *   カウンターが10席まるごと空いて見えていた。当日、席が足りなくなる形。
+   *   下書きで実際の席まで決めてしまえば、そのまま埋まりとして扱える。
+   *
+   * 席ボード（飛び込み）の記録と重ねるときは、席そのものの重なりで見る。
+   */
+  const planUnits = (unitsQ.data ?? []) as PlanUnit[];
+  for (const [d, list] of resv) {
+    const plan = planSeats(
+      list.map((r) => ({
+        id: r.id,
+        party_size: r.party_size,
+        seat_note: r.seat_note ?? "",
+        is_exclusive: r.is_exclusive,
+        starts_at: r.starts_at,
+        label: "",
+      })),
+      planUnits,
+      days.get(d)?.mode === "event" ? "event" : "normal",
+    );
+    const cur = board.get(d) ?? { taken: [], counterUsed: 0 };
+    const set = stools.get(d) ?? new Set<string>();
+    for (const key of plan.seats.keys()) {
+      if (/^C\d+$/.test(key)) set.add(key);
+      else {
+        const unit = unitOfSeatKey(key);
+        if (!cur.taken.includes(unit)) cur.taken.push(unit);
+      }
+    }
+    stools.set(d, set);
+    board.set(d, cur);
+  }
+
+  for (const [d, set] of stools) {
     const cur = board.get(d);
-    if (cur) cur.counterUsed = Math.max(cur.counterUsed, n);
+    if (cur) cur.counterUsed = Math.max(cur.counterUsed, set.size);
   }
 
   const paused = new Set<string>(

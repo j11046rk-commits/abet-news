@@ -1848,6 +1848,41 @@ textarea.field:-webkit-autofill {
 .fb__seat--table.fb__seat--on { background: #5b8dd6; border-color: #4573b5; }
 .fb__seat--room.fb__seat--on { background: #c9603f; border-color: #ab4b2d; }
 
+/*
+ * 予約（まだご来店前）。点線＝「押さえてあるが、まだ座っていない」。
+ * 塗り（着席）と一目で違って見えることが要件——同じ見た目にすると
+ * 開店直後から全部埋まって見えて、誰を待っているのか分からなくなる。
+ * 席番号の代わりに姓を出す。誰が来るかが分かるほうが現場では速い。
+ */
+.fb__seat--planned {
+  border-style: dashed;
+  border-color: #b98136;
+  background: #fdf6e9;
+  color: #8a6a2f;
+  font-weight: 700;
+}
+.fb__seat-name {
+  font-size: 11px;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+/* 席が決まらなかった予約。数が合わないことを黙って隠さない */
+.fb__nofit {
+  margin: 0.4rem 0 0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  background: #fdece7;
+  border: 1px solid #e6b3a3;
+  color: #8f3d22;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 /* 状態表示（空き=緑 / 使用中=白抜き） */
 .fb__state { font-style: normal; font-size: 13px; font-weight: 700; color: #1a7f4b; white-space: nowrap; }
 .fb__zashiki--on .fb__state, .fb__table--on .fb__state { color: #fff; }

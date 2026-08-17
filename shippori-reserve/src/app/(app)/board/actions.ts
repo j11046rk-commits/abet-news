@@ -5,6 +5,8 @@ import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { getBusinessDay } from "@/lib/queries";
 import { nowJst, todayBizDate } from "@/lib/time";
+import { planSeats, type PlanResv, type PlanUnit } from "@/lib/seat-plan";
+import { surname } from "@/lib/staff";
 import type { Reservation } from "@/lib/types";
 
 type ResvLite = Pick<
@@ -28,6 +30,14 @@ export type BoardSnapshot = {
   reservations: ResvLite[];
   /** 直近24時間に入ったネット予約（未来日を含む・お知らせの監視対象） */
   recent_net: ResvLite[];
+  /**
+   * 予約から作った席の下書き（席のキー → 誰が来るか）。
+   * ボードでは点線で出し、来店したらタップして着席に変える。
+   * 保存はしない——「予約」と「実際に座っている」を混ぜないため。
+   */
+  planned: Record<string, { label: string; party: number }>;
+  /** 席が決まらなかった予約（画面で名指しして知らせる） */
+  unplanned: { label: string; party: number }[];
   /** ネット予約の受付停止（当日分だけ止める） */
   pause: PauseState;
   /** いま営業時間内か（停止ボタンは営業中しか押せない） */
@@ -117,11 +127,43 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
   };
 
   const day = await getBusinessDay(date);
+  const todays = (resvQ.data ?? []) as ResvLite[];
+
+  /*
+   * 席の下書きを作る。開店時にボードが埋まっている状態にするため（店主指示 2026-08-17）。
+   *
+   * DBには書かない。書いてしまうと「予約が入っている席」と
+   * 「本当にお客様が座っている席」の区別がつかなくなり、
+   * まだ来ていない組が画面から読めなくなる。
+   */
+  const { data: unitsData } = await supabase
+    .from("seat_units")
+    .select("name, is_shared, area, capacity, sort_order")
+    .eq("is_active", true)
+    .order("sort_order");
+  const units = (unitsData ?? []) as PlanUnit[];
+  const forPlan: PlanResv[] = todays.map((r) => ({
+    id: r.id,
+    party_size: r.party_size,
+    seat_note: r.seat_note ?? "",
+    is_exclusive: false, // 貸切の日は下でまとめて扱う
+    starts_at: r.starts_at,
+    label: surname(r.customer_name),
+  }));
+  const plan = planSeats(forPlan, units, day.mode === "event" ? "event" : "normal");
+  const partyOf = new Map(todays.map((r) => [r.id, r.party_size]));
+  const planned: Record<string, { label: string; party: number }> = {};
+  for (const [key, v] of plan.seats) {
+    planned[key] = { label: v.label, party: partyOf.get(v.id) ?? 0 };
+  }
+
   return {
     date,
     board,
-    reservations: (resvQ.data ?? []) as ResvLite[],
+    reservations: todays,
     recent_net: (netQ.data ?? []) as ResvLite[],
+    planned,
+    unplanned: plan.unplanned.map((r) => ({ label: r.label, party: r.party_size })),
     pause,
     open_now: !day.is_closed && isOpenNow(day.open_min, day.close_min),
   };
