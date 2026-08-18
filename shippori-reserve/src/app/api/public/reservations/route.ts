@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { BOT_REFERENCE, createNetReservation, type NetBookingInput } from "@/lib/public-booking";
-import { pushLine } from "@/lib/line";
+import { pushLine, pushLineUser } from "@/lib/line";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 import { surname } from "@/lib/staff";
 import { fmtDateJa, minutesToLabel } from "@/lib/time";
@@ -50,9 +50,58 @@ export async function POST(request: Request) {
   // それを本物と同じに扱うと、ボットが来るたびにLINEが鳴る。
   if (result.ok && result.reference !== BOT_REFERENCE) {
     await notifyLine(body, result.seat_note);
+    // LINEで予約されたお客様には、ご本人にも控えを送る
+    await notifyCustomer(result.line_user_id, body, result.reference);
   }
 
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  // LINEのIDは画面に返さない。ご本人のIDとはいえ、要らないものを外に出さない
+  if (result.ok) {
+    const { line_user_id: _omit, ...safe } = result;
+    return NextResponse.json(safe, { status: 200 });
+  }
+  return NextResponse.json(result, { status: 400 });
+}
+
+/**
+ * ご予約の控えを、お客様ご本人のLINEへ送る。
+ *
+ * これが「LINEで予約する意味」の半分。予約番号を控えなくても、
+ * トークを遡れば自分の予約が分かる。変更・キャンセルもそのまま書ける。
+ *
+ * 席は書かない——「T1」と送られてもお客様には意味が分からないし、
+ * 当日の運びで変わることもある。日時と人数と番号があれば足りる。
+ */
+async function notifyCustomer(
+  lineUserId: string | undefined,
+  body: NetBookingInput,
+  reference: string,
+): Promise<void> {
+  if (!lineUserId) return;
+  try {
+    const date = String(body?.date ?? "");
+    const min = Number(body?.start_min);
+    const when = /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? `${fmtDateJa(`${date}T12:00:00+09:00`)} ${Number.isFinite(min) ? minutesToLabel(min) : ""}`.trim()
+      : "";
+
+    await pushLineUser(
+      lineUserId,
+      [
+        "ご予約ありがとうございます。しっぽり亭です。",
+        "",
+        when,
+        `${Number(body?.party) || "?"}名様`,
+        `予約番号 ${reference}`,
+        "",
+        "ご変更・キャンセルは、このトークにそのままご連絡ください。",
+        "お急ぎの場合は 0897-47-4494 までお電話ください。",
+      ]
+        .filter((l) => l !== "" || true)
+        .join("\n"),
+    );
+  } catch {
+    // 控えが届かなくても予約は成立している
+  }
 }
 
 /**

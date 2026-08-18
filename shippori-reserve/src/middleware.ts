@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   "/api/sales/ingest",
   "/api/insights",
   "/api/cron",
+  "/api/line",   // LINEからのwebhook。署名で本物か確かめる（ログインは通らない）
   "/manifest.webmanifest",
   "/yoyaku",
   "/api/public",

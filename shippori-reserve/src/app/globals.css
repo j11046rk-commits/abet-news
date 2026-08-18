@@ -2242,3 +2242,26 @@ textarea.field:-webkit-autofill {
   letter-spacing: 0.04em;
   vertical-align: 0.05rem;
 }
+
+
+/* ネット予約：LINEでの本人確認の欄（SMSの欄と並びを揃える） */
+.net__line {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(6, 199, 85, 0.45); /* LINEの緑。ここだけ店の色から外す */
+  border-radius: 12px;
+  background: rgba(6, 199, 85, 0.07);
+}
+.net__line-title {
+  margin: 0 0 0.3rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.net__line-btn {
+  margin-top: 0.6rem;
+  width: 100%;
+  background: #06c755;
+  border-color: #06c755;
+  color: #fff;
+  font-weight: 700;
+}

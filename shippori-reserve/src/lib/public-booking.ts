@@ -9,6 +9,7 @@ import {
   FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
 import { computeSeatUsage, COUNTER_NAME, NO_SEAT, unitOfSeatKey } from "@/lib/seats";
+import { verifyLineIdToken } from "@/lib/line-login";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 import { pushLine } from "@/lib/line";
@@ -499,10 +500,22 @@ export type NetBookingInput = {
   sms_code?: string;
   /** ハニーポット。人間には見えない欄。埋まっていたらボット */
   website?: string;
+  /**
+   * LINEログイン（LIFF）の身分証。あればお客様と公式LINEを結びつける。
+   * **中身は信じない**——サーバーでLINEに検証してもらってから使う。
+   */
+  line_id_token?: string;
 };
 
 export type NetBookingResult =
-  | { ok: true; reference: string; seat_note: string; cancel_token?: string }
+  | {
+      ok: true;
+      reference: string;
+      seat_note: string;
+      cancel_token?: string;
+      /** 確かめられたLINEのID。ご本人への連絡にだけ使う（画面には返さない） */
+      line_user_id?: string;
+    }
   | { ok: false; error: string; code?: "RETRY" | "REJECT" | "SMS" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -609,8 +622,21 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     seatNote = unit;
   }
 
-  // 本人確認（SMS認証が有効なときだけ）。席・時間の検査を全部通ってから照合する
-  if (smsEnabled()) {
+  /*
+   * LINEの身分証を確かめる（あれば）。席・時間の検査を全部通ってから。
+   *
+   * ★確かめられた人には、SMSを送らない。
+   *   LINEのアカウントは電話番号がないと作れないので、本人確認としては
+   *   SMSと同じ役目を果たす。そのうえ「あとで連絡が取れる相手」でもある。
+   *   両方やらせるのは、お客様に同じことを2回証明させるだけで意味がない。
+   *
+   * ★結びつきは予約の成否に関わらせない。
+   *   LINEが落ちていて確かめられなければ、結びつけずにSMSの道へ落ちる。
+   *   （SMSも無効なら、そのまま予約は通る——いまと同じ振る舞い）
+   */
+  const identity = await verifyLineIdToken(input.line_id_token);
+
+  if (smsEnabled() && !identity) {
     const code = (input.sms_code ?? "").trim();
     if (!/^\d{4,8}$/.test(code)) {
       return { ok: false, error: "SMSで届いた認証コードを入力してください。", code: "SMS" };
@@ -630,6 +656,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     p_phone: phone,
     p_memo: memo || null,
     p_seat_note: seatNote,
+    p_line_user_id: identity?.userId ?? null,
   });
 
   if (error) {
@@ -691,7 +718,13 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     // リンクなしで続ける
   }
 
-  return { ok: true, reference, seat_note: seatNote, cancel_token: cancelToken };
+  return {
+    ok: true,
+    reference,
+    seat_note: seatNote,
+    cancel_token: cancelToken,
+    line_user_id: identity?.userId,
+  };
 }
 
 /**

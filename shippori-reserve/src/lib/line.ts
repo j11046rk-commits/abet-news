@@ -23,12 +23,27 @@ const PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/push";
 const TIMEOUT_MS = 3000;
 
 /**
- * グループへ1通送る。設定が無ければ黙って何もしない（開発環境・未設定でも壊れない）。
+ * グループへ1通送る（店のスタッフ向け）。
+ * 設定が無ければ黙って何もしない（開発環境・未設定でも壊れない）。
  * 返り値は送れたかどうか。呼ぶ側はこれを見て分岐しないこと——通知は結果に影響させない。
  */
 export async function pushLine(text: string): Promise<boolean> {
+  return pushTo(process.env.LINE_TARGET_ID, text);
+}
+
+/**
+ * お客様ご本人へ1通送る（LIFFで予約したお客様だけ）。
+ *
+ * 送り先は違うが、使う公式アカウントは店と同じ1つ。
+ * ★お客様に送る文面には、席や他のお客様のことを書かない。
+ *   ご本人のご予約の内容だけにする。
+ */
+export async function pushLineUser(lineUserId: string | null | undefined, text: string): Promise<boolean> {
+  return pushTo(lineUserId, text);
+}
+
+async function pushTo(to: string | null | undefined, text: string): Promise<boolean> {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-  const to = process.env.LINE_TARGET_ID;
   if (!token || !to) return false;
 
   try {

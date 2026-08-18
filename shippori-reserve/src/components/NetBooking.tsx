@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { minutesToLabel, WEEKDAY_JA } from "@/lib/time";
+import { startLineLogin, useLiff } from "@/lib/use-liff";
 
 /**
  * お客様向けネット予約（ログイン不要）。
@@ -91,6 +92,27 @@ export default function NetBooking() {
   const [doneToken, setDoneToken] = useState("");
 
   // SMS認証（サーバー側が有効なときだけ使う）
+  const liff = useLiff(process.env.NEXT_PUBLIC_LIFF_ID);
+
+  /*
+   * LINEのお名前を、お名前欄の下書きに入れる。
+   *
+   * ★入れるのは「姓と名の間に空白がある」ときだけ。
+   *   LINEの表示名はニックネームのことも多く（「たろう」「T.K」等）、
+   *   それを姓に入れてしまうと、当日お呼びする名前が違ってしまう。
+   *   空白で分かれている人＝本名を入れている人だけ、下書きにする。
+   *   もちろんお客様がその場で直せる。
+   */
+  useEffect(() => {
+    if (!liff.displayName || sei !== "" || mei !== "") return;
+    const parts = liff.displayName.trim().split(/[\s　]+/);
+    if (parts.length >= 2) {
+      setSei(parts[0]);
+      setMei(parts.slice(1).join(" "));
+    }
+    // 下書きは1度だけ。お客様が消したのに書き戻さない
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liff.displayName]);
   const [smsSent, setSmsSent] = useState(false);
   const [smsSending, setSmsSending] = useState(false);
   const [smsCode, setSmsCode] = useState("");
@@ -183,7 +205,14 @@ export default function NetBooking() {
   };
 
   const isEvent = dayInfo?.is_event === true;
-  const smsRequired = dayInfo?.sms_required === true;
+  /*
+   * LINEで開かれていれば、そちらを本人確認に使う。
+   *
+   * SMSと両方やらせない——LINEのアカウントは電話番号がないと作れないので、
+   * 本人確認としては同じ役目を果たす。同じことを2回証明させる意味がない。
+   * LINEが使えない・確かめられないときは、これまでどおりSMSの道を通る。
+   */
+  const smsRequired = dayInfo?.sms_required === true && !liff.ready;
   const seatDone = isEvent || seat !== null;
   const canConfirm =
     date !== null &&
@@ -213,6 +242,7 @@ export default function NetBooking() {
           phone,
           memo,
           sms_code: smsCode,
+          line_id_token: liff.idToken ?? undefined,
           website,
         }),
       });
@@ -365,6 +395,32 @@ export default function NetBooking() {
             </label>
           </div>
         )}
+        {/*
+          LINEで開かれているときは、SMSの代わりにこちらを出す。
+          外のブラウザで開いた方には「LINEで予約」への入口を出すが、
+          電話番号での予約も**そのまま残す**——LINEを使っていない方を締め出さない。
+        */}
+        {liff.settled && liff.ready && (!isEvent || eventAgreed) ? (
+          <div className="net__line">
+            <p className="net__line-title">LINEでご予約中</p>
+            <p className="net__hint">
+              {liff.displayName ? `${liff.displayName} 様として承ります。` : "LINEのアカウントで確認済みです。"}
+              <br />
+              ご予約の控えをLINEにお送りします。ご変更・キャンセルもトークから承ります。
+            </p>
+          </div>
+        ) : null}
+        {liff.settled && !liff.ready && !liff.inClient && process.env.NEXT_PUBLIC_LIFF_ID && (!isEvent || eventAgreed) ? (
+          <div className="net__line">
+            <p className="net__line-title">LINEで予約すると、かんたんです</p>
+            <p className="net__hint">
+              SMSの認証が要りません。ご予約の控えが届き、ご変更・キャンセルもトークから承れます。
+            </p>
+            <button type="button" className="btn net__line-btn" onClick={startLineLogin}>
+              LINEで予約する
+            </button>
+          </div>
+        ) : null}
         {smsRequired && (!isEvent || eventAgreed) && (
           <div className="net__sms">
             <p className="net__sms-title">携帯電話番号の確認</p>
