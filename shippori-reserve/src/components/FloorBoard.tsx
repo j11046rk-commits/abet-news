@@ -298,7 +298,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
       <div className="fb">
         <header className="fb__head">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-face.png" alt="しっぽり亭" className="fb__logo" />
+          <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="fb__logo" />
           <h1>席ボード</h1>
           <p className="fb__date">{date.replaceAll("-", "/")}</p>
           {clock && (
@@ -427,7 +427,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/logo-face.png"
+                  src="/logo-face-192.png"
                   alt=""
                   className="fb__mark"
                   style={{ left: 72, top: 336, width: 120, height: 90 }}

@@ -1,3 +1,4 @@
+import AutoRefresh from "@/components/AutoRefresh";
 import Link from "next/link";
 import DateJa from "@/components/DateJa";
 import ReservationCard from "@/components/ReservationCard";
@@ -73,6 +74,7 @@ export default async function ReservationsPage({
 
   return (
     <>
+      <AutoRefresh />
       <header className="appbar">
         <Link className="btn btn-sm" href="/">
           ‹ カレンダー

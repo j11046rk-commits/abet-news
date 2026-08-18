@@ -28,6 +28,56 @@ const PUBLIC_PATHS = [
   "/api/public",
 ];
 
+/** base64url（-_ で詰め物なし）を文字列に戻す。詰め物が無いと atob が受け取らない版がある */
+function fromBase64Url(v: string): string {
+  const b64 = v.replace(/-/g, "+").replace(/_/g, "/");
+  return atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+}
+
+/**
+ * Cookie に入っているアクセストークンの有効期限だけを、その場で読む。
+ *
+ * ここは全ての要求が通る道で、これまでは毎回 Supabase の認証サーバーに
+ * 「この人は誰？」と往復していた。画面を1枚開くたび、60秒ごとの自動更新のたび、
+ * 下タブを押すたびに、データを1件も読む前に太平洋を1往復していたことになる。
+ *
+ * 期限にまだ余裕があるなら聞きに行かない。期限が近い・切れている・読めないときだけ、
+ * これまでどおり Supabase に聞いてトークンを更新する。
+ *
+ * **署名は検証していない。** ここで通しても、画面側の requireProfile() が
+ * 必ず本物の認証（getUser）を通し、その先は DB の RLS が見ている。
+ * 偽のCookieを置いても、たどり着くのはログイン画面だけで、データは1行も出ない。
+ * ここは「明らかに用のない人を早く帰す」ための1枚目の壁でしかない。
+ *
+ * 読めない形（版が変わった等）のときは必ず null を返す＝これまでどおりの動きに戻る。
+ */
+function tokenExpiresAt(request: NextRequest): number | null {
+  try {
+    const parts = request.cookies
+      .getAll()
+      .filter((c) => /^sb-.*-auth-token(\.\d+)?$/.test(c.name))
+      .sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
+    if (parts.length === 0) return null;
+
+    let raw = parts.map((c) => c.value).join("");
+    if (raw.startsWith("base64-")) raw = fromBase64Url(raw.slice(7));
+    const session = JSON.parse(raw) as { expires_at?: number; access_token?: string };
+
+    if (typeof session.expires_at === "number") return session.expires_at;
+
+    // expires_at が無い版もある。そのときはトークン本体から取り出す
+    const payload = session.access_token?.split(".")[1];
+    if (!payload) return null;
+    const exp = (JSON.parse(fromBase64Url(payload)) as { exp?: number }).exp;
+    return typeof exp === "number" ? exp : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 期限までこれだけ残っていれば、聞きに行かずに通す（秒） */
+const FRESH_MARGIN_SEC = 120;
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -44,6 +94,18 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/yoyaku/") ||
     pathname.startsWith("/api/public/")
   ) {
+    return NextResponse.next({ request });
+  }
+
+  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  /*
+   * トークンにまだ余裕があるなら、認証サーバーへの往復をまるごと省く。
+   * 期限が近づいたら下の通常の道に入り、そこで更新される。
+   */
+  const expiresAt = tokenExpiresAt(request);
+  const fresh = expiresAt != null && expiresAt - Date.now() / 1000 > FRESH_MARGIN_SEC;
+  if (fresh && !(pathname === "/login")) {
     return NextResponse.next({ request });
   }
 
@@ -71,8 +133,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   /*
    * 未ログインは行き先を1つに決める——必ずログイン画面。

@@ -1,3 +1,4 @@
+import AutoRefresh from "@/components/AutoRefresh";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ModeBadge } from "@/components/Badges";
@@ -85,6 +86,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
 
   return (
     <>
+      <AutoRefresh />
       <header className="appbar">
         <Link className="btn btn-sm" href={`/?m=${date.slice(0, 7)}`}>
           ‹ カレンダー

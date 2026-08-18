@@ -104,7 +104,7 @@ export default async function SalesPage({
     <>
       <header className="appbar">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-face.png" alt="しっぽり亭" className="appbar__logo" />
+        <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="appbar__logo" />
         <Link className="btn btn-sm" href={`/sales?m=${fmtYm(shiftMonth(`${ym}-01`, -1))}`} aria-label="前の月">
           ‹
         </Link>
