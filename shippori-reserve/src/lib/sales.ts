@@ -7,6 +7,10 @@ export type SalesDay = {
   tax8_yen: number | null;
   /** 消費税10%（＝店内飲食）の売上。エアレジの税率別からのみ入る */
   tax10_yen: number | null;
+  /** 客数（エアレジ）。未取得の日は null */
+  guest_count?: number | null;
+  /** 会計数＝伝票の枚数（おおよその組数）。未取得の日は null */
+  check_count?: number | null;
 };
 
 /** 3桁区切りの円表記。金額は省略せず1円単位で出す（店主指定）。 */
@@ -67,3 +71,21 @@ export const hitOf = (d: { target: number | null; dineIn: number | null }): bool
 
 /** 表示してよい金額か。実績を後から物販より小さく直すと店内が負になる。 */
 export const shownYen = (yen: number | null): number | null => (yen != null && yen >= 0 ? yen : null);
+
+/**
+ * 客単価（1名あたりの売上）。
+ *
+ * 割り算は保存しない。客数と売上という事実から、見るときに毎回出す。
+ * 保存した平均は、あとで実績を直したときに置いていかれて必ず食い違う。
+ *
+ * 分母の客数には**お持ち帰りだけのお客様も入っている**（エアレジの客数がそう数える）。
+ * だから太巻きの日を含む月は、合計で割ると高く、店内で割ると低く出る。
+ * どちらも嘘ではないので、物販がある月は画面に両方出して、どちらの数字か明示する。
+ * 見出しに出すのは「合計 ÷ 客数」——エアレジの画面に出ている数字と揃えるため。
+ */
+export const perGuest = (yen: number | null, guests: number | null): number | null =>
+  yen != null && guests != null && guests > 0 ? Math.round(yen / guests) : null;
+
+/** 1組あたりの人数（客数 ÷ 会計数）。小数第1位まで */
+export const guestsPerCheck = (guests: number | null, checks: number | null): number | null =>
+  guests != null && checks != null && checks > 0 ? Math.round((guests / checks) * 10) / 10 : null;

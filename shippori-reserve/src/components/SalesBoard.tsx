@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { fmtYen, hitOf, shownYen } from "@/lib/sales";
+import { fmtYen, guestsPerCheck, hitOf, perGuest, shownYen } from "@/lib/sales";
 import { chipColors } from "@/lib/staff";
 
 export type SalesBoardDay = {
@@ -20,6 +20,10 @@ export type SalesBoardDay = {
   retail: number;
   /** その日の合計（店内＋物販）。月間に積むのはこれ */
   total: number | null;
+  /** 客数（エアレジ）。取り込めていない日は null */
+  guests: number | null;
+  /** 会計数＝伝票の枚数（おおよその組数）。取り込めていない日は null */
+  checks: number | null;
 };
 
 export type SalesContrib = {
@@ -112,7 +116,20 @@ export default function SalesBoard({
   contrib: SalesContrib[];
   shiftsPublished: boolean;
 }) {
-  const { dailySum, cumTarget, cumLabel, actualTotal, retailTotal, retailDays, inMonth } = useMemo(() => {
+  const {
+    dailySum,
+    cumTarget,
+    cumLabel,
+    actualTotal,
+    retailTotal,
+    retailDays,
+    inMonth,
+    guestTotal,
+    checkTotal,
+    guestSales,
+    guestRetail,
+    guestDays,
+  } = useMemo(() => {
     /*
      * 「ここまでの目標」の締め日。
      *
@@ -135,7 +152,21 @@ export default function SalesBoard({
     let actualTotal = 0;
     let retailTotal = 0;
     const retailDays: SalesBoardDay[] = [];
+    // 客数は「取り込めた日」だけを足す。客単価の分子も同じ日ぶんに揃える——
+    // 月の半分しか客数が無い月に月まるごとの売上を割ると、客単価が倍に見える。
+    let guestTotal = 0;
+    let checkTotal = 0;
+    let guestSales = 0;
+    let guestRetail = 0;
+    let guestDays = 0;
     for (const d of days) {
+      if (d.guests != null && d.guests > 0) {
+        guestTotal += d.guests;
+        guestSales += d.total ?? 0;
+        guestRetail += d.retail;
+        guestDays += 1;
+      }
+      if (d.checks != null) checkTotal += d.checks;
       if (d.target) {
         dailySum += d.target;
         if (lastWithActual && d.date <= lastWithActual) cumTarget += d.target;
@@ -154,10 +185,25 @@ export default function SalesBoard({
       : inMonth
         ? "ここまでの目標"
         : "現時点の目標";
-    return { dailySum, cumTarget, cumLabel, actualTotal, retailTotal, retailDays, inMonth };
+    return {
+      dailySum,
+      cumTarget,
+      cumLabel,
+      actualTotal,
+      retailTotal,
+      retailDays,
+      inMonth,
+      guestTotal,
+      checkTotal,
+      guestSales,
+      guestRetail,
+      guestDays,
+    };
   }, [days, today]);
 
   const dineTotal = actualTotal - retailTotal;
+  /** 売上が入っている日数。客数が何日ぶん取り込めているかを見せる相手 */
+  const daysWithSales = days.filter((d) => d.total != null).length;
 
   // B: ストリーク。店内の売上が入っている営業日だけを時系列で見る
   //    （休業日は数えない・途切れさせない。物販は日毎の判定には入れない）
@@ -331,6 +377,47 @@ export default function SalesBoard({
           <span className="summary__label">達成率</span>
         </div>
       </section>
+
+      {/*
+        客数と客単価。エアレジの日別売上に並んでいる数字をそのまま持ってきて、
+        割り算だけここでやる（平均は保存しない・実績を直したときに置いていかれるため）。
+
+        分母の客数には、お持ち帰りだけのお客様も入っている（エアレジがそう数える）。
+        だから太巻きの日がある月は、合計で割った客単価が実際より高く出る。
+        見出しはエアレジの画面と同じ「合計 ÷ 客数」にして、物販がある月だけ
+        店内だけの客単価も並べる。どちらの数字を見ているかが分かるように。
+      */}
+      {guestTotal > 0 ? (
+        <section className="card">
+          <div className="summary" style={{ margin: 0 }}>
+            <div className="summary__item">
+              <span className="summary__num">{guestTotal.toLocaleString()}</span>
+              <span className="summary__label">客数（名）</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">{fmtYen(perGuest(guestSales, guestTotal) ?? 0)}</span>
+              <span className="summary__label">客単価</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">
+                {checkTotal > 0 ? checkTotal.toLocaleString() : "—"}
+              </span>
+              <span className="summary__label">組数（会計）</span>
+            </div>
+          </div>
+          <p className="micro" style={{ margin: "0.5rem 0 0", lineHeight: 1.8 }}>
+            {guestsPerCheck(guestTotal, checkTotal) !== null
+              ? `1組あたり ${guestsPerCheck(guestTotal, checkTotal)}名。`
+              : ""}
+            {guestRetail > 0
+              ? `お持ち帰りを除くと 客単価 ${fmtYen(perGuest(guestSales - guestRetail, guestTotal) ?? 0)}（客数にはお持ち帰りだけのお客様も入っています）。`
+              : ""}
+            {guestDays < daysWithSales
+              ? `※ 客数が取り込めているのは ${guestDays}日ぶんです（売上は ${daysWithSales}日ぶん）。客単価はその${guestDays}日ぶんで出しています。`
+              : ""}
+          </p>
+        </section>
+      ) : null}
 
       {/* 物販の別枠。物販があった月だけ出す（無い月に「¥0」の枠は出さない） */}
       {retailTotal > 0 ? (

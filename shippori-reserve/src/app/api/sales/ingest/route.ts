@@ -17,6 +17,10 @@ type IngestDay = {
   tax10_yen?: number;
   /** 消費税8%対象＝持ち帰り＝物販 */
   tax8_yen?: number;
+  /** 客数（エアレジの日別売上より） */
+  guest_count?: number;
+  /** 会計数＝伝票の枚数（おおよその組数） */
+  check_count?: number;
 };
 
 /**
@@ -32,6 +36,11 @@ type IngestDay = {
  * 「店内飲食」と「物販」の境目になる。
  *
  *   { "date": "2026-07-26", "tax10_yen": 57830, "tax8_yen": 623000 }
+ *
+ * 客数・会計数も送れる（エアレジの同じ表に並んでいる）。客単価は保存しない——
+ * 割り算はアプリの1か所でやる。保存した平均は実績を直したときに置いていかれる。
+ *
+ *   { "date": "2026-08-08", "actual_yen": 58000, "guest_count": 22, "check_count": 8 }
  *
  * actual_yen を省いて税率別だけ送った場合は、合計を実績として扱う。
  * target_yen も渡せば目標の一括投入にも使える。
@@ -72,6 +81,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `金額が不正です: ${d.date}` }, { status: 400 });
       }
     }
+    // 人数は桁が違う。金額と同じ上限で見ると、1万人を超える取り違えを素通しする
+    for (const v of [d.guest_count, d.check_count]) {
+      if (v !== undefined && (!Number.isInteger(v) || v < 0 || v > 10_000)) {
+        return NextResponse.json({ error: `人数が不正です: ${d.date}` }, { status: 400 });
+      }
+    }
 
     // 税率別と実績の突き合わせ。
     // service role で直接書くので DB関数 set_sales_retail の検査は一度も通らない。
@@ -103,7 +118,7 @@ export async function POST(request: Request) {
   const dates = days.map((d) => d.date);
   const { data: existing, error: readError } = await admin
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax10_yen, tax8_yen")
+    .select("biz_date, target_yen, actual_yen, tax10_yen, tax8_yen, guest_count, check_count")
     .in("biz_date", dates);
   if (readError) {
     return NextResponse.json({ error: "読み込みに失敗しました。" }, { status: 500 });
@@ -114,6 +129,8 @@ export async function POST(request: Request) {
     actual_yen: number | null;
     tax10_yen: number | null;
     tax8_yen: number | null;
+    guest_count: number | null;
+    check_count: number | null;
   };
   const current = new Map((existing ?? []).map((r) => [r.biz_date as string, r as Row]));
   const rows = days.map((d) => {
@@ -131,6 +148,8 @@ export async function POST(request: Request) {
       actual_yen: d.actual_yen ?? summed ?? prev?.actual_yen ?? null,
       tax10_yen: tax10,
       tax8_yen: tax8,
+      guest_count: d.guest_count ?? prev?.guest_count ?? null,
+      check_count: d.check_count ?? prev?.check_count ?? null,
     };
   });
 

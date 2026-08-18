@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { getYearSales, type YearMonth } from "@/lib/queries";
-import { fmtYen } from "@/lib/sales";
+import { fmtYen, perGuest } from "@/lib/sales";
 import { fmtYm, todayBizDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,11 @@ export default async function SalesYearPage({
   const targetSum = months.reduce((a, m) => a + (m.target ?? 0), 0);
   const actualSum = months.reduce((a, m) => a + m.actual, 0);
   const retailSum = months.reduce((a, m) => a + m.retail, 0);
+  // 客単価の分子と分母は同じ日ぶんに揃える（客数が取り込めていない月を分子に入れない）
+  const guestSum = months.reduce((a, m) => a + (m.guests ?? 0), 0);
+  const guestSales = months.reduce((a, m) => a + (m.guestActual ?? 0), 0);
+  const checkSum = months.reduce((a, m) => a + (m.checks ?? 0), 0);
+  const avgPerGuest = perGuest(guestSales, guestSum);
   /** 年間目標のうち、どこまで積み上がったか。「進捗」であって成績ではない */
   const progress = targetSum > 0 ? (actualSum / targetSum) * 100 : null;
 
@@ -150,6 +155,18 @@ export default async function SalesYearPage({
             </p>
           ) : null}
 
+          {/*
+            客数と客単価。分母の客数にはお持ち帰りだけのお客様も入っている（エアレジがそう数える）。
+            見出しの客単価はエアレジの画面と同じ「売上 ÷ 客数」に揃える。
+          */}
+          {avgPerGuest !== null ? (
+            <p className="micro" style={{ margin: "0.6rem 0 0", lineHeight: 1.8 }}>
+              客数 <strong>{guestSum.toLocaleString()}名</strong>、客単価{" "}
+              <strong>{fmtYen(avgPerGuest)}</strong>
+              {checkSum > 0 ? `（${checkSum.toLocaleString()}組）` : ""}。
+            </p>
+          ) : null}
+
           <p className="micro" style={{ margin: "0.4rem 0 0" }}>
             {retailSum > 0 ? `うち物販 ${fmtYen(retailSum)}。` : ""}
             {targetSum > 0 && actualSum < targetSum
@@ -200,6 +217,7 @@ export default async function SalesYearPage({
                 <th>実績</th>
                 <th>達成</th>
                 <th>前年比</th>
+                <th>客単価</th>
               </tr>
             </thead>
             <tbody>
@@ -208,6 +226,7 @@ export default async function SalesYearPage({
                 const hit = m.target != null && m.target > 0 && m.actual >= m.target;
                 const r = m.target && m.target > 0 ? (m.actual / m.target) * 100 : null;
                 const yy = m.lastYear ? (m.actual / m.lastYear - 1) * 100 : null;
+                const pg = perGuest(m.guestActual, m.guests);
                 return (
                   <tr key={m.ym} className={st === "now" ? "ytable__now" : ""}>
                     <td>
@@ -239,6 +258,18 @@ export default async function SalesYearPage({
                           {yy >= 0 ? "＋" : "−"}
                           {Math.abs(yy).toFixed(1)}%
                         </span>
+                      )}
+                    </td>
+                    <td className="num">
+                      {pg === null ? (
+                        "—"
+                      ) : (
+                        <>
+                          {fmtYen(pg)}
+                          <span className="micro" style={{ display: "block" }}>
+                            {m.guests?.toLocaleString()}名
+                          </span>
+                        </>
                       )}
                     </td>
                   </tr>

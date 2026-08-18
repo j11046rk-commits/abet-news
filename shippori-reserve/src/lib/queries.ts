@@ -225,7 +225,7 @@ export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen")
+    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count")
     .gte("biz_date", from)
     .lte("biz_date", to);
   warnQuery("getMonthSales", error);
@@ -250,7 +250,7 @@ export async function getSalesDay(date: string): Promise<SalesDay | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen")
+    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count")
     .eq("biz_date", date)
     .maybeSingle<SalesDay>();
   warnQuery("getSalesDay", error);
@@ -505,8 +505,18 @@ export type YearMonth = {
   retail: number;
   /** 実績が入っている日数。月の途中かどうかの判断に使う */
   days: number;
+  /** 客数（エアレジ）。取り込んでいない月は null */
+  guests: number | null;
+  /** 会計数＝伝票の枚数（おおよその組数）。取り込んでいない月は null */
+  checks: number | null;
+  /** 客数が入っている日ぶんの売上。客単価の分子はこちら（月の一部しか取れていない月のため） */
+  guestActual: number | null;
   /** 前年同月の実績（無ければ null） */
   lastYear: number | null;
+  /** 前年同月の客数（無ければ null） */
+  lastYearGuests: number | null;
+  /** 前年同月の、客数が入っている日ぶんの売上 */
+  lastYearGuestActual: number | null;
 };
 
 /**
@@ -529,7 +539,7 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
   const [dailyQ, monthlyQ] = await Promise.all([
     supabase
       .from("sales_daily")
-      .select("biz_date, target_yen, actual_yen, tax8_yen")
+      .select("biz_date, target_yen, actual_yen, tax8_yen, guest_count, check_count")
       .gte("biz_date", from)
       .lte("biz_date", to)
       .limit(2000),
@@ -538,11 +548,19 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
   warnQuery("getYearSales.daily", dailyQ.error);
   warnQuery("getYearSales.monthly", monthlyQ.error);
 
-  type Agg = { dailyTarget: number; actual: number; retail: number; days: number };
+  type Agg = {
+    dailyTarget: number;
+    actual: number;
+    retail: number;
+    days: number;
+    guests: number;
+    checks: number;
+    guestActual: number;
+  };
   const agg = new Map<string, Agg>();
   for (const r of dailyQ.data ?? []) {
     const ym = (r.biz_date as string).slice(0, 7);
-    const g = agg.get(ym) ?? { dailyTarget: 0, actual: 0, retail: 0, days: 0 };
+    const g = agg.get(ym) ?? { dailyTarget: 0, actual: 0, retail: 0, days: 0, guests: 0, checks: 0, guestActual: 0 };
     g.dailyTarget += (r.target_yen as number | null) ?? 0;
     const a = r.actual_yen as number | null;
     if (a != null) {
@@ -550,6 +568,14 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
       g.days += 1;
     }
     g.retail += (r.tax8_yen as number | null) ?? 0;
+    const guests = r.guest_count as number | null;
+    if (guests != null) {
+      g.guests += guests;
+      // 客単価の分子は「客数が入っている日の売上」だけ。月の半分しか客数が
+      // 取り込めていない月に、月まるごとの売上を客数で割ると倍に見える。
+      g.guestActual += a ?? 0;
+    }
+    g.checks += (r.check_count as number | null) ?? 0;
     agg.set(ym, g);
   }
 
@@ -571,7 +597,14 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
       actual: g?.actual ?? 0,
       retail: g?.retail ?? 0,
       days: g?.days ?? 0,
+      // 客数は取れていない日がある。0 は「まだ取り込んでいない」なので null にして
+      // 割り算に持ち込ませない（0で割った客単価が画面に出るより、—— のほうがよい）
+      guests: g && g.guests > 0 ? g.guests : null,
+      checks: g && g.checks > 0 ? g.checks : null,
+      guestActual: g && g.guests > 0 ? g.guestActual : null,
       lastYear: p && p.days > 0 ? p.actual : null,
+      lastYearGuests: p && p.guests > 0 ? p.guests : null,
+      lastYearGuestActual: p && p.guests > 0 ? p.guestActual : null,
     };
   });
 }

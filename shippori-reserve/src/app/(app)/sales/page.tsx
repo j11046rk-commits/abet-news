@@ -63,7 +63,8 @@ export default async function SalesPage({
   for (let d = from; d <= to; d = shiftDate(d, 1)) {
     const dow = weekdayOf(d);
     // 店内・物販・合計への読み替えは lib/sales.ts の1か所だけで行う
-    const v = salesView(sales.get(d));
+    const row = sales.get(d);
+    const v = salesView(row);
     days.push({
       date: d,
       day: Number(d.slice(8)),
@@ -75,6 +76,8 @@ export default async function SalesPage({
       dineIn: v.dineIn,
       retail: v.retail,
       total: v.total,
+      guests: row?.guest_count ?? null,
+      checks: row?.check_count ?? null,
       isToday: d === today,
     });
   }
