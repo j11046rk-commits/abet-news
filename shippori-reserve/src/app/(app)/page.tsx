@@ -1,4 +1,5 @@
 import AutoRefresh from "@/components/AutoRefresh";
+import { Suspense } from "react";
 import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
 import ScrollTo from "@/components/ScrollTo";
@@ -61,6 +62,60 @@ export default async function MonthPage({
   // 開いた位置。指定が無ければ今日。別の月を指されていたら効かせない。
   const focus = DATE_RE.test(sp.d ?? "") && sp.d!.slice(0, 7) === ym ? sp.d! : null;
 
+  /*
+   * 見出しだけ先に出して、1か月ぶんの中身はあとから流し込む。
+   *
+   * ここはアプリを起動して最初に出る画面で、9本の問い合わせが終わるまで
+   * 1文字も表示できなかった。ホーム画面のアイコンを押してから数秒、
+   * 真っ白なまま——「重い」と言われていたのはこの時間。
+   * 月の見出しと前後の矢印はデータが要らないので、先に出して触れるようにする。
+   */
+  return (
+    <>
+      <AutoRefresh />
+      <header className="appbar">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="appbar__logo" />
+        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, -1))}`} aria-label="前の月">
+          ‹
+        </Link>
+        <div className="appbar__title">{fmtMonthJa(`${ym}-01`)}</div>
+        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, 1))}`} aria-label="次の月">
+          ›
+        </Link>
+        <div className="appbar__spacer" />
+        <Link className="btn btn-sm" href="/reservations" aria-label="予約の検索">
+          検索
+        </Link>
+      </header>
+
+      <Suspense fallback={<MonthSkeleton />}>
+        <MonthList ym={ym} focus={focus} today={today} />
+      </Suspense>
+    </>
+  );
+}
+
+/** 中身が届くまでの骨組み。1日ぶんの行の高さに合わせてある（届いたときに飛ばないように） */
+function MonthSkeleton() {
+  return (
+    <div className="wrap stack" style={{ paddingTop: "0.4rem" }} aria-busy="true">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className="skel skel--row" />
+      ))}
+    </div>
+  );
+}
+
+async function MonthList({
+  ym,
+  focus,
+  today,
+}: {
+  ym: string;
+  focus: string | null;
+  today: string;
+}) {
   const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap] =
     await Promise.all([
       getMonthSummaries(ym),
@@ -91,23 +146,6 @@ export default async function MonthPage({
 
   return (
     <>
-      <AutoRefresh />
-      <header className="appbar">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="appbar__logo" />
-        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, -1))}`} aria-label="前の月">
-          ‹
-        </Link>
-        <div className="appbar__title">{fmtMonthJa(`${ym}-01`)}</div>
-        <Link className="btn btn-sm" href={`/?m=${fmtYm(shiftMonth(`${ym}-01`, 1))}`} aria-label="次の月">
-          ›
-        </Link>
-        <div className="appbar__spacer" />
-        <Link className="btn btn-sm" href="/reservations" aria-label="予約の検索">
-          検索
-        </Link>
-      </header>
-
       <div className="wrap" style={{ paddingTop: "0.4rem" }}>
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);

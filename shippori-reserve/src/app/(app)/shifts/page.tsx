@@ -140,8 +140,8 @@ export default async function ShiftsPage({
           <div className="appbar__sub">
             {mode === "manage"
               ? publishedAt
-                ? "確定済み。タップで直して「確定し直す」で反映"
-                : "点線＝希望あり・タップで下書き・ボタンで確定"
+                ? "確定済み。直して「確定し直す」"
+                : "点線＝希望あり。タップで下書き"
               : "出勤できる日を◯にして提出"}
           </div>
         </div>
