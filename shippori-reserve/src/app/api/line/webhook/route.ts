@@ -6,6 +6,11 @@ import { pushLine, pushLineUser } from "@/lib/line";
 /**
  * LINEからの通知の受け口（友だち追加・ブロック・トークのメッセージ）。
  *
+ * ★受けるのは**お客様向けアカウント**（しっぽり亭 家庭料理おばんざい居酒屋）の通知。
+ *   お客様が友だち追加するのはこちらで、店のレポート用アカウントとは別物。
+ *   お客様への自動返信も同じアカウントから返す（pushLineUser）。
+ *   店への申し送りだけ、いつものレポート用グループへ流す（pushLine）。
+ *
  * ★必ず 200 を返す。
  *   LINEは失敗した通知を何度も送り直し、続くと配信自体を止めてしまう。
  *   こちらの都合（DBが一瞬詰まった等）で友だちの記録が壊れるより、
@@ -89,7 +94,9 @@ export async function POST(request: Request) {
          * 人が見て直すほうが確実で、間違えたときに気づける。
          */
         const text = (ev.message.text ?? "").slice(0, 200);
-        await pushLine(`【公式LINEにメッセージ】\n${text}\n\n（アプリの予約一覧からご対応ください）`);
+        await pushLine(
+          `【お客様の公式LINEにメッセージ】\n${text}\n\n（アプリの予約一覧からご対応ください）`,
+        );
         await pushLineUser(userId, REPLY);
       }
     } catch (e) {

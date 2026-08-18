@@ -16,6 +16,11 @@ import { LINE_USER_ID_RE, signatureMatches } from "@/lib/line-verify";
  * 検証は LINE の /oauth2/v2.1/verify に投げる。自前で署名検証もできるが、
  * 鍵の入れ替えを自分で追う必要が出る。1回のHTTPで済むほうが、
  * 店の規模では確実（予約1件につき1回しか呼ばない）。
+ *
+ * ★LINEログインのチャネルは、**お客様向けアカウント**
+ *   （家庭料理おばんざい居酒屋）と同じプロバイダーに作ること。
+ *   別のプロバイダーだと、ログインと同時に友だち追加する機能が使えない——
+ *   それが使えないと、この作り全体の目的（友だちを増やす）が消える。
  */
 
 export { LINE_USER_ID_RE };
@@ -91,7 +96,11 @@ export async function verifyLineIdToken(idToken: string | undefined | null): Pro
  * 名簿が汚れると、送ってはいけない相手に送る事故につながる。
  *
  * 確かめ方そのものは line-verify.ts（鍵を持たない・試験できる）。ここは鍵を渡すだけ。
+ *
+ * ★鍵は**お客様向けアカウント**（家庭料理おばんざい居酒屋）のもの。
+ *   友だち追加やトークのメッセージが届くのはそちらのアカウントなので、
+ *   レポート用アカウントの鍵で確かめると、本物の通知が全部はじかれる。
  */
 export async function verifyLineSignature(body: string, signature: string | null): Promise<boolean> {
-  return signatureMatches(body, signature, process.env.LINE_CHANNEL_SECRET);
+  return signatureMatches(body, signature, process.env.LINE_CUSTOMER_CHANNEL_SECRET);
 }

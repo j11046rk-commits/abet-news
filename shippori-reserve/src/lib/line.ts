@@ -1,7 +1,18 @@
 import "server-only";
 
 /*
- * LINEへの通知。週次レポート（別リポジトリ）と同じ公式アカウント・同じグループへ送る。
+ * LINEへの通知。
+ *
+ * ★公式アカウントは2つある。取り違えると届かない。
+ *
+ *   ① しっぽり亭レポート            … 店の中向け。週次レポートと同じグループ。
+ *                                     LINE_CHANNEL_ACCESS_TOKEN / LINE_TARGET_ID
+ *   ② しっぽり亭 家庭料理おばんざい居酒屋 … お客様向け。友だち追加してもらうのはこちら。
+ *                                     LINE_CUSTOMER_CHANNEL_ACCESS_TOKEN
+ *
+ *   お客様は②の友だちなので、①のトークンで送っても届かない（友だちでない相手には送れない）。
+ *   逆に②から店のグループへ送ることもできない。**送り先ではなく、どのアカウントから
+ *   送るかで決まる**ので、トークンを共有せずに分けてある。
  *
  * LINE Notify は2025年3月に終了しているので、公式アカウントの
  * チャンネルアクセストークンで push する。
@@ -28,22 +39,26 @@ const TIMEOUT_MS = 3000;
  * 返り値は送れたかどうか。呼ぶ側はこれを見て分岐しないこと——通知は結果に影響させない。
  */
 export async function pushLine(text: string): Promise<boolean> {
-  return pushTo(process.env.LINE_TARGET_ID, text);
+  return pushTo(process.env.LINE_CHANNEL_ACCESS_TOKEN, process.env.LINE_TARGET_ID, text);
 }
 
 /**
  * お客様ご本人へ1通送る（LIFFで予約したお客様だけ）。
  *
- * 送り先は違うが、使う公式アカウントは店と同じ1つ。
- * ★お客様に送る文面には、席や他のお客様のことを書かない。
- *   ご本人のご予約の内容だけにする。
+ * ★お客様向けアカウント（家庭料理おばんざい居酒屋）から送る。
+ *   店のレポート用アカウントで送っても、お客様はその友だちではないので届かない。
+ *
+ * ★文面には、席や他のお客様のことを書かない。ご本人のご予約の内容だけにする。
  */
 export async function pushLineUser(lineUserId: string | null | undefined, text: string): Promise<boolean> {
-  return pushTo(lineUserId, text);
+  return pushTo(process.env.LINE_CUSTOMER_CHANNEL_ACCESS_TOKEN, lineUserId, text);
 }
 
-async function pushTo(to: string | null | undefined, text: string): Promise<boolean> {
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+async function pushTo(
+  token: string | undefined,
+  to: string | null | undefined,
+  text: string,
+): Promise<boolean> {
   if (!token || !to) return false;
 
   try {
