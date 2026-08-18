@@ -10,7 +10,9 @@ import {
 } from "@/lib/constants";
 import { computeSeatUsage, COUNTER_NAME, NO_SEAT } from "@/lib/seats";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
-import { minutesToIso, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
+import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
+import { pushLine } from "@/lib/line";
+import { surname } from "@/lib/staff";
 import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
 
 /**
@@ -709,6 +711,20 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
  */
 export const BOT_REFERENCE = "R-0000-0000";
 
+/** キャンセルの判定と通知に要る列だけ */
+type CancelRow = Pick<
+  Reservation,
+  | "id"
+  | "biz_date"
+  | "starts_at"
+  | "status"
+  | "phone"
+  | "source"
+  | "customer_name"
+  | "party_size"
+  | "seat_note"
+>;
+
 export type NetCancelResult = { ok: true } | { ok: false; error: string };
 
 /**
@@ -731,9 +747,9 @@ export async function cancelNetReservationByToken(tokenRaw: string): Promise<Net
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, biz_date, starts_at, status, phone, source")
+    .select("id, biz_date, starts_at, status, phone, source, customer_name, party_size, seat_note")
     .eq("cancel_token", token)
-    .maybeSingle<Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">>();
+    .maybeSingle<CancelRow>();
   if (!r) return notFound;
 
   return finishCancel(admin, r);
@@ -768,9 +784,9 @@ export async function cancelNetReservation(
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, biz_date, starts_at, status, phone, source")
+    .select("id, biz_date, starts_at, status, phone, source, customer_name, party_size, seat_note")
     .eq("reference", reference)
-    .maybeSingle<Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">>();
+    .maybeSingle<CancelRow>();
 
   if (!r || !r.phone || normalizePhone(r.phone) !== phone) return mismatch;
 
@@ -785,7 +801,7 @@ export async function cancelNetReservation(
  */
 async function finishCancel(
   admin: ReturnType<typeof createAdminClient>,
-  r: Pick<Reservation, "id" | "biz_date" | "starts_at" | "status" | "phone" | "source">,
+  r: CancelRow,
 ): Promise<NetCancelResult> {
   if (r.status === "cancelled") return { ok: false, error: "この予約はすでにキャンセル済みです。" };
   if (r.status !== "tentative" && r.status !== "confirmed") {
@@ -806,5 +822,40 @@ async function finishCancel(
     .in("status", ["tentative", "confirmed"]);
 
   if (error) return { ok: false, error: "キャンセルできませんでした。お電話でご連絡ください。" };
+
+  /*
+   * お客様がWebからキャンセルしたことを、店のLINEグループへ知らせる。
+   *
+   * 予約が入ったときと違って、キャンセルは黙っていると
+   * 誰も席を空けない——当日、来ないお客様のために席を取り置き続ける。
+   * 気づくのが遅いほど損が大きいのはこちらのほう。
+   *
+   * スタッフがアプリからキャンセルしたときは通知しない（本人が知っている）。
+   * ここを通るのはWebからの経路だけ。
+   */
+  await notifyCancelled(r);
   return { ok: true };
+}
+
+/** キャンセルをLINEへ。予約のときと同じく、電話番号は送らず、失敗しても握りつぶす。 */
+async function notifyCancelled(r: CancelRow): Promise<void> {
+  try {
+    const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
+    const seat = (r.seat_note ?? "").trim();
+    await pushLine(
+      [
+        "❌ ネット予約がキャンセルされました",
+        "",
+        `${fmtDateJa(`${r.biz_date}T12:00:00+09:00`)} ${minutesToLabel(isoToMinutes(r.biz_date, r.starts_at))}`,
+        `${surname(r.customer_name)}様 ${r.party_size}名`,
+        seat && seat !== NO_SEAT ? seat : "",
+        "",
+        `${app}/day/${r.biz_date}`,
+      ]
+        .filter((l) => l !== "")
+        .join("\n"),
+    );
+  } catch {
+    // 通知が落ちても、キャンセルそのものは済んでいる
+  }
 }
