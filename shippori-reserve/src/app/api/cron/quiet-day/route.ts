@@ -19,15 +19,20 @@ import { fmtDateJa, todayBizDate, weekdayOf } from "@/lib/time";
  *   ② 休業日・イベント日 … 誰も来られない日に「来てください」は事故
  *   ③ 予約が1件でもある … 店主指定の条件そのまま
  *   ④ 前回の配信から7日たっていない … 静かな日が続く週に毎日届くと、
- *      案内ではなく安売りの連発に見えて、ブロックが増える。月4回が上限になる
- *   ⑤ 残り通数が読めない・足りない … 配信は1回で友だちの人数ぶんを使う。
+ *      案内ではなく安売りの連発に見えて、ブロックが増える
+ *   ⑤ 今月すでに4回配信している … ④だけだと月初から刻んだ月に5回入る
+ *      （1日・8日・15日・22日・29日）。「月4回まで」は別の上限として持つ（店主指定）
+ *   ⑥ 残り通数が読めない・足りない … 配信は1回で友だちの人数ぶんを使う。
  *      ここで使い切ると、予約の控え（絶対に届けたいもの）が月末に止まる
  *
- * ④⑤で止めたときは店のグループに知らせる。黙って止まる仕組みにしない。
+ * ⑥で止めたときは店のグループに知らせる。黙って止まる仕組みにしない。
+ * （④⑤は「決めたとおりに間を空けているだけ」なので、毎回知らせない）
  */
 
-/** 前回の配信からこれだけ空ける（日）。変えたいときはここを直す */
+/** 前回の配信からこれだけ空ける（日）。変えたいときはここを直す（店主指定 2026-08） */
 const GAP_DAYS = 7;
+/** ひと月の配信の上限（店主指定 2026-08）。7日間隔だけだと月初から刻んだ月に5回入る */
+const MONTHLY_CAP = 4;
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -82,8 +87,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "too-soon", last: last.sent_at });
   }
 
+  // ⑤ 月4回まで。月の区切りは日本時間の暦月で数える
+  const monthStart = `${today.slice(0, 7)}-01T00:00:00+09:00`;
+  const { count: sentThisMonth } = await admin
+    .from("line_broadcasts")
+    .select("id", { count: "exact", head: true })
+    .eq("kind", "quiet_day")
+    .gte("sent_at", new Date(monthStart).toISOString());
+  if ((sentThisMonth ?? 0) >= MONTHLY_CAP) {
+    return NextResponse.json({ ok: true, skipped: "monthly-cap", sent_this_month: sentThisMonth });
+  }
+
   /*
-   * ⑤ 通数。配信は「友だちの人数ぶん」を一気に使う。
+   * ⑥ 通数。配信は「友だちの人数ぶん」を一気に使う。
    *
    * ★分からないときは**送らない**（リマインドと逆向き）。
    *   リマインドは1通ずつなので、読めない日に送っても被害は小さい。
