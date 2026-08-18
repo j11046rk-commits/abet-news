@@ -75,7 +75,10 @@ export async function POST(request: Request) {
           .from("line_friends")
           .update({ unfollowed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
           .eq("line_user_id", userId);
-      } else if (ev.type === "message" && ev.message?.type === "text") {
+      } else if (ev.type === "message" && ev.message?.type === "text" && ev.source?.type === "user") {
+        // source.type を見るのは、ボットがグループに入れられたときのため。
+        // グループの雑談を「お客様からの連絡」として店へ流し、発言者の個人トークに
+        // 自動返信が飛ぶ——という誤動作を、1対1のトークだけに絞って防ぐ。
         await admin
           .from("line_friends")
           .upsert(

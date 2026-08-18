@@ -639,6 +639,20 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   if (smsEnabled() && !identity) {
     const code = (input.sms_code ?? "").trim();
     if (!/^\d{4,8}$/.test(code)) {
+      /*
+       * LINEの身分証を出したのに確かめられなかった人（＝期限切れ・LINE障害）。
+       * この人の画面はSMSの入力欄を隠しているので、「コードを入力して」だけ返すと
+       * 入力する場所が無いまま詰む。何が起きたかを言葉にして、画面側は
+       * code: "SMS" を合図にSMSの欄を出し直す（NetBooking の forceSms）。
+       */
+      if ((input.line_id_token ?? "").trim() !== "") {
+        return {
+          ok: false,
+          error:
+            "LINEの確認の有効期限が切れました。お手数ですが、SMSで携帯番号の確認をお願いします。",
+          code: "SMS",
+        };
+      }
       return { ok: false, error: "SMSで届いた認証コードを入力してください。", code: "SMS" };
     }
     if (!(await checkSmsVerification(phone, code))) {

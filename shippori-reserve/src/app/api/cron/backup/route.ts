@@ -44,6 +44,8 @@ const TABLES = [
   "sales_monthly",
   "seat_board",
   "seat_log",
+  "line_friends",
+  "line_broadcasts",
   "net_pause",
   "reference_counters",
   "audit_logs",

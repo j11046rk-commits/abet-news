@@ -93,6 +93,12 @@ export default function NetBooking() {
 
   // SMS認証（サーバー側が有効なときだけ使う）
   const liff = useLiff(process.env.NEXT_PUBLIC_LIFF_ID);
+  /*
+   * LINEの確認が通らなかったとき（身分証の期限切れ・LINE障害）にSMSへ切り替える。
+   * これが無いと、サーバーはSMSを求めているのに画面は入力欄を隠したままで、
+   * お客様がどこにも進めなくなる。
+   */
+  const [forceSms, setForceSms] = useState(false);
 
   /*
    * LINEのお名前を、お名前欄の下書きに入れる。
@@ -212,7 +218,7 @@ export default function NetBooking() {
    * 本人確認としては同じ役目を果たす。同じことを2回証明させる意味がない。
    * LINEが使えない・確かめられないときは、これまでどおりSMSの道を通る。
    */
-  const smsRequired = dayInfo?.sms_required === true && !liff.ready;
+  const smsRequired = dayInfo?.sms_required === true && (!liff.ready || forceSms);
   const seatDone = isEvent || seat !== null;
   const canConfirm =
     date !== null &&
@@ -264,7 +270,9 @@ export default function NetBooking() {
         });
         setStep("done");
       } else if (data.code === "SMS") {
-        // コード違いは確認画面のままやり直せる
+        // コード違いは確認画面のままやり直せる。
+        // LINEの確認が切れていた場合も、ここでSMSの欄を出し直す
+        setForceSms(true);
         setError(data.error ?? "認証コードをご確認ください。");
       } else {
         setError(data.error ?? "予約できませんでした。");

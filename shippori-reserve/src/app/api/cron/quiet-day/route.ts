@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { broadcastLineCustomers, pushLine } from "@/lib/line";
 import { customerQuota, customerReach, RESERVED_FOR_BOOKINGS } from "@/lib/line-quota";
+import { CLOSED_WEEKDAYS } from "@/lib/constants";
 import { fmtDateJa, todayBizDate, weekdayOf } from "@/lib/time";
 
 /**
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     .select("is_closed, mode")
     .eq("biz_date", today)
     .maybeSingle<{ is_closed: boolean; mode: string }>();
-  if (day ? day.is_closed : weekdayOf(today) === 2) {
+  if (day ? day.is_closed : CLOSED_WEEKDAYS.includes(weekdayOf(today))) {
     return NextResponse.json({ ok: true, skipped: "closed" });
   }
   if (day?.mode === "event") {
