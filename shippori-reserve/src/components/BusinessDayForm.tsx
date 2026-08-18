@@ -47,6 +47,16 @@ export default function BusinessDayForm({
   const [pending, startTransition] = useTransition();
 
   const switchingToEvent = mode === "event" && day.mode === "normal" && guestCount > 0;
+  /*
+   * 予約が入っている日を休業にしようとしている。
+   *
+   * イベントへの切替には警告があるのに、休業には何も無かった。
+   * 休業のほうが取り違えの影響は大きい——ネット予約が止まり、暦は「休」になり、
+   * シフトの名前も消える。それでも入っているご予約は残るので、
+   * 画面は「休みなのに予約がある」という食い違った姿になる。
+   * 消えたように見えないことを、押す前に伝える。
+   */
+  const closingWithGuests = isClosed && !day.is_closed && guestCount > 0;
 
   /**
    * イベント営業は 18:00〜24:00 が既定（店主指定）。切り替えたときに時間も入れ替える。
@@ -278,6 +288,14 @@ export default function BusinessDayForm({
           onChange={(e) => setIsClosed(e.target.checked)}
         />
       </label>
+
+      {closingWithGuests ? (
+        <p className="notice notice-strong">
+          この日にはすでに {guestCount} 名のご予約が入っています。休業にすると
+          ネット予約は止まり、暦は「休」になりますが、
+          <b>入っているご予約は消えません</b>。お客様へのご連絡は別に必要です。
+        </p>
+      ) : null}
 
       <div>
         <label className="field-label">営業時間</label>

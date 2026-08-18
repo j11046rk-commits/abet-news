@@ -17,6 +17,17 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
   const [issued, setIssued] = useState<{ login_id: string; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  /*
+   * 取り返しのつかない操作の前に一度だけ聞く。
+   *
+   * パスワードの再発行は元に戻せない——押した瞬間に本人のパスワードが変わり、
+   * 新しいものを伝えるまでその人はログインできない。9人ぶんのボタンが
+   * 指1本ぶんの間隔で並ぶ画面なので、隣を押し間違えたら誰かが締め出される。
+   * しかも押した側は気づかない（画面には新しいパスワードが出るだけ）。
+   *
+   * 停止は戻せるが、シフト中の人を突然締め出すので同じく一度聞く。
+   */
+  const [ask, setAsk] = useState<{ kind: "reset" | "deactivate"; p: Profile } | null>(null);
 
   const [loginId, setLoginId] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -202,7 +213,11 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
                 {p.is_owner_contact ? "直通から外す" : "直通に入れる"}
               </button>
 
-              <button className="btn btn-sm" disabled={busy} onClick={() => reset(p)}>
+              <button
+                className="btn btn-sm"
+                disabled={busy}
+                onClick={() => setAsk({ kind: "reset", p })}
+              >
                 パスワード再発行
               </button>
 
@@ -211,7 +226,9 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
                   className={`btn btn-sm ${p.is_active ? "btn-danger" : ""}`}
                   disabled={busy}
                   onClick={() =>
-                    call(`/api/accounts/${p.id}`, "PATCH", { is_active: !p.is_active })
+                    p.is_active
+                      ? setAsk({ kind: "deactivate", p })
+                      : call(`/api/accounts/${p.id}`, "PATCH", { is_active: true })
                   }
                 >
                   {p.is_active ? "停止する" : "再開する"}
@@ -226,6 +243,47 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
         停止したアカウントは、その瞬間から予約を読むことも書くこともできなくなります（DBのRLSで拒否）。
         記録を残すため、行の削除はしません。
       </p>
+
+      {ask ? (
+        <div className="veil" role="dialog" aria-modal="true" aria-label="確認">
+          <div className="veil__card">
+            {ask.kind === "reset" ? (
+              <p style={{ margin: "0 0 0.9rem", lineHeight: 1.7 }}>
+                <strong>{ask.p.display_name}</strong> さんのパスワードを再発行します。
+                <br />
+                いまのパスワードは<strong>使えなくなります</strong>。
+                <br />
+                新しいパスワードをご本人に伝えられますか？
+              </p>
+            ) : (
+              <p style={{ margin: "0 0 0.9rem", lineHeight: 1.7 }}>
+                <strong>{ask.p.display_name}</strong> さんのアカウントを停止します。
+                <br />
+                その瞬間からログインできなくなります（あとで再開できます）。
+              </p>
+            )}
+            <div className="row" style={{ gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                disabled={busy}
+                onClick={() => {
+                  const a = ask;
+                  setAsk(null);
+                  if (a.kind === "reset") reset(a.p);
+                  else call(`/api/accounts/${a.p.id}`, "PATCH", { is_active: false });
+                }}
+              >
+                {ask.kind === "reset" ? "再発行する" : "停止する"}
+              </button>
+              <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setAsk(null)}>
+                やめる
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

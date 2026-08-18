@@ -12,7 +12,7 @@ import {
 import { can, SOURCES, STATUSES } from "@/lib/constants";
 import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
 import { minutesToIso } from "@/lib/time";
-import type { ReservationSource, ReservationStatus } from "@/lib/types";
+import type { Reservation, ReservationSource, ReservationStatus } from "@/lib/types";
 
 export type ReservationInput = {
   biz_date: string;
@@ -218,6 +218,45 @@ export async function setReservationStatus(
   const reason = trim(cancelReason);
   if (status === "cancelled" && !reason) {
     return { ok: false, error: "キャンセルの理由を入力してください。" };
+  }
+
+  /*
+   * キャンセルを取り消すときは、席がまだ空いているか見る。
+   *
+   * 見ていなかった。キャンセルした予約の席は当然そのあと他のお客様に出るので、
+   * 「キャンセルを取り消す」を押すと、同じ席を2組が持ったまま当日を迎える。
+   * 画面のどこにも警告は出ず、来店して初めて分かる——予約の仕組みとして
+   * 一番やってはいけない形。登録と変更では見ているのに、ここだけ抜けていた。
+   */
+  if (status !== "cancelled" && status !== "no_show") {
+    const supabase0 = await createClient();
+    const { data: cur } = await supabase0
+      .from("reservations")
+      .select("biz_date, party_size, seat_note, status, is_exclusive")
+      .eq("id", id)
+      .maybeSingle<Pick<Reservation, "biz_date" | "party_size" | "seat_note" | "status" | "is_exclusive">>();
+
+    // いま有効な予約の状態を変えるだけなら、席は既に自分のもの。見る必要は無い。
+    if (cur && (cur.status === "cancelled" || cur.status === "no_show")) {
+      const conflict = await seatConflictError(
+        {
+          biz_date: cur.biz_date,
+          start_min: 0, // 席の判定に時刻は使わない（1つの席は1晩1組）
+          party_size: cur.party_size,
+          customer_name: "-",
+          source: "phone",
+          seat_note: cur.seat_note ?? "",
+          is_exclusive: cur.is_exclusive,
+        },
+        id,
+      );
+      if (conflict) {
+        return {
+          ok: false,
+          error: `${conflict}この予約を戻すには、席を選び直してください。`,
+        };
+      }
+    }
   }
 
   const supabase = await createClient();
