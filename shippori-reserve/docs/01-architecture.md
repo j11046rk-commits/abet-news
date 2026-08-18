@@ -260,7 +260,7 @@ Supabase の無料プランにはバックアップが無い。**予約・売上
 | 呼ぶ人 | 店主のMac（`shippori-report/scripts/weekly-backup.mjs`） |
 | いつ | 毎週月曜 8:00（launchd） |
 | 置き場所 | iCloud Drive の「しっぽり亭バックアップ」（無ければホーム直下） |
-| 残し方 | 直近8本＋それより古いものは各月の最初の1本 |
+| 残し方 | 直近8本＋各月の最初の1本。月次の控えも13か月で消す（プライバシーポリシーの約束と揃える） |
 | 通知 | 成功も失敗もLINEに1行 |
 | 戻し方 | `shippori-report/scripts/restore.mjs`（既定は確認だけ・`--yes` で書き込み） |
 

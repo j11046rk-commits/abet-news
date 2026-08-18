@@ -2265,3 +2265,42 @@ textarea.field:-webkit-autofill {
   color: #fff;
   font-weight: 700;
 }
+
+
+/* 予約完了画面の友だち追加の導線（電話番号で予約した人にだけ出る） */
+.net__friend {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(6, 199, 85, 0.45);
+  border-radius: 12px;
+  background: rgba(6, 199, 85, 0.07);
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.5;
+}
+.net__friend-badge {
+  flex: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  background: #06c755;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* プライバシーポリシー */
+.net__privacy h3 {
+  margin: 1.1rem 0 0.3rem;
+  font-size: 0.95rem;
+  color: var(--gold-soft);
+}
+.net__privacy ul {
+  margin: 0.2rem 0 0.6rem;
+  padding-left: 1.2rem;
+}
+.net__privacy li { margin: 0.15rem 0; }
+.net__privacy p { margin: 0.3rem 0 0.6rem; }
+.net__privacy a { color: var(--gold-soft); }

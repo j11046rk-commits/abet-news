@@ -13,6 +13,8 @@ import { startLineLogin, useLiff } from "@/lib/use-liff";
 
 const TEL = "0897-47-4494";
 const TEL_HREF = "tel:0897474494";
+/** 公式LINE（お客様向け）の友だち追加URL。LINE公式アカウント管理画面の lin.ee リンク */
+const FRIEND_URL = process.env.NEXT_PUBLIC_LINE_FRIEND_URL ?? "";
 
 type DayCell = { date: string; status: "ok" | "few" | "full" | "closed" | "out" };
 type Slot = { min: number; ok: boolean };
@@ -361,6 +363,24 @@ export default function NetBooking() {
           )}
           <p>お電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
         </div>
+        {/*
+          友だち追加の導線（店主要望 2026-08-19）。
+          電話番号で予約した人＝LINEと結びつかなかった人にだけ出す。
+          LINEで予約した人はもう友だちなので、勧めても意味が無いどころか
+          「分かっていない店」に見える。完了画面は必ず読まれる場所なので、
+          月30件の予約がそのまま友だち化の入口になる。
+          追加用URL（lin.ee）が未設定なら何も出さない。
+        */}
+        {!liff.ready && FRIEND_URL ? (
+          <a className="net__friend" href={FRIEND_URL} target="_blank" rel="noopener noreferrer">
+            <span className="net__friend-badge">LINE</span>
+            <span>
+              <b>友だち追加で、生ビール1杯無料！</b>
+              <br />
+              次回から予約もかんたんに。タップして追加 ›
+            </span>
+          </a>
+        ) : null}
       </div>
     );
   }

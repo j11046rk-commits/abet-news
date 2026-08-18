@@ -62,6 +62,9 @@ gtag('config','${GA_ID}',{page_location:location.origin+location.pathname,page_p
       <footer className="net__pagefoot">
         <p>しっぽり亭（愛媛・新居浜） ／ 火曜定休</p>
         <p>お電話：<a href="tel:0897474494">0897-47-4494</a> ／ <a href="https://shipporitei.jp">公式サイト</a></p>
+        <p>
+          <a href="/yoyaku/privacy">お客様の情報の取り扱いについて</a>
+        </p>
         {/*
           はじめての端末で yoyaku.shipporitei.jp を開くと、middleware がここ（予約ページ）へ送る。
           チラシに短いURLだけを載せられるようにした作りだが、そのぶん
