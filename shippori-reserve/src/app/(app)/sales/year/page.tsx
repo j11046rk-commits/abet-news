@@ -38,7 +38,8 @@ export default async function SalesYearPage({
   const targetSum = months.reduce((a, m) => a + (m.target ?? 0), 0);
   const actualSum = months.reduce((a, m) => a + m.actual, 0);
   const retailSum = months.reduce((a, m) => a + m.retail, 0);
-  // 客単価の分子と分母は同じ日ぶんに揃える（客数が取り込めていない月を分子に入れない）
+  // 客単価は物販を除いた店内の売上で出す（店主指示）。分子と分母は同じ日ぶんに揃える
+  // （客数が取り込めていない月の売上を分子に入れない）。guestActual は物販を引いた額。
   const guestSum = months.reduce((a, m) => a + (m.guests ?? 0), 0);
   const guestSales = months.reduce((a, m) => a + (m.guestActual ?? 0), 0);
   const checkSum = months.reduce((a, m) => a + (m.checks ?? 0), 0);
@@ -155,15 +156,13 @@ export default async function SalesYearPage({
             </p>
           ) : null}
 
-          {/*
-            客数と客単価。分母の客数にはお持ち帰りだけのお客様も入っている（エアレジがそう数える）。
-            見出しの客単価はエアレジの画面と同じ「売上 ÷ 客数」に揃える。
-          */}
+          {/* 客数と客単価。客単価は物販（お持ち帰り）を除いた店内の売上で出す（店主指示） */}
           {avgPerGuest !== null ? (
             <p className="micro" style={{ margin: "0.6rem 0 0", lineHeight: 1.8 }}>
               客数 <strong>{guestSum.toLocaleString()}名</strong>、客単価{" "}
               <strong>{fmtYen(avgPerGuest)}</strong>
               {checkSum > 0 ? `（${checkSum.toLocaleString()}組）` : ""}。
+              {retailSum > 0 ? "客単価は物販を除いた店内の売上で出しています。" : ""}
             </p>
           ) : null}
 

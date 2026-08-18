@@ -382,10 +382,9 @@ export default function SalesBoard({
         客数と客単価。エアレジの日別売上に並んでいる数字をそのまま持ってきて、
         割り算だけここでやる（平均は保存しない・実績を直したときに置いていかれるため）。
 
-        分母の客数には、お持ち帰りだけのお客様も入っている（エアレジがそう数える）。
-        だから太巻きの日がある月は、合計で割った客単価が実際より高く出る。
-        見出しはエアレジの画面と同じ「合計 ÷ 客数」にして、物販がある月だけ
-        店内だけの客単価も並べる。どちらの数字を見ているかが分かるように。
+        **物販は客単価から抜く**（店主指示 2026-08-18）。太巻きが62万入った日を混ぜると
+        その月の客単価だけ跳ね上がり、店の地力が読めなくなる。日毎の売上を店内だけで
+        見ているのと同じ考え方で、ここも店内（合計 − 物販）で割る。
       */}
       {guestTotal > 0 ? (
         <section className="card">
@@ -395,7 +394,9 @@ export default function SalesBoard({
               <span className="summary__label">客数（名）</span>
             </div>
             <div className="summary__item">
-              <span className="summary__num">{fmtYen(perGuest(guestSales, guestTotal) ?? 0)}</span>
+              <span className="summary__num">
+                {fmtYen(perGuest(guestSales - guestRetail, guestTotal) ?? 0)}
+              </span>
               <span className="summary__label">客単価</span>
             </div>
             <div className="summary__item">
@@ -410,7 +411,7 @@ export default function SalesBoard({
               ? `1組あたり ${guestsPerCheck(guestTotal, checkTotal)}名。`
               : ""}
             {guestRetail > 0
-              ? `お持ち帰りを除くと 客単価 ${fmtYen(perGuest(guestSales - guestRetail, guestTotal) ?? 0)}（客数にはお持ち帰りだけのお客様も入っています）。`
+              ? `客単価は物販（お持ち帰り ${fmtYen(guestRetail)}）を除いた店内の売上で出しています。`
               : ""}
             {guestDays < daysWithSales
               ? `※ 客数が取り込めているのは ${guestDays}日ぶんです（売上は ${daysWithSales}日ぶん）。客単価はその${guestDays}日ぶんで出しています。`

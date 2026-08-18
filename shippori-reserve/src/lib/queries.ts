@@ -509,13 +509,19 @@ export type YearMonth = {
   guests: number | null;
   /** 会計数＝伝票の枚数（おおよその組数）。取り込んでいない月は null */
   checks: number | null;
-  /** 客数が入っている日ぶんの売上。客単価の分子はこちら（月の一部しか取れていない月のため） */
+  /**
+   * 客単価の分子。客数が入っている日ぶんの、**物販を除いた**売上。
+   *
+   * 物販を客単価から抜くのは店主指示（2026-08-18）。太巻きが62万入った日を混ぜると
+   * その月の客単価だけ跳ね上がり、店の地力が読めなくなる。
+   * 月の一部しか客数が取り込めていない月のために、分子も同じ日ぶんに揃えてある。
+   */
   guestActual: number | null;
   /** 前年同月の実績（無ければ null） */
   lastYear: number | null;
   /** 前年同月の客数（無ければ null） */
   lastYearGuests: number | null;
-  /** 前年同月の、客数が入っている日ぶんの売上 */
+  /** 前年同月の、客数が入っている日ぶんの売上（物販を除く） */
   lastYearGuestActual: number | null;
 };
 
@@ -556,11 +562,21 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
     guests: number;
     checks: number;
     guestActual: number;
+    guestRetail: number;
   };
   const agg = new Map<string, Agg>();
   for (const r of dailyQ.data ?? []) {
     const ym = (r.biz_date as string).slice(0, 7);
-    const g = agg.get(ym) ?? { dailyTarget: 0, actual: 0, retail: 0, days: 0, guests: 0, checks: 0, guestActual: 0 };
+    const g = agg.get(ym) ?? {
+      dailyTarget: 0,
+      actual: 0,
+      retail: 0,
+      days: 0,
+      guests: 0,
+      checks: 0,
+      guestActual: 0,
+      guestRetail: 0,
+    };
     g.dailyTarget += (r.target_yen as number | null) ?? 0;
     const a = r.actual_yen as number | null;
     if (a != null) {
@@ -574,6 +590,8 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
       // 客単価の分子は「客数が入っている日の売上」だけ。月の半分しか客数が
       // 取り込めていない月に、月まるごとの売上を客数で割ると倍に見える。
       g.guestActual += a ?? 0;
+      // 物販は客単価から抜く（店主指示 2026-08-18）。同じ日ぶんだけ引く
+      g.guestRetail += (r.tax8_yen as number | null) ?? 0;
     }
     g.checks += (r.check_count as number | null) ?? 0;
     agg.set(ym, g);
@@ -601,10 +619,10 @@ export async function getYearSales(year: number): Promise<YearMonth[]> {
       // 割り算に持ち込ませない（0で割った客単価が画面に出るより、—— のほうがよい）
       guests: g && g.guests > 0 ? g.guests : null,
       checks: g && g.checks > 0 ? g.checks : null,
-      guestActual: g && g.guests > 0 ? g.guestActual : null,
+      guestActual: g && g.guests > 0 ? g.guestActual - g.guestRetail : null,
       lastYear: p && p.days > 0 ? p.actual : null,
       lastYearGuests: p && p.guests > 0 ? p.guests : null,
-      lastYearGuestActual: p && p.guests > 0 ? p.guestActual : null,
+      lastYearGuestActual: p && p.guests > 0 ? p.guestActual - p.guestRetail : null,
     };
   });
 }
