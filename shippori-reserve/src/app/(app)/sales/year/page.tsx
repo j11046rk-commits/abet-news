@@ -179,21 +179,34 @@ export default async function SalesYearPage({
           <div className="ybars" role="img" aria-label={`${year}年の月ごとの売上`}>
             {months.map((m) => {
               const st = state(m);
-              const h = Math.round((m.actual / peak) * 100);
               const t = m.target ? Math.round((m.target / peak) * 100) : null;
               const hit = m.target != null && m.target > 0 && m.actual >= m.target;
+              /*
+               * 棒を目標の高さで2つに割る。
+               *
+               * 前は達成した月の棒を「金一色」にしていたので、目標の線が同じ金の中に
+               * 埋もれて、どれだけ超えたのかが見えなかった（店主指摘 2026-08-18）。
+               * 目標までを落とした金、超えたぶんを明るい金にすれば、
+               * 超過そのものが棒の頭として立ち上がる。
+               */
+              const base = Math.round((Math.min(m.actual, m.target ?? m.actual) / peak) * 100);
+              const over = hit ? Math.round((m.actual / peak) * 100) - (t ?? 0) : 0;
               return (
                 <div key={m.ym} className="ybar">
                   <div className="ybar__track">
+                    <span
+                      className={`ybar__fill ${st === "now" ? "ybar__fill--now" : ""}`}
+                      style={{ height: `${base}%` }}
+                    />
+                    {over > 0 ? (
+                      <span
+                        className={`ybar__over ${st === "now" ? "ybar__fill--now" : ""}`}
+                        style={{ bottom: `${t}%`, height: `${over}%` }}
+                      />
+                    ) : null}
                     {t !== null ? (
                       <span className="ybar__goal" style={{ bottom: `${t}%` }} aria-hidden />
                     ) : null}
-                    <span
-                      className={`ybar__fill ${hit ? "ybar__fill--hit" : ""} ${
-                        st === "now" ? "ybar__fill--now" : ""
-                      }`}
-                      style={{ height: `${h}%` }}
-                    />
                   </div>
                   <span className={`ybar__label ${st === "now" ? "ybar__label--now" : ""}`}>
                     {m.month}
@@ -203,7 +216,8 @@ export default async function SalesYearPage({
             })}
           </div>
           <p className="micro" style={{ margin: "0.5rem 0 0", textAlign: "center" }}>
-            棒＝実績（物販こみ）／金の線＝月間目標
+            棒＝実績（物販こみ）。<strong className="ylegend__over">明るい金</strong>が
+            目標を超えたぶん、線がその月の目標です。
           </p>
         </section>
 
@@ -246,7 +260,14 @@ export default async function SalesYearPage({
                       ) : st === "now" ? (
                         <span className="micro">途中（{m.days}日）</span>
                       ) : (
-                        `${r.toFixed(1)}%`
+                        <>
+                          {r.toFixed(1)}%
+                          {/* 何%かだけでは金額の実感が湧かない。超過・不足を円でも出す */}
+                          <span className="micro" style={{ display: "block" }}>
+                            {m.actual >= (m.target ?? 0) ? "＋" : "−"}
+                            {fmtYen(Math.abs(m.actual - (m.target ?? 0)))}
+                          </span>
+                        </>
                       )}
                     </td>
                     <td className="num">

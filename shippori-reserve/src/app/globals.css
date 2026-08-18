@@ -2125,25 +2125,43 @@ textarea.field:-webkit-autofill {
   align-items: flex-end;
   overflow: hidden;
 }
+/*
+  棒は目標の高さで2つに割る。目標までが .ybar__fill（落とした金）、
+  超えたぶんが .ybar__over（明るい金）。達成した月を金一色で塗ると、
+  目標の線が同じ金に埋もれて「どれだけ超えたか」が見えなくなる。
+*/
 .ybar__fill {
-  display: block;
-  width: 100%;
-  background: var(--gold-soft);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--gold);
+  opacity: 0.5;
   border-radius: 3px 3px 0 0;
   min-height: 2px;
 }
-.ybar__fill--hit { background: var(--gold); }
+.ybar__over {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--gold-soft);
+  border-radius: 3px 3px 0 0;
+  z-index: 2;
+}
 /* 進行中の月は、まだ伸びる途中だと分かるように薄くする */
-.ybar__fill--now { opacity: 0.55; }
+.ybar__fill--now { opacity: 0.3; }
+.ybar__over.ybar__fill--now { opacity: 0.6; }
+/* 目標の線。金の上でも空の目盛りの上でも読めるよう、金ではなく淡い青灰で引く */
 .ybar__goal {
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  background: var(--gold);
-  opacity: 0.9;
-  z-index: 1;
+  height: 1px;
+  background: var(--text-dim);
+  opacity: 0.85;
+  z-index: 3;
 }
+.ylegend__over { color: var(--gold-soft); }
 .ybar__label {
   font-size: 0.7rem;
   color: var(--text-dim);
