@@ -490,3 +490,88 @@ export async function getProfileNames(): Promise<Map<string, string>> {
   warnQuery("getProfileNames", error);
   return new Map((data ?? []).map((p) => [p.id as string, p.display_name as string]));
 }
+
+/** 年間ページ用：1か月ぶんのまとめ */
+export type YearMonth = {
+  /** 2026-01 */
+  ym: string;
+  /** 1〜12 */
+  month: number;
+  /** 月間目標（未設定なら日次目標の合計、それも無ければ null） */
+  target: number | null;
+  /** 実績（物販こみ・店主指示で月間は合計で見る） */
+  actual: number;
+  /** うち物販（消費税8%） */
+  retail: number;
+  /** 実績が入っている日数。月の途中かどうかの判断に使う */
+  days: number;
+  /** 前年同月の実績（無ければ null） */
+  lastYear: number | null;
+};
+
+/**
+ * 1年ぶんの売上を月ごとにまとめる。
+ *
+ * 月間の目標と実績は「物販こみの合計」で見る（店主指示 2026-08）。
+ * 日毎の画面が店内だけで見ているのと、ここが食い違わないよう
+ * lib/sales.ts の salesView と同じ足し方にしてある。
+ *
+ * 前年同月も一緒に返す。目標が無い年（2024・2025）でも、
+ * 前年比だけは出せるので、数字が1本でも並ぶようにする。
+ */
+export async function getYearSales(year: number): Promise<YearMonth[]> {
+  const supabase = await createClient();
+  const from = `${year - 1}-01-01`;
+  const to = `${year}-12-31`;
+
+  // PostgREST の既定は1000行。2年ぶん（約730行）でも足りるが、
+  // 上限に当たると黙って切れるので明示しておく。
+  const [dailyQ, monthlyQ] = await Promise.all([
+    supabase
+      .from("sales_daily")
+      .select("biz_date, target_yen, actual_yen, tax8_yen")
+      .gte("biz_date", from)
+      .lte("biz_date", to)
+      .limit(2000),
+    supabase.from("sales_monthly").select("ym, target_yen").gte("ym", `${year}-01`).lte("ym", `${year}-12`),
+  ]);
+  warnQuery("getYearSales.daily", dailyQ.error);
+  warnQuery("getYearSales.monthly", monthlyQ.error);
+
+  type Agg = { dailyTarget: number; actual: number; retail: number; days: number };
+  const agg = new Map<string, Agg>();
+  for (const r of dailyQ.data ?? []) {
+    const ym = (r.biz_date as string).slice(0, 7);
+    const g = agg.get(ym) ?? { dailyTarget: 0, actual: 0, retail: 0, days: 0 };
+    g.dailyTarget += (r.target_yen as number | null) ?? 0;
+    const a = r.actual_yen as number | null;
+    if (a != null) {
+      g.actual += a;
+      g.days += 1;
+    }
+    g.retail += (r.tax8_yen as number | null) ?? 0;
+    agg.set(ym, g);
+  }
+
+  const monthly = new Map<string, number>(
+    (monthlyQ.data ?? []).map((m) => [m.ym as string, m.target_yen as number]),
+  );
+
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = i + 1;
+    const ym = `${year}-${String(month).padStart(2, "0")}`;
+    const prev = `${year - 1}-${String(month).padStart(2, "0")}`;
+    const g = agg.get(ym);
+    const p = agg.get(prev);
+    const target = monthly.get(ym) ?? (g && g.dailyTarget > 0 ? g.dailyTarget : null);
+    return {
+      ym,
+      month,
+      target,
+      actual: g?.actual ?? 0,
+      retail: g?.retail ?? 0,
+      days: g?.days ?? 0,
+      lastYear: p && p.days > 0 ? p.actual : null,
+    };
+  });
+}

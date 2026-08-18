@@ -112,6 +112,10 @@ export default async function SalesPage({
         <Link className="btn btn-sm" href={`/sales?m=${fmtYm(shiftMonth(`${ym}-01`, 1))}`} aria-label="次の月">
           ›
         </Link>
+        <div className="appbar__spacer" />
+        <Link className="btn btn-sm" href={`/sales/year?y=${ym.slice(0, 4)}`}>
+          年間
+        </Link>
       </header>
 
       <div className="wrap stack">

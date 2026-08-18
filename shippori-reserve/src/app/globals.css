@@ -2094,3 +2094,84 @@ textarea.field:-webkit-autofill {
   font-size: 0.86rem;
   white-space: nowrap;
 }
+
+
+/* ───────────────────────────────────────────────
+   年間の売上（/sales/year）
+   グラフは自前のCSSで描く。図のためだけに重い部品を足さない。
+   ─────────────────────────────────────────────── */
+.ybars {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0.25rem;
+  align-items: end;
+  height: 150px;
+}
+.ybar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+.ybar__track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-3);
+  border-radius: 3px 3px 0 0;
+  /* 棒は下から伸びる。上詰めにすると月ごとの高さが比べられない */
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.ybar__fill {
+  display: block;
+  width: 100%;
+  background: var(--gold-soft);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.ybar__fill--hit { background: var(--gold); }
+/* 進行中の月は、まだ伸びる途中だと分かるように薄くする */
+.ybar__fill--now { opacity: 0.55; }
+.ybar__goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gold);
+  opacity: 0.9;
+  z-index: 1;
+}
+.ybar__label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  padding-top: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.ybar__label--now { color: var(--gold); font-weight: 700; }
+
+.ytable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+.ytable th,
+.ytable td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.ytable th {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.ytable td.num { text-align: right; }
+.ytable tr:last-child td { border-bottom: none; }
+.ytable__now td { background: var(--bg-2); }
+.ytable a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
