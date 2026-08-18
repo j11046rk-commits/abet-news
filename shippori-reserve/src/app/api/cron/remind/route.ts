@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { pushLineUser } from "@/lib/line";
+import { pushLine, pushLineUser } from "@/lib/line";
+import { customerQuota, RESERVED_FOR_BOOKINGS } from "@/lib/line-quota";
 import {
   fmtDate,
   fmtDateJa,
@@ -24,6 +25,13 @@ import {
  *   今日ご予約くださった方には、その場で控えをお送りしている。
  *   同じ日に2通目が届くのは、案内ではなく催促に見える。
  *   忘れようがない人に念を押さないのが礼儀だし、通数も無駄にしない。
+ *
+ * ★残り通数が少ない月は、リマインドを止める。
+ *   無料プランは月200通で、使い切ると黙って届かなくなる。困る順番は決まっていて、
+ *   「ご予約の控えが届かない」ほうが「リマインドが届かない」より遥かに重い
+ *   （控えが来ないと、お客様は予約できていないと思う）。
+ *   何もしなければ先に来たものから使うので、月末に控えのほうが止まる——順番が逆。
+ *   だから残りが薄くなったら、リマインドだけを譲る。
  *
  * ★送った印を予約1件ごとに残す（reminded_at）。
  *   定期実行は「1日1回きっかり」ではない。動かなかった日に手で叩くこともある。
@@ -65,6 +73,34 @@ export async function GET(request: Request) {
   }
 
   const rows = (data ?? []) as Row[];
+  if (rows.length === 0) {
+    return NextResponse.json({ ok: true, date: target, target: 0, sent: 0, skipped: 0 });
+  }
+
+  /*
+   * 今月の残りを見て、控えのぶんを空けておけるか確かめる。
+   * 分からないときは送る側に倒す（調べられないことを理由に連絡が止まるほうが危ない）。
+   */
+  const quota = await customerQuota();
+  if (quota?.remaining != null && quota.remaining - rows.length < RESERVED_FOR_BOOKINGS) {
+    await pushLine(
+      [
+        "⚠️ LINEの残り通数が少ないため、前日リマインドを見送りました。",
+        `残り ${quota.remaining} 通（上限 ${quota.limit}・使用 ${quota.used}）`,
+        `明日ご来店の対象 ${rows.length} 名様`,
+        "",
+        "ご予約の控えを優先しています。プランの変更をご検討ください。",
+      ].join("\n"),
+    );
+    return NextResponse.json({
+      ok: true,
+      date: target,
+      target: rows.length,
+      sent: 0,
+      skipped: rows.length,
+      reason: "quota",
+    });
+  }
 
   // ブロックされた方には送らない。送っても届かないうえ、通数だけ減る
   const ids = rows.map((r) => r.line_user_id).filter((v): v is string => !!v);
