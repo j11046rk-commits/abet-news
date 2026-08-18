@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { createNetReservation, type NetBookingInput } from "@/lib/public-booking";
+import { BOT_REFERENCE, createNetReservation, type NetBookingInput } from "@/lib/public-booking";
+import { pushLine } from "@/lib/line";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
+import { surname } from "@/lib/staff";
+import { fmtDateJa, minutesToLabel } from "@/lib/time";
 
 /**
  * ネット予約の受付口（ログイン不要）。
@@ -43,5 +46,51 @@ export async function POST(request: Request) {
   await recordAttempt("booking", phone, ip, result.ok);
   void sweepSometimes();
 
+  // ハニーポットに引っかかったボットには「成功したふり」を返している。
+  // それを本物と同じに扱うと、ボットが来るたびにLINEが鳴る。
+  if (result.ok && result.reference !== BOT_REFERENCE) {
+    await notifyLine(body, result.seat_note);
+  }
+
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+}
+
+/**
+ * ネット予約が入ったことを、週次レポートと同じLINEグループへ知らせる（店主指示 2026-08-17）。
+ *
+ * ネット予約は誰も電話を受けていないので、アプリを開くまで誰も気づかない。
+ * 席ボードのタブレットは音で知らせるが、それは店に居る人にしか届かない。
+ *
+ * 送るのは姓・日時・人数・席と、その日を開くリンクだけ。
+ * 電話番号は送らない——気づくのに要らないし、LINEのトーク履歴は
+ * 端末にもクラウドにも残って、こちらでは消せないので。
+ *
+ * 通知が失敗しても予約は成立させる。await するのは、返事を返した後だと
+ * Vercelの関数が途中で止められて送信が消えるため。上限3秒で必ず抜ける。
+ */
+async function notifyLine(body: NetBookingInput, seatNote: string): Promise<void> {
+  try {
+    const date = String(body?.date ?? "");
+    const min = Number(body?.start_min);
+    const when = /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? `${fmtDateJa(`${date}T12:00:00+09:00`)} ${Number.isFinite(min) ? minutesToLabel(min) : ""}`.trim()
+      : "日時未確認";
+    const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
+
+    await pushLine(
+      [
+        "🔔 ネット予約が入りました",
+        "",
+        when,
+        `${surname(String(body?.name ?? "お客様"))}様 ${Number(body?.party) || "?"}名`,
+        seatNote && seatNote !== "指定なし" ? seatNote : "",
+        "",
+        `${app}/day/${date}`,
+      ]
+        .filter((l) => l !== "")
+        .join("\n"),
+    );
+  } catch {
+    // 通知は落ちても予約に影響させない
+  }
 }

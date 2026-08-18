@@ -525,7 +525,7 @@ export function normalizePhone(raw: string): string | null {
 export async function createNetReservation(input: NetBookingInput): Promise<NetBookingResult> {
   if ((input.website ?? "") !== "") {
     // ボットには成功したふりをして時間を無駄にさせない
-    return { ok: true, reference: "R-0000-0000", seat_note: NO_SEAT };
+    return { ok: true, reference: BOT_REFERENCE, seat_note: NO_SEAT };
   }
 
   const name = (input.name ?? "").trim();
@@ -699,6 +699,15 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
 
   return { ok: true, reference, seat_note: seatNote, cancel_token: cancelToken };
 }
+
+/**
+ * ハニーポットに引っかかったときに返す偽の予約番号。
+ *
+ * 「成功したふり」は外向きの芝居なので、内側では本物と区別できないといけない。
+ * これを見分けずに通知や集計へ流すと、ボットが来るたびに
+ * LINEが鳴り、月200通の枠を食い尽くす。
+ */
+export const BOT_REFERENCE = "R-0000-0000";
 
 export type NetCancelResult = { ok: true } | { ok: false; error: string };
 
