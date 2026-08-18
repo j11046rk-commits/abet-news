@@ -8,7 +8,7 @@ import {
   DEFAULT_STAY_MIN,
   FRI_SAT_CLOSE_MIN,
 } from "@/lib/constants";
-import { computeSeatUsage, COUNTER_NAME, NO_SEAT } from "@/lib/seats";
+import { computeSeatUsage, COUNTER_NAME, NO_SEAT, unitOfSeatKey } from "@/lib/seats";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 import { pushLine } from "@/lib/line";
@@ -94,14 +94,6 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
  * ここがズレると「埋まっている卓を空きと誤認して予約を取ってしまう」ので、
  * 変更するときは必ず 0029_seat_log.sql と一緒に直すこと。
  */
-export function unitOfSeatKey(key: string): string {
-  const table = /^(T\d+)-\d+$/.exec(key);
-  if (table) return table[1];
-  if (/^Z\d+$/.test(key)) return "和室";
-  if (/^C\d*$/.test(key)) return COUNTER_NAME;
-  return key; // 旧キー（'T1' '和室'）はそれ自体が卓名
-}
-
 async function fetchRange(from: string, to: string) {
   const admin = createAdminClient();
   const [settingsQ, daysQ, resvQ, unitsQ, boardQ, pauseQ] = await Promise.all([

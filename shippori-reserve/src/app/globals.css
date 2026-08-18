@@ -2222,3 +2222,23 @@ textarea.field:-webkit-autofill {
 @media (prefers-reduced-motion: reduce) {
   .skel { animation: none; }
 }
+
+
+/*
+  予約登録の席選びに出す「いま着席中」の印（席ボードと揃えるため）。
+  選べなくはしない——着席済みの予約を直せなくなるため（lib/seats.ts の boardUsage 参照）。
+  枠だけを朱にして、押せることが見た目から分かるようにする。
+*/
+.chip--seated {
+  border-color: var(--seal);
+}
+.chip__seated {
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--seal);
+  color: #fff;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  vertical-align: 0.05rem;
+}

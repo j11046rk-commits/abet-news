@@ -160,6 +160,13 @@ export type SeatUsage = {
   counter_used: number;
   /** その日に貸切のご予約が入っているか（入っていれば席は全部ふさがる） */
   exclusive: boolean;
+  /**
+   * 席ボードで「いま実際に座っている」専有席。**表示のためだけ**に使う。
+   * 空き判定には入れない（着席済みの予約を直せなくなるため。lib/seats.ts の boardUsage 参照）
+   */
+  seated?: string[];
+  /** 席ボードで埋まっているカウンターの席数。これも表示のためだけ */
+  seated_counter?: number;
 };
 
 export type Shift = {

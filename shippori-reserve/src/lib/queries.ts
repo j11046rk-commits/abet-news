@@ -9,7 +9,7 @@ import {
   DEFAULT_OPEN_MIN,
   DEFAULT_STAY_MIN,
 } from "@/lib/constants";
-import { computeSeatUsage } from "@/lib/seats";
+import { boardUsage, computeSeatUsage, type BoardRow } from "@/lib/seats";
 import type { SalesDay } from "@/lib/sales";
 import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
 import type {
@@ -216,7 +216,21 @@ export async function getMonthShiftRows(ym: string): Promise<{
 
 /** その日の席の埋まり具合。予約フォームが選択可否の判定に使う。 */
 export async function getSeatUsage(date: string, excludeId?: string): Promise<SeatUsage> {
-  return computeSeatUsage(await getReservationsByDate(date), excludeId);
+  const [rows, board] = await Promise.all([getReservationsByDate(date), getBoardRows(date)]);
+  // 空き判定は予約だけで出す。席ボードは「いま座っている」印として横に添えるだけ——
+  // 判定に混ぜると、着席済みの予約を直せなくなる（lib/seats.ts の boardUsage 参照）
+  return { ...computeSeatUsage(rows, excludeId), ...boardUsage(board) };
+}
+
+/** 席ボードのその日ぶん（タブレットで点けた席）。表示に添えるためだけに読む。 */
+async function getBoardRows(date: string): Promise<BoardRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("seat_board")
+    .select("key, occupied")
+    .eq("biz_date", date);
+  warnQuery("getBoardRows", error);
+  return (data ?? []) as BoardRow[];
 }
 
 /** 月ぶんの売上（日付 → 目標と実績）。カレンダーと売上タブが使う。 */

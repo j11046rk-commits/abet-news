@@ -450,11 +450,25 @@ export default function ReservationForm({
               {seatUnits.map((u) => {
                 const full = isSeatFull(u, usage, partySize);
                 const selected = seats.includes(u.name);
+                /*
+                 * 席ボードで「いま座っている」席には印を出す。ただし**選べる**まま。
+                 *
+                 * 飛び込みのお客様には予約の行が無いので、予約だけを見ていた
+                 * この画面には「T1 空き」と出ていた。同じアプリなのに、
+                 * タブレットの席ボードと答えが違う状態だった。
+                 *
+                 * かといって選べなくすると、着席済みの予約を直せなくなる
+                 * （埋めているのが本人なのに弾かれる）。真実は見せて、
+                 * 判断は人に残す——22時からの予約に、いま座っている卓を
+                 * 当てるのは正しい判断でありうる。
+                 */
+                const seatedNow = (usage.seated ?? []).includes(u.name);
+                const counterSeated = u.is_shared ? (usage.seated_counter ?? 0) : 0;
                 return (
                   <button
                     key={u.id}
                     type="button"
-                    className="chip"
+                    className={`chip ${seatedNow || counterSeated > usage.counter_used ? "chip--seated" : ""}`}
                     aria-pressed={selected}
                     disabled={full && !selected}
                     onClick={() => pickSeat(u.name)}
@@ -467,6 +481,10 @@ export default function ReservationForm({
                           ? "済"
                           : u.capacity}
                     </span>
+                    {seatedNow ? <span className="chip__seated">着席中</span> : null}
+                    {counterSeated > usage.counter_used ? (
+                      <span className="chip__seated">着席{counterSeated}</span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -480,6 +498,12 @@ export default function ReservationForm({
               </button>
             </div>
           )}
+          {(usage.seated ?? []).length > 0 || (usage.seated_counter ?? 0) > usage.counter_used ? (
+            <p className="micro" style={{ margin: "0.4rem 0 0" }}>
+              <span className="chip__seated">着席中</span>{" "}
+              は席ボードでいま点いている席です。あとの時間のご予約なら選べます。
+            </p>
+          ) : null}
         </div>
       ) : null}
 

@@ -61,3 +61,51 @@ export function seatKind(seatNote: string | null | undefined): "table" | "room" 
   if (s.includes(COUNTER_NAME)) return "counter";
   return "";
 }
+
+/**
+ * 席ボードのキー（'T1' 'T2-3' 'Z1' 'C7' …）を、席マスタの名前に直す。
+ * ボードは1席ずつ記録するが、予約が見るのは卓の単位。
+ */
+export function unitOfSeatKey(key: string): string {
+  const table = /^(T\d+)-\d+$/.exec(key);
+  if (table) return table[1];
+  if (/^Z\d+$/.test(key)) return "和室";
+  if (/^C\d*$/.test(key)) return COUNTER_NAME;
+  return key; // 旧キー（'T1' '和室'）はそれ自体が卓名
+}
+
+export type BoardRow = { key: string; occupied: number };
+
+/**
+ * 席ボード（いま実際に座っている席）を読む。
+ *
+ * ★これは**表示のためだけ**に使う。空き判定には混ぜない。
+ *   混ぜて「選べない」にすると、着席済みの予約を直せなくなる——
+ *   T1のお客様が着席してボードを点けたあと「1人増えます」で人数を変えようとすると、
+ *   埋めているのが本人なのに「T1は埋まっています」で弾かれる。
+ *   ボードには予約IDが無いので、自分自身が座っていることを見分けられない。
+ *   営業中に人数を直せないほうが、まれな席の取り合いより実害が大きい。
+ *
+ *   スタッフには真実を見せて、判断は人に残す。
+ *   （22時からの予約に、いま座っている卓を当てるのは正しい判断でありうる）
+ */
+export function boardUsage(rows: BoardRow[]): { seated: string[]; seated_counter: number } {
+  const seated: string[] = [];
+  const stools = new Set<string>();
+  let counterTotal = 0;
+
+  for (const b of rows) {
+    if (b.occupied <= 0) continue;
+    if (b.key === "C") {
+      // 旧方式：使用席数の合計
+      counterTotal = Math.max(counterTotal, b.occupied);
+    } else if (/^C\d+$/.test(b.key)) {
+      stools.add(b.key);
+    } else {
+      const unit = unitOfSeatKey(b.key);
+      if (!seated.includes(unit)) seated.push(unit);
+    }
+  }
+  // 旧'C'（合計）と C1〜C10（1席ずつ）の両方式があるので大きい方を採る
+  return { seated, seated_counter: Math.max(counterTotal, stools.size) };
+}
