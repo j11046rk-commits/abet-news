@@ -2,7 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["hnd1"],
-  "crons": [{ "path": "/api/cron/purge", "schedule": "0 3 * * *" }],
+  "crons": [
+    { "path": "/api/cron/purge", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/remind", "schedule": "0 10 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
