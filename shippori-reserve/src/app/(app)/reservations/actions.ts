@@ -42,6 +42,19 @@ export type ActionResult = { ok: true; id: string } | { ok: false; error: string
 const VALID_SOURCES = SOURCES.map((s) => s.value);
 const VALID_STATUSES = STATUSES.map((s) => s.value);
 
+/**
+ * DBが日本語で返した理由を取り出す（無ければ渡された文言）。
+ *
+ * 席の重なりはDB側のトリガーでも止めている。そこで止まったとき、
+ * 「登録できませんでした」とだけ返すと、スタッフには何が悪いのか分からない。
+ * DBは「『T1』はこの日すでに予約が入っています。」と教えてくれているので、
+ * それをそのまま見せる。
+ */
+const dbError = (message: string | undefined, fallback: string): string => {
+  const jp = message?.match(/[ぁ-んァ-ヶ一-龠「][^\n]*/);
+  return jp ? jp[0] : fallback;
+};
+
 const trim = (v: string | undefined | null) => {
   const t = (v ?? "").trim();
   return t === "" ? null : t;
@@ -165,7 +178,10 @@ export async function createReservation(input: ReservationInput): Promise<Action
     .single<{ id: string }>();
 
   if (error || !data) {
-    return { ok: false, error: "登録できませんでした。入力内容をご確認ください。" };
+    return {
+      ok: false,
+      error: dbError(error?.message, "登録できませんでした。入力内容をご確認ください。"),
+    };
   }
 
   revalidatePath("/");
@@ -193,7 +209,7 @@ export async function updateReservation(
     .update({ ...(await toRow(input)), updated_by: me.id })
     .eq("id", id);
 
-  if (error) return { ok: false, error: "更新できませんでした。" };
+  if (error) return { ok: false, error: dbError(error.message, "更新できませんでした。") };
 
   revalidatePath("/");
   revalidatePath("/reservations");
@@ -269,7 +285,7 @@ export async function setReservationStatus(
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: "変更できませんでした。" };
+  if (error) return { ok: false, error: dbError(error.message, "変更できませんでした。") };
 
   revalidatePath("/");
   revalidatePath("/reservations");
