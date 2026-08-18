@@ -69,12 +69,26 @@ export async function POST(request: Request) {
           { onConflict: "line_user_id" },
         );
       } else if (ev.type === "unfollow") {
-        // 行は消さない。消すと「一度も友だちでなかった人」と区別がつかなくなり、
-        // 送ってはいけない相手にまた送ることになる。
-        await admin
-          .from("line_friends")
-          .update({ unfollowed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq("line_user_id", userId);
+        /*
+         * 行は消さない。消すと「一度も友だちでなかった人」と区別がつかなくなり、
+         * 送ってはいけない相手にまた送ることになる。
+         *
+         * ★update ではなく upsert。
+         *   webhookを入れる前からの友だち（生ビールクーポンで集めた方々）は
+         *   名簿に行が無い。その人がブロックすると、update は0行に当たって
+         *   何も記録されず、「ブロックした人に送り続ける」名簿になる——
+         *   この名簿の存在理由そのものが壊れる。行が無ければ作って印を付ける。
+         *   （followed_at は本当の追加日時が分からないので登録時刻が入る。
+         *     unfollowed_at が入っている行では使わないので実害はない）
+         */
+        await admin.from("line_friends").upsert(
+          {
+            line_user_id: userId,
+            unfollowed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "line_user_id" },
+        );
       } else if (ev.type === "message" && ev.message?.type === "text" && ev.source?.type === "user") {
         // source.type を見るのは、ボットがグループに入れられたときのため。
         // グループの雑談を「お客様からの連絡」として店へ流し、発言者の個人トークに
