@@ -80,3 +80,31 @@ async function pushTo(
     return false;
   }
 }
+
+/**
+ * お客様向けアカウントの**友だち全員**へ1通送る（クーポン配信）。
+ *
+ * ★1回の配信で「友だちの人数ぶん」の通数を使う。
+ *   個別送信とは桁が違う（友だち100人なら100通）。呼ぶ側が必ず
+ *   残り通数と友だち数を見てから呼ぶこと（cron/quiet-day がその判定を持つ）。
+ */
+export async function broadcastLineCustomers(text: string): Promise<boolean> {
+  const token = process.env.LINE_CUSTOMER_CHANNEL_ACCESS_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch("https://api.line.me/v2/bot/message/broadcast", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ messages: [{ type: "text", text: text.slice(0, 4900) }] }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      console.error("line_broadcast_failed", res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("line_broadcast_error", e instanceof Error ? e.name : "unknown");
+    return false;
+  }
+}

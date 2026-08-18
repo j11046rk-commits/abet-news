@@ -68,3 +68,43 @@ export async function customerQuota(): Promise<Quota | null> {
     return null;
   }
 }
+
+/**
+ * 友だちの人数（＝配信が届く見込みの人数）。分からなければ null。
+ *
+ * LINEの統計API（insight/followers）に聞く。数字が確定するのは翌日なので
+ * 昨日の日付で聞く——配信の可否を決めるための概算としてはそれで足りる。
+ * 自前の line_friends 表で数えないのは、webhookを入れる前からの友だち
+ * （生ビールクーポンで集めた人たち）が表に載っていないため。実際より
+ * 少なく見積もると、通数の守りが甘くなる方向に外れる。
+ */
+export async function customerReach(): Promise<number | null> {
+  const token = process.env.LINE_CUSTOMER_CHANNEL_ACCESS_TOKEN;
+  if (!token) return null;
+
+  const y = new Date(Date.now() + 9 * 3600 * 1000 - 86400 * 1000);
+  const date = y.toISOString().slice(0, 10).replace(/-/g, "");
+
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/insight/followers?date=${date}`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      console.error("line_reach_failed", res.status);
+      return null;
+    }
+    const body = (await res.json().catch(() => null)) as {
+      status?: string;
+      followers?: number;
+      targetedReaches?: number;
+    } | null;
+    if (!body || body.status !== "ready") return null;
+    // targetedReaches＝実際に届く人数（ブロックを除く）。無ければ友だち数で代用
+    const n = body.targetedReaches ?? body.followers;
+    return typeof n === "number" ? n : null;
+  } catch (e) {
+    console.error("line_reach_error", e instanceof Error ? e.name : "unknown");
+    return null;
+  }
+}
