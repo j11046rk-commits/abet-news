@@ -6,13 +6,14 @@ import { surname } from "@/lib/staff";
 import {
   deriveBusinessDay,
   getAllProfiles,
-  getMonthShiftRequests,
-  getMonthShifts,
+  getMonthShiftRequestRows,
+  getMonthShiftRows,
   getMonthSummaries,
   getSettings,
   getShiftPublication,
   getShiftSubmissions,
 } from "@/lib/queries";
+import type { ShiftTimeRow } from "@/lib/types";
 import { isRequestWindowOpen, REQUEST_DEADLINE_DAY, requestTargetYm } from "@/lib/shifts";
 import {
   fmtMonthJa,
@@ -54,16 +55,18 @@ export default async function ShiftsPage({
   const defaultYm = mode === "request" ? targetYm : fmtYm(todayBizDate());
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : defaultYm;
 
-  const [summaries, confirmedMap, requestMap, submissionsMap, publishedAt, profiles, settings] =
+  const [summaries, confirmed, requested, submissionsMap, publishedAt, profiles, settings] =
     await Promise.all([
       getMonthSummaries(ym),
-      getMonthShifts(ym),
-      getMonthShiftRequests(ym),
+      getMonthShiftRows(ym),
+      getMonthShiftRequestRows(ym),
       getShiftSubmissions(ym),
       getShiftPublication(ym),
       getAllProfiles(),
       getSettings(),
     ]);
+  const confirmedMap = confirmed.byDate;
+  const requestMap = requested.byDate;
 
   // オーナーはシフトに入らない（店主指定）。色は全員リストの並びで安定させる。
   const staff: BoardStaff[] = profiles
@@ -83,12 +86,15 @@ export default async function ShiftsPage({
   for (let d = from; d <= to; d = shiftDate(d, 1)) {
     const dow = weekdayOf(d);
     const summary = summaries.get(d);
+    const derived = deriveBusinessDay(d, settings);
     days.push({
       date: d,
       day: Number(d.slice(8)),
       dow,
       dowLabel: WEEKDAY_JA[dow],
-      closed: summary?.is_closed ?? deriveBusinessDay(d, settings).is_closed,
+      closed: summary?.is_closed ?? derived.is_closed,
+      // LAST の表示に使う。営業時間を変えた日はその値に従う。
+      closeMin: summary?.close_min ?? derived.close_min,
     });
   }
 
@@ -103,6 +109,23 @@ export default async function ShiftsPage({
 
   const isTargetMonth = ym === targetYm;
   const requestOpen = mode === "request" && isTargetMonth && windowOpen;
+
+  /*
+   * 画面に渡す時間。
+   *
+   * 提出する側は自分の希望を、組む側は「確定していればその値、まだなら希望」を見る。
+   * 希望に時間が入っていない日は何も入らない——それが「基本のとおり」の意味なので、
+   * ここで基本の時刻を書き込まない（あとで基本を変えたときに古い時刻が残らないように）。
+   */
+  const times: Record<string, ShiftTimeRow> =
+    mode === "manage"
+      ? { ...Object.fromEntries(requested.times), ...Object.fromEntries(confirmed.times) }
+      : Object.fromEntries(requested.times);
+
+  const myDefault = {
+    default_start_min: me.default_start_min ?? null,
+    default_end_min: me.default_end_min ?? null,
+  };
 
   return (
     <>
@@ -163,6 +186,17 @@ export default async function ShiftsPage({
           mode={mode}
           myId={me.id}
           requestOpen={requestOpen}
+          myDefault={myDefault}
+          times={times}
+          defaults={Object.fromEntries(
+            profiles.map((p) => [
+              p.id,
+              {
+                default_start_min: p.default_start_min ?? null,
+                default_end_min: p.default_end_min ?? null,
+              },
+            ]),
+          )}
         />
 
         <div style={{ height: "2rem" }} />

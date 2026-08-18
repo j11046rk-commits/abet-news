@@ -614,6 +614,13 @@ textarea.field {
   font-size: 0.9rem;
 }
 
+/* シフトチップの時間。名前より一段落として、並んでも読みにくくならないように */
+.shiftchip__time {
+  font-size: 0.78em;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
 .brand-dot {
   color: var(--gold);
 }

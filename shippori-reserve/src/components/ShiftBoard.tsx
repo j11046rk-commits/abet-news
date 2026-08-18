@@ -6,9 +6,33 @@ import { useRouter } from "next/navigation";
 import { confirmMonthShifts, submitMyRequests } from "@/app/(app)/shifts/actions";
 import { isHoliday } from "@/lib/holidays";
 import { chipColors } from "@/lib/staff";
+import {
+  closeMinOf,
+  isDefaultTime,
+  resolveShiftTime,
+  shiftTimeLabel,
+  type ShiftDefault,
+} from "@/lib/shift-time";
+import type { ShiftTimeRow } from "@/lib/types";
 
 export type BoardStaff = { id: string; name: string; colorIndex: number };
-export type BoardDay = { date: string; day: number; dowLabel: string; dow: number; closed: boolean };
+export type BoardDay = {
+  date: string;
+  day: number;
+  dowLabel: string;
+  dow: number;
+  closed: boolean;
+  /** その日の閉店時刻（LAST の表示に使う） */
+  closeMin: number;
+};
+
+/** 時間を選ぶ候補。18:00〜22:00 を30分刻み（それ以降から入る運用は無い） */
+const START_CHOICES = [1080, 1110, 1140, 1170, 1200, 1230, 1260, 1290, 1320];
+/** 終わりの候補。null＝LAST（その日の閉店まで） */
+const END_CHOICES: (number | null)[] = [null, 1200, 1230, 1260, 1290, 1320, 1380, 1440, 1500];
+
+const hhmm = (min: number) =>
+  `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
 // 端末のタイムゾーンではなく日本時間で出す（サーバー描画とクライアントで表示が食い違わないように）
 const stampFmt = new Intl.DateTimeFormat("ja-JP", {
@@ -41,6 +65,9 @@ export default function ShiftBoard({
   mode,
   myId,
   requestOpen,
+  myDefault,
+  times,
+  defaults,
 }: {
   ym: string;
   days: BoardDay[];
@@ -57,6 +84,12 @@ export default function ShiftBoard({
   mode: "manage" | "request" | "view";
   myId: string;
   requestOpen: boolean;
+  /** 自分の基本の出勤時間。start が null なら時間を持たない人（店長） */
+  myDefault: ShiftDefault | null;
+  /** すでに入っている時間（`${date}|${profile_id}` → 時間） */
+  times: Record<string, ShiftTimeRow>;
+  /** 全員の基本の時間（profile_id → 基本） */
+  defaults: Record<string, ShiftDefault>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -86,6 +119,37 @@ export default function ShiftBoard({
   const [myDays, setMyDays] = useState<Set<string>>(
     () => new Set(days.filter((d) => (requests[d.date] ?? []).includes(myId)).map((d) => d.date)),
   );
+
+  /*
+   * 時間の下書き。日付 → その日の時間。入っていない日は「基本のとおり」。
+   *
+   * ◯を押しただけの日には何も入らない——それが「基本のとおり」の意味なので、
+   * わざわざ基本の時刻を書き込まない。あとで基本を変えたときに、
+   * 書き込んだ古い時刻が残り続けるのを避けるため。
+   */
+  const [timeDraft, setTimeDraft] = useState<Record<string, ShiftTimeRow>>(() => {
+    const out: Record<string, ShiftTimeRow> = {};
+    for (const d of days) {
+      const t = times[`${d.date}|${myId}`];
+      if (t && t.start_min != null) out[d.date] = t;
+    }
+    return out;
+  });
+  const [timeOpen, setTimeOpen] = useState(false);
+
+  /** 自分は時間の概念を持つ人か（店長・オーナーは持たない） */
+  const hasTime = !!myDefault && myDefault.default_start_min != null;
+
+  function setDayTime(date: string, next: ShiftTimeRow | null) {
+    setSaved(null);
+    setDirty(true);
+    setTimeDraft((prev) => {
+      const copy = { ...prev };
+      if (next === null) delete copy[date];
+      else copy[date] = next;
+      return copy;
+    });
+  }
 
   // 休業日。確定したあとで臨時休業にした日は、その日のチップが画面から消えるので
   // 店長が外せない。数える側・保存する側で外しておかないと、
@@ -182,6 +246,101 @@ export default function ShiftBoard({
           {mySubmittedAt ? `｜前回の提出 ${fmtStamp(mySubmittedAt)}` : "｜まだ提出していません"}
         </p>
 
+        {/*
+          時間は「基本」で入るので、ふつうは触らなくていい。
+          触る必要がある日だけ開いて直す——◯を押す速さを落とさないために、
+          畳んだ状態から始める（店主指示：提出の簡単さは今のまま）。
+        */}
+        {hasTime ? (
+          <section className="card" style={{ padding: "0.7rem 0.9rem" }}>
+            <p className="micro" style={{ margin: 0 }}>
+              ◯の日は <strong>
+                {shiftTimeLabel(resolveShiftTime(null, myDefault), null)}
+              </strong> で入ります。
+            </p>
+            {myDays.size > 0 ? (
+              <button
+                type="button"
+                className="linklike"
+                style={{ marginTop: "0.4rem" }}
+                onClick={() => setTimeOpen((v) => !v)}
+              >
+                {timeOpen ? "閉じる" : `時間が違う日を直す${
+                  Object.keys(timeDraft).length > 0 ? `（${Object.keys(timeDraft).length}日）` : ""
+                }`}
+              </button>
+            ) : null}
+
+            {timeOpen ? (
+              <div className="stack" style={{ gap: "0.5rem", marginTop: "0.6rem" }}>
+                {days
+                  .filter((d) => myDays.has(d.date) && !d.closed)
+                  .map((d) => {
+                    const row = timeDraft[d.date] ?? null;
+                    const t = resolveShiftTime(row, myDefault);
+                    const custom = !isDefaultTime(row, myDefault);
+                    return (
+                      <div key={d.date} className="row" style={{ gap: "0.4rem", flexWrap: "wrap" }}>
+                        <span style={{ minWidth: "3.6rem", fontVariantNumeric: "tabular-nums" }}>
+                          {d.day}日({d.dowLabel})
+                        </span>
+                        <select
+                          className="field"
+                          style={{ width: "auto" }}
+                          value={t?.start ?? ""}
+                          aria-label={`${d.day}日の出勤時刻`}
+                          onChange={(e) =>
+                            setDayTime(d.date, {
+                              start_min: Number(e.target.value),
+                              end_min: row ? row.end_min : (myDefault?.default_end_min ?? null),
+                            })
+                          }
+                        >
+                          {START_CHOICES.map((m) => (
+                            <option key={m} value={m}>
+                              {hhmm(m)}
+                            </option>
+                          ))}
+                        </select>
+                        <span>〜</span>
+                        <select
+                          className="field"
+                          style={{ width: "auto" }}
+                          value={t?.end ?? "last"}
+                          aria-label={`${d.day}日の退勤時刻`}
+                          onChange={(e) =>
+                            setDayTime(d.date, {
+                              start_min: t?.start ?? myDefault?.default_start_min ?? 1080,
+                              end_min: e.target.value === "last" ? null : Number(e.target.value),
+                            })
+                          }
+                        >
+                          {END_CHOICES.map((m) => (
+                            <option key={m ?? "last"} value={m ?? "last"}>
+                              {m === null ? `LAST（${hhmm(d.closeMin)}）` : hhmm(m)}
+                            </option>
+                          ))}
+                        </select>
+                        {custom ? (
+                          <button
+                            type="button"
+                            className="linklike"
+                            onClick={() => setDayTime(d.date, null)}
+                          >
+                            基本に戻す
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                <p className="micro" style={{ margin: 0 }}>
+                  直した日だけ記録します。触らなかった日は基本のままです。
+                </p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {error ? <p className="err">{error}</p> : null}
         {saved ? <p className="micro" style={{ color: "var(--ok)", textAlign: "center" }}>{saved}</p> : null}
 
@@ -192,7 +351,17 @@ export default function ShiftBoard({
           onClick={() =>
             run(
               // 提出後に休業日になった日は落とす（画面では「休」で押せないのに残っているため）
-              () => submitMyRequests(ym, [...myDays].filter((d) => !closedDates.has(d))),
+              () =>
+                submitMyRequests(
+                  ym,
+                  [...myDays]
+                    .filter((d) => !closedDates.has(d))
+                    .map((date) => ({
+                      date,
+                      start_min: timeDraft[date]?.start_min ?? null,
+                      end_min: timeDraft[date]?.end_min ?? null,
+                    })),
+                ),
               "希望シフトを提出しました。",
             )
           }
@@ -289,7 +458,19 @@ export default function ShiftBoard({
                     ym,
                     Object.entries(draft)
                       .filter(([date]) => !closedDates.has(date))
-                      .flatMap(([date, ids]) => ids.map((profile_id) => ({ date, profile_id }))),
+                      .flatMap(([date, ids]) =>
+                        ids.map((profile_id) => {
+                          // 本人が希望で時間を直していれば、その時間のまま確定する。
+                          // 直していない日は空のまま——「基本のとおり」の意味を保つ。
+                          const t = times[`${date}|${profile_id}`];
+                          return {
+                            date,
+                            profile_id,
+                            start_min: t?.start_min ?? null,
+                            end_min: t?.end_min ?? null,
+                          };
+                        }),
+                      ),
                   ),
                 "シフトを確定しました。カレンダーに表示されます。",
               )

@@ -13,10 +13,11 @@ import {
   getCourses,
   getDailySummary,
   getReservationsByDate,
-  getShiftProfileIds,
+  getDayShiftRows,
   getShiftPublication,
 } from "@/lib/queries";
 import { holidayName } from "@/lib/holidays";
+import { resolveShiftTime, shiftTimeLabel } from "@/lib/shift-time";
 import { shiftDate, startLabel, todayBizDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -32,15 +33,16 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [summary, reservations, shiftIdsRaw, shiftsPublishedAt, profiles, courses] =
+  const [summary, reservations, dayShifts, shiftsPublishedAt, profiles, courses] =
     await Promise.all([
       getDailySummary(date),
       getReservationsByDate(date),
-      getShiftProfileIds(date),
+      getDayShiftRows(date),
       getShiftPublication(date.slice(0, 7)),
       getAllProfiles(),
       getCourses(),
     ]);
+  const shiftIdsRaw = dayShifts.ids;
 
   // シフトは店長が「確定」した月だけ表示する。
   // 休業日も出さない（確定後に臨時休業にすると、その日のシフトの行だけが残るため）。
@@ -48,17 +50,31 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
+  const defOf = (p: (typeof profiles)[number]) => ({
+    default_start_min: p.default_start_min ?? null,
+    default_end_min: p.default_end_min ?? null,
+  });
   const onShift = profiles
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => shiftIds.includes(p.id))
-    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
+    .map(({ p, i }) => ({
+      id: p.id,
+      name: surname(p.display_name),
+      colorIndex: i,
+      def: defOf(p),
+    }));
 
   // 店長・オーナーは、確定済みの日ならここで直せる（急な休み・交代）
   const canEditShift = can(me.role, "shift.write") && !!shiftsPublishedAt && !summary.is_closed;
   const shiftStaff = profiles
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer")
-    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
+    .map(({ p, i }) => ({
+      id: p.id,
+      name: surname(p.display_name),
+      colorIndex: i,
+      def: defOf(p),
+    }));
 
   const flagged = reservations
     .map((r) => ({ r, reason: attentionReason(r) }))
@@ -140,14 +156,27 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
           </div>
           {canEditShift ? (
             // 前後の日に移動したら編集状態を作り直す（key が無いと前の日の下書きが残る）
-            <DayShiftEditor key={date} date={date} staff={shiftStaff} initial={shiftIds} />
+            <DayShiftEditor
+              key={date}
+              date={date}
+              closeMin={summary.close_min}
+              staff={shiftStaff}
+              initial={shiftIds}
+              initialTimes={dayShifts.times}
+            />
           ) : onShift.length > 0 ? (
             <div className="chips">
-              {onShift.map((p) => (
-                <span key={p.id} className="shiftchip" style={chipColors(p.colorIndex)}>
-                  {p.name}
-                </span>
-              ))}
+              {onShift.map((p) => {
+                const t = resolveShiftTime(dayShifts.times[p.id] ?? null, p.def);
+                return (
+                  <span key={p.id} className="shiftchip" style={chipColors(p.colorIndex)}>
+                    {p.name}
+                    {t ? (
+                      <span className="shiftchip__time"> {shiftTimeLabel(t, summary.close_min)}</span>
+                    ) : null}
+                  </span>
+                );
+              })}
             </div>
           ) : (
             <p className="micro" style={{ margin: 0 }}>

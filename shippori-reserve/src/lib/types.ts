@@ -45,7 +45,16 @@ export type Profile = {
   is_owner_contact: boolean;
   sort_order: number;
   created_at: string;
+  /** 基本の出勤時刻（営業日0:00からの分）。null＝時間を持たない人（店長・オーナー） */
+  default_start_min: number | null;
+  /** 基本の退勤時刻。null＝LAST（その日の閉店まで） */
+  default_end_min: number | null;
+  /** 普段お休みの曜日（0=日 … 6=土） */
+  off_weekdays: number[];
 };
+
+/** シフト1日ぶんの時間。start が null ＝ その人の基本を使う */
+export type ShiftTimeRow = { start_min: number | null; end_min: number | null };
 
 export type BusinessDay = {
   biz_date: string; // YYYY-MM-DD

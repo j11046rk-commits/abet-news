@@ -20,6 +20,7 @@ import type {
   Reservation,
   SeatUnit,
   SeatUsage,
+  ShiftTimeRow,
 } from "@/lib/types";
 
 /**
@@ -180,22 +181,37 @@ export async function getMonthReservations(ym: string): Promise<Map<string, Rese
 
 /** 月ぶんのシフト（日付 → profile_id の配列） */
 export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
+  return (await getMonthShiftRows(ym)).byDate;
+}
+
+/** 月ぶんの確定シフト。誰がどの日に入るかと、その日の時間。 */
+export async function getMonthShiftRows(ym: string): Promise<{
+  byDate: Map<string, string[]>;
+  times: Map<string, ShiftTimeRow>;
+}> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shifts")
-    .select("biz_date, profile_id")
+    .select("biz_date, profile_id, start_min, end_min")
     .gte("biz_date", from)
     .lte("biz_date", to);
-  warnQuery("getMonthShifts", error);
+  warnQuery("getMonthShiftRows", error);
 
-  const map = new Map<string, string[]>();
+  const byDate = new Map<string, string[]>();
+  const times = new Map<string, ShiftTimeRow>();
   for (const row of data ?? []) {
-    const list = map.get(row.biz_date as string);
-    if (list) list.push(row.profile_id as string);
-    else map.set(row.biz_date as string, [row.profile_id as string]);
+    const date = row.biz_date as string;
+    const pid = row.profile_id as string;
+    const list = byDate.get(date);
+    if (list) list.push(pid);
+    else byDate.set(date, [pid]);
+    times.set(`${date}|${pid}`, {
+      start_min: (row.start_min as number | null) ?? null,
+      end_min: (row.end_min as number | null) ?? null,
+    });
   }
-  return map;
+  return { byDate, times };
 }
 
 /** その日の席の埋まり具合。予約フォームが選択可否の判定に使う。 */
@@ -243,22 +259,43 @@ export async function getSalesDay(date: string): Promise<SalesDay | null> {
 
 /** 月ぶんの希望シフト（日付 → profile_id の配列）。シフトタブが使う。 */
 export async function getMonthShiftRequests(ym: string): Promise<Map<string, string[]>> {
+  return (await getMonthShiftRequestRows(ym)).byDate;
+}
+
+/**
+ * 月ぶんの希望シフト。誰がどの日に入れるかと、その日の時間。
+ *
+ * 時間は「その日だけ基本と違うとき」にだけ入っている（start_min が null ＝ 基本のとおり）。
+ * 判定は lib/shift-time.ts の resolveShiftTime に任せる——ここでは素のまま返す。
+ */
+export async function getMonthShiftRequestRows(ym: string): Promise<{
+  byDate: Map<string, string[]>;
+  /** `${date}|${profile_id}` → その日の時間 */
+  times: Map<string, ShiftTimeRow>;
+}> {
   const { from, to } = monthRange(ym);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shift_requests")
-    .select("biz_date, profile_id")
+    .select("biz_date, profile_id, start_min, end_min")
     .gte("biz_date", from)
     .lte("biz_date", to);
-  warnQuery("getMonthShiftRequests", error);
+  warnQuery("getMonthShiftRequestRows", error);
 
-  const map = new Map<string, string[]>();
+  const byDate = new Map<string, string[]>();
+  const times = new Map<string, ShiftTimeRow>();
   for (const row of data ?? []) {
-    const list = map.get(row.biz_date as string);
-    if (list) list.push(row.profile_id as string);
-    else map.set(row.biz_date as string, [row.profile_id as string]);
+    const date = row.biz_date as string;
+    const pid = row.profile_id as string;
+    const list = byDate.get(date);
+    if (list) list.push(pid);
+    else byDate.set(date, [pid]);
+    times.set(`${date}|${pid}`, {
+      start_min: (row.start_min as number | null) ?? null,
+      end_min: (row.end_min as number | null) ?? null,
+    });
   }
-  return map;
+  return { byDate, times };
 }
 
 /** 月の希望提出の記録（profile_id → 提出日時） */
@@ -284,12 +321,32 @@ export async function getShiftPublication(ym: string): Promise<string | null> {
   return data?.published_at ?? null;
 }
 
-/** その日のシフト（profile_id の配列） */
-export async function getShiftProfileIds(date: string): Promise<string[]> {
+/** その日のシフト（誰が入っているかと、その日の時間） */
+export async function getDayShiftRows(date: string): Promise<{
+  ids: string[];
+  /** profile_id → その日の時間（入っていなければ本人の基本のとおり） */
+  times: Record<string, ShiftTimeRow>;
+}> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("shifts").select("profile_id").eq("biz_date", date);
-  warnQuery("getShiftProfileIds", error);
-  return (data ?? []).map((r) => r.profile_id as string);
+  const { data, error } = await supabase
+    .from("shifts")
+    .select("profile_id, start_min, end_min")
+    .eq("biz_date", date);
+  warnQuery("getDayShiftRows", error);
+
+  const ids: string[] = [];
+  const times: Record<string, ShiftTimeRow> = {};
+  for (const r of data ?? []) {
+    const pid = r.profile_id as string;
+    ids.push(pid);
+    if ((r.start_min as number | null) != null) {
+      times[pid] = {
+        start_min: r.start_min as number,
+        end_min: (r.end_min as number | null) ?? null,
+      };
+    }
+  }
+  return { ids, times };
 }
 
 /** その営業日の予約。時刻順。 */
