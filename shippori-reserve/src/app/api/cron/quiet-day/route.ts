@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { broadcastLineCustomers, pushLine } from "@/lib/line";
 import { customerQuota, customerReach, RESERVED_FOR_BOOKINGS } from "@/lib/line-quota";
 import { CLOSED_WEEKDAYS } from "@/lib/constants";
-import { fmtDateJa, todayBizDate, weekdayOf } from "@/lib/time";
+import { isHoliday } from "@/lib/holidays";
+import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 
 /**
  * 静かな日のクーポン（毎日13時・予約ゼロの日だけ）。
@@ -18,16 +19,19 @@ import { fmtDateJa, todayBizDate, weekdayOf } from "@/lib/time";
  * 送らない条件（上から順に見る）:
  *   ① QUIET_COUPON_ENABLED が "1" でない … 動き出しの日を店主が決める
  *   ② 休業日・イベント日 … 誰も来られない日に「来てください」は事故
- *   ③ 予約が1件でもある … 店主指定の条件そのまま
- *   ④ 前回の配信から7日たっていない … 静かな日が続く週に毎日届くと、
+ *   ③ 金・土・祝日の前日 … 予約ゼロでも送らない（店主指定 2026-08-20）。
+ *      もともと人が入る夜にクーポンを撒くと、どのみち来た人を値引きするだけになり、
+ *      粗利が減る方向にしか働かない。静かな日を埋める道具は、静かな日にだけ使う
+ *   ④ 予約が1件でもある … 店主指定の条件そのまま
+ *   ⑤ 前回の配信から7日たっていない … 静かな日が続く週に毎日届くと、
  *      案内ではなく安売りの連発に見えて、ブロックが増える
- *   ⑤ 今月すでに4回配信している … ④だけだと月初から刻んだ月に5回入る
+ *   ⑥ 今月すでに4回配信している … ⑤だけだと月初から刻んだ月に5回入る
  *      （1日・8日・15日・22日・29日）。「月4回まで」は別の上限として持つ（店主指定）
- *   ⑥ 残り通数が読めない・足りない … 配信は1回で友だちの人数ぶんを使う。
+ *   ⑦ 残り通数が読めない・足りない … 配信は1回で友だちの人数ぶんを使う。
  *      ここで使い切ると、予約の控え（絶対に届けたいもの）が月末に止まる
  *
- * ⑥で止めたときは店のグループに知らせる。黙って止まる仕組みにしない。
- * （④⑤は「決めたとおりに間を空けているだけ」なので、毎回知らせない）
+ * ⑦で止めたときは店のグループに知らせる。黙って止まる仕組みにしない。
+ * （⑤⑥は「決めたとおりに間を空けているだけ」なので、毎回知らせない）
  */
 
 /** 前回の配信からこれだけ空ける（日）。変えたいときはここを直す（店主指定 2026-08） */
@@ -62,7 +66,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "event" });
   }
 
-  // ③ 予約が1件でもあれば送らない（店主指定の条件）
+  /*
+   * ③ 金・土と祝日の前日は、予約ゼロでも送らない（店主指定）。
+   *   「祝日の前日」＝翌日が休みの夜は、金土と同じく放っておいても人が入る。
+   *   翌日そのものが祝日かではなく、**翌日が祝日か**で見るのがみそ。
+   */
+  const dow = weekdayOf(today);
+  if (dow === 5 || dow === 6 || isHoliday(shiftDate(today, 1))) {
+    return NextResponse.json({ ok: true, skipped: "busy-day", dow });
+  }
+
+  // ④ 予約が1件でもあれば送らない（店主指定の条件）
   const { count, error } = await admin
     .from("reservations")
     .select("id", { count: "exact", head: true })
@@ -76,7 +90,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "has-reservations", count });
   }
 
-  // ④ 前回から7日空ける
+  // ⑤ 前回から7日空ける
   const { data: last } = await admin
     .from("line_broadcasts")
     .select("sent_at")
@@ -88,7 +102,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "too-soon", last: last.sent_at });
   }
 
-  // ⑤ 月4回まで。月の区切りは日本時間の暦月で数える
+  // ⑥ 月4回まで。月の区切りは日本時間の暦月で数える
   const monthStart = `${today.slice(0, 7)}-01T00:00:00+09:00`;
   const { count: sentThisMonth } = await admin
     .from("line_broadcasts")
@@ -100,7 +114,7 @@ export async function GET(request: Request) {
   }
 
   /*
-   * ⑥ 通数。配信は「友だちの人数ぶん」を一気に使う。
+   * ⑦ 通数。配信は「友だちの人数ぶん」を一気に使う。
    *
    * ★分からないときは**送らない**（リマインドと逆向き）。
    *   リマインドは1通ずつなので、読めない日に送っても被害は小さい。
