@@ -147,6 +147,8 @@ export default function NetBooking() {
   const [doneRef, setDoneRef] = useState("");
   const [doneSeat, setDoneSeat] = useState("");
   const [doneToken, setDoneToken] = useState("");
+  /** LINEで確認できた予約か。完了画面の案内が変わる（控え・キャンセルともトークで済む） */
+  const [doneViaLine, setDoneViaLine] = useState(false);
 
   // SMS認証（サーバー側が有効なときだけ使う）
   const liff = useLiff(process.env.NEXT_PUBLIC_LIFF_ID);
@@ -314,6 +316,7 @@ export default function NetBooking() {
         setDoneRef(data.reference as string);
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setDoneToken(typeof data.cancel_token === "string" ? data.cancel_token : "");
+        setDoneViaLine(liff.ready);
         /*
          * 予約が確定した回数を数える（GA4）。転換率を出すのに必要な片方。
          * 見た人数はページの計測で分かるが、確定した数はここでしか分からない。
@@ -394,30 +397,49 @@ export default function NetBooking() {
           {doneSeat && <div><dt>お席</dt><dd>{doneSeat}</dd></div>}
           <div><dt>お名前</dt><dd>{fullName} 様</dd></div>
         </dl>
-        <div className="net__note">
-          <p><b>この画面をお控えください</b>（スクリーンショット推奨）。</p>
-          {/*
-            キャンセル用のリンクには合言葉（cancel_token）を載せる。
-            予約番号は月ごとの連番で秘密にならないので、番号だけでは鍵にできない。
-            リンクを控えておけば、電話番号を打ち直さずにキャンセルできる。
-            控え忘れた人のために、番号＋電話番号の入り口も残してある。
-          */}
-          {doneToken ? (
+        {/*
+          LINEで予約された方の案内は、公式LINEに寄せる（店主指示 2026-08-20）。
+          控えはもうトークに届いていて、変更・キャンセルもトークに書けば済む。
+          「スクショを控えて・リンクを保存して」は、LINEの人には全部余計な手間。
+          電話番号で予約された方には、これまでどおりリンクの控えを案内する
+          （その方たちにはトークという道が無いので）。
+        */}
+        {doneViaLine ? (
+          <div className="net__note">
             <p>
-              キャンセルは{" "}
-              <a href={`/yoyaku/cancel?t=${encodeURIComponent(doneToken)}`}>
-                <b>このリンク</b>
-              </a>{" "}
-              から（開始2時間前まで・リンクも一緒にお控えください）。
+              <b>ご予約の控えを公式LINEにお送りしました。</b>
             </p>
-          ) : (
             <p>
-              キャンセルは <a href="/yoyaku/cancel">こちらのページ</a>（開始2時間前まで）から、
-              予約番号と電話番号をご入力ください。
+              ご変更・キャンセルは、<b>公式LINEのトーク</b>にそのままご連絡ください。
             </p>
-          )}
-          <p>お電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
-        </div>
+            <p>お急ぎの場合はお電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
+          </div>
+        ) : (
+          <div className="net__note">
+            <p><b>この画面をお控えください</b>（スクリーンショット推奨）。</p>
+            {/*
+              キャンセル用のリンクには合言葉（cancel_token）を載せる。
+              予約番号は月ごとの連番で秘密にならないので、番号だけでは鍵にできない。
+              リンクを控えておけば、電話番号を打ち直さずにキャンセルできる。
+              控え忘れた人のために、番号＋電話番号の入り口も残してある。
+            */}
+            {doneToken ? (
+              <p>
+                キャンセルは{" "}
+                <a href={`/yoyaku/cancel?t=${encodeURIComponent(doneToken)}`}>
+                  <b>このリンク</b>
+                </a>{" "}
+                から（開始2時間前まで・リンクも一緒にお控えください）。
+              </p>
+            ) : (
+              <p>
+                キャンセルは <a href="/yoyaku/cancel">こちらのページ</a>（開始2時間前まで）から、
+                予約番号と電話番号をご入力ください。
+              </p>
+            )}
+            <p>お電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
+          </div>
+        )}
         {/*
           友だち追加の導線（店主要望 2026-08-19）。
           電話番号で予約した人＝LINEと結びつかなかった人にだけ出す。
