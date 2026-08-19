@@ -149,6 +149,8 @@ export default function NetBooking() {
   const [doneToken, setDoneToken] = useState("");
   /** LINEで確認できた予約か。完了画面の案内が変わる（控え・キャンセルともトークで済む） */
   const [doneViaLine, setDoneViaLine] = useState(false);
+  /** 完了時点で友だちだったか。false なら控えは届いていない（友だちでない人には送れない） */
+  const [doneFriend, setDoneFriend] = useState<boolean | null>(null);
 
   // SMS認証（サーバー側が有効なときだけ使う）
   const liff = useLiff(process.env.NEXT_PUBLIC_LIFF_ID);
@@ -317,6 +319,7 @@ export default function NetBooking() {
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setDoneToken(typeof data.cancel_token === "string" ? data.cancel_token : "");
         setDoneViaLine(liff.ready);
+        setDoneFriend(liff.friend);
         /*
          * 予約が確定した回数を数える（GA4）。転換率を出すのに必要な片方。
          * 見た人数はページの計測で分かるが、確定した数はここでしか分からない。
@@ -404,7 +407,41 @@ export default function NetBooking() {
           電話番号で予約された方には、これまでどおりリンクの控えを案内する
           （その方たちにはトークという道が無いので）。
         */}
-        {doneViaLine ? (
+        {doneViaLine && doneFriend === false ? (
+          /*
+            LINEで予約したが、友だちではない人。控えは**届いていない**
+            （LINEは友だちでない相手に送信できない）ので、「お送りしました」とは
+            言わない——届いていないものを届いたと言うのが、いちばん信用を落とす。
+            友だち追加すれば控えの代わりに前日のご案内から届き、
+            トークでの変更・キャンセルもできるようになる。
+            それまでのキャンセル手段として、リンクの控えも従来どおり出す。
+          */
+          <div className="net__note">
+            {FRIEND_URL ? (
+              <a className="net__friend" href={FRIEND_URL} target="_blank" rel="noopener noreferrer">
+                <span className="net__friend-badge">LINE</span>
+                <span>
+                  <b>公式LINEを友だち追加してください</b>
+                  <br />
+                  前日のご案内が届き、変更・キャンセルもトークでできます ›
+                </span>
+              </a>
+            ) : null}
+            <p style={{ marginTop: "0.8rem" }}>
+              <b>この画面をお控えください</b>（スクリーンショット推奨）。
+            </p>
+            {doneToken ? (
+              <p>
+                キャンセルは{" "}
+                <a href={`/yoyaku/cancel?t=${encodeURIComponent(doneToken)}`}>
+                  <b>このリンク</b>
+                </a>{" "}
+                から（開始2時間前まで）。
+              </p>
+            ) : null}
+            <p>お電話（<a href={TEL_HREF}>{TEL}</a>）でも承ります。</p>
+          </div>
+        ) : doneViaLine ? (
           <div className="net__note">
             <p>
               <b>ご予約の控えを公式LINEにお送りしました。</b>

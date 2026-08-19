@@ -26,6 +26,7 @@ type LiffSdk = {
   getIDToken: () => string | null;
   getProfile: () => Promise<LiffProfile>;
   isInClient: () => boolean;
+  getFriendship?: () => Promise<{ friendFlag?: boolean }>;
 };
 
 declare global {
@@ -37,6 +38,14 @@ declare global {
 export type LiffState = {
   /** IDトークンまで取れて、LINEとして予約できる状態 */
   ready: boolean;
+  /**
+   * 公式アカウントの友だちか。分からなければ null。
+   *
+   * ★false のときは、控えもリマインドも**届かない**（LINEは友だちでない人に
+   *   送信できない）。完了画面はこれを見て「お送りしました」と言わない。
+   *   同意画面で友だち追加のチェックを外した人・チェックが出なかった人がここに落ちる。
+   */
+  friend: boolean | null;
   /** LINEに登録されたお名前（お名前欄の下書きに使う。お客様は直せる） */
   displayName: string | null;
   /** サーバーに渡す身分証 */
@@ -66,6 +75,7 @@ function loadSdk(): Promise<LiffSdk | null> {
 export function useLiff(liffId: string | undefined): LiffState {
   const [state, setState] = useState<LiffState>({
     ready: false,
+    friend: null,
     displayName: null,
     idToken: null,
     inClient: false,
@@ -93,7 +103,8 @@ export function useLiff(liffId: string | undefined): LiffState {
           // 外のブラウザで開かれた場合。ここで勝手にLINEへ飛ばさない——
           // 電話番号で予約したいお客様を追い出すことになるので、
           // 「LINEで予約する」を押したときだけ飛ばす（下の startLogin）。
-          if (alive) setState({ ready: false, displayName: null, idToken: null, inClient, settled: true });
+          if (alive)
+            setState({ ready: false, friend: null, displayName: null, idToken: null, inClient, settled: true });
           return;
         }
 
@@ -104,8 +115,16 @@ export function useLiff(liffId: string | undefined): LiffState {
         } catch {
           // 名前が取れなくても予約はできる
         }
+        // 友だちかどうか。リンクされたボットが未設定だと取れない（→ null のまま）
+        let friend: boolean | null = null;
+        try {
+          const f = await liff.getFriendship?.();
+          if (typeof f?.friendFlag === "boolean") friend = f.friendFlag;
+        } catch {
+          // 分からないままでよい。予約は止めない
+        }
         if (alive) {
-          setState({ ready: !!idToken, displayName, idToken: idToken ?? null, inClient, settled: true });
+          setState({ ready: !!idToken, friend, displayName, idToken: idToken ?? null, inClient, settled: true });
         }
       } catch (e) {
         console.error("liff_init_failed", e instanceof Error ? e.message : e);
