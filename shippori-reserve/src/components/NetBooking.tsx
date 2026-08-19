@@ -11,6 +11,7 @@ import { startLineLogin, useLiff } from "@/lib/use-liff";
  * 繁忙日の3名様以下はカウンターのみ（テーブル・和室は選択不可＝店のルール）。
  */
 
+const DRAFT_KEY = "net-draft";
 const TEL = "0897-47-4494";
 const TEL_HREF = "tel:0897474494";
 /** 公式LINE（お客様向け）の友だち追加URL。LINE公式アカウント管理画面の lin.ee リンク */
@@ -87,6 +88,60 @@ export default function NetBooking() {
   const [website, setWebsite] = useState(""); // ハニーポット（見えない欄）
 
   const [step, setStep] = useState<"pick" | "confirm" | "done">("pick");
+
+  /*
+   * 「LINEで予約する」はLINEの認証画面へ**ページごと移動**する。戻ってきたとき
+   * Reactの状態は全部消えているので、押す直前に入力内容を端末に置いておき、
+   * 戻ってきた直後に復元して確認画面まで連れて戻す。これが無いと、日付も人数も
+   * 名前も入れ直し——「かんたんです」と勧めた導線が、いちばん手間のかかる道になる
+   * （店主指摘 2026-08-20・ドッグフーディングで発覚）。
+   *
+   * sessionStorage を使う（localStorage にしない）。タブを閉じれば消えるので、
+   * 名前と電話番号が端末に残り続けない。
+   */
+  const saveDraft = () => {
+    try {
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ at: Date.now(), party, ym, date, min, seat, sei, mei, kana, phone, memo }),
+      );
+    } catch {
+      // プライベートモード等で書けなくても、予約そのものは続けられる
+    }
+  };
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(DRAFT_KEY); // 一度きり。古い下書きを何度も蘇らせない
+      const d = JSON.parse(raw) as Record<string, unknown>;
+      if (Date.now() - Number(d.at ?? 0) > 30 * 60_000) return; // 30分たった下書きは捨てる
+      if (typeof d.party === "number") setParty(d.party);
+      if (typeof d.ym === "string") setYm(d.ym);
+      if (typeof d.date === "string") setDate(d.date);
+      if (typeof d.min === "number") setMin(d.min);
+      if (d.seat && typeof (d.seat as Seat).key === "string") setSeat(d.seat as Seat);
+      if (typeof d.sei === "string") setSei(d.sei);
+      if (typeof d.mei === "string") setMei(d.mei);
+      if (typeof d.kana === "string") setKana(d.kana);
+      if (typeof d.phone === "string") setPhone(d.phone);
+      if (typeof d.memo === "string") setMemo(d.memo);
+      // 全部そろった下書きなら確認画面まで戻す。残る操作は「予約する」を押すだけ
+      if (
+        typeof d.date === "string" &&
+        typeof d.min === "number" &&
+        typeof d.sei === "string" && d.sei !== "" &&
+        typeof d.mei === "string" && d.mei !== "" &&
+        typeof d.phone === "string" && d.phone !== ""
+      ) {
+        setStep("confirm");
+      }
+    } catch {
+      // 壊れた下書きは無視して、ふつうに最初から
+    }
+    // 復元は開いた瞬間の一度だけ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [doneRef, setDoneRef] = useState("");
@@ -444,7 +499,15 @@ export default function NetBooking() {
             <p className="net__hint">
               SMSの認証が要りません。ご予約の控えが届き、ご変更・キャンセルもトークから承れます。
             </p>
-            <button type="button" className="btn net__line-btn" onClick={startLineLogin}>
+            <button
+              type="button"
+              className="btn net__line-btn"
+              onClick={() => {
+                // 認証から戻ったら入力を復元するため、移動の直前に控えを置く
+                saveDraft();
+                startLineLogin();
+              }}
+            >
               LINEで予約する
             </button>
           </div>
