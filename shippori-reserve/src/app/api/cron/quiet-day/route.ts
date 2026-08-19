@@ -139,7 +139,12 @@ export async function GET(request: Request) {
     couponUrl !== "" ? `クーポンはこちら\n${couponUrl}` : "ご来店時にこの画面をご提示ください。",
     "",
     "ご予約はこちらから",
-    "https://yoyaku.shipporitei.jp/yoyaku",
+    // LIFFのURL。配信はLINEのトークに届く＝受け取る人は全員LINEの中にいるので、
+    // ふつうのURLで一度外に出すより、LINEの中で開く入口へ直行させる
+    // （名前の自動入力・SMS省略が最初から効く）。LIFF IDは環境変数から。
+    process.env.NEXT_PUBLIC_LIFF_ID
+      ? `https://liff.line.me/${process.env.NEXT_PUBLIC_LIFF_ID}`
+      : "https://yoyaku.shipporitei.jp/yoyaku",
     "お電話 0897-47-4494",
   ].join("\n");
 
