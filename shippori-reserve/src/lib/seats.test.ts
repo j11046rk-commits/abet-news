@@ -8,7 +8,23 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boardUsage, unitOfSeatKey } from "./seats.ts";
+import { boardUsage, computeSeatUsage, unitOfSeatKey } from "./seats.ts";
+import type { Reservation } from "./types.ts";
+
+/** computeSeatUsage が読む項目だけ持つ最小の予約 */
+const resv = (status: string, seat_note: string, party_size = 2) =>
+  ({ id: `id-${status}-${seat_note}`, status, seat_note, party_size, is_exclusive: false }) as Reservation;
+
+test("computeSeatUsage: 会計済（お帰り済み）の席は空きに戻る＝その晩もう一度売れる", () => {
+  const u = computeSeatUsage([
+    resv("confirmed", "T1"),
+    resv("completed", "T2"), // 帰った組。席は返す
+    resv("completed", "カウンター", 4),
+    resv("cancelled", "T3"),
+  ]);
+  assert.deepEqual(u.taken, ["T1"]);
+  assert.equal(u.counter_used, 0);
+});
 
 test("unitOfSeatKey: 1席ずつのキーを卓の名前に直す", () => {
   assert.equal(unitOfSeatKey("T2-3"), "T2"); // テーブルの3席目

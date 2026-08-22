@@ -193,18 +193,16 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     return () => clearInterval(timer);
   }, [alerts.length]);
 
-  async function save(key: string, value: number) {
+  async function save(key: string, value: number, reservationId?: string) {
     const prev = board[key] ?? 0;
     quietUntil.current = Date.now() + 8_000;
     setBoard((b) => ({ ...b, [key]: value }));
     setSaving(true);
-    const res = await setSeatState(key, value);
+    const res = await setSeatState(key, value, reservationId);
     setSaving(false);
     quietUntil.current = Date.now() + 5_000;
     if (!res.ok) setBoard((b) => ({ ...b, [key]: prev }));
   }
-
-  const toggleUnit = (key: string) => save(key, (board[key] ?? 0) > 0 ? 0 : 1);
 
   /** ネット予約の受付を止める／再開する。押した時刻はそのまま記録に残る */
   async function switchPause(on: boolean) {
@@ -247,7 +245,11 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
    */
   const seatOn = (key: string) => (board[key] ?? 0) > 0;
   const seatPlanned = (key: string) => !seatOn(key) && planned[key] !== undefined;
-  const toggleSeat = (key: string) => save(key, seatOn(key) ? 0 : 1);
+  // 点線の席を点けるときは「誰の予約が座ったか」も送る。
+  // DB側はこれで予約を「来店中」にし、その組の席が全部空きに戻ったら
+  // 「会計済」にして席をその晩のネット予約に開放する。
+  const toggleSeat = (key: string) =>
+    seatOn(key) ? save(key, 0) : save(key, 1, planned[key]?.id);
 
   // 「使用中」は着席と予約の両方を数える。予約ぶんを空きに数えると、
   // 飛び込みを受けたあとに予約のお客様の席が無くなる。
@@ -422,7 +424,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 })}
 
                 <p className="fb__hint" style={{ left: 292, top: 352, width: 400 }}>
-                  座った席をタップ（帰ったらもう一度タップで空きに戻る）
+                  座った席をタップ／お帰りはもう一度タップ（空いた席はネット予約に開放されます）
                 </p>
 
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -444,8 +446,12 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
               <ul className="fb__list">
                 {resv.map((r) => {
                   const kind = seatKind(r.seat_note);
+                  const done = r.status === "completed";
                   return (
-                    <li key={r.id} className={kind ? `fb__li--${kind}` : ""}>
+                    <li
+                      key={r.id}
+                      className={`${kind ? `fb__li--${kind}` : ""}${done ? " fb__li--done" : ""}`}
+                    >
                       <span className="fb__time">
                         {startLabel({ biz_date: date, starts_at: r.starts_at })}
                       </span>
@@ -453,6 +459,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                         {r.customer_name} 様 {r.party_size}名
                       </span>
                       <span className="fb__seatnote">{r.seat_note ?? ""}</span>
+                      {done && <span className="fb__done">済</span>}
                       {r.source === "web_form" && <span className="fb__hp">HP</span>}
                     </li>
                   );

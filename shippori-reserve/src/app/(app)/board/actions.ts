@@ -34,8 +34,9 @@ export type BoardSnapshot = {
    * 予約から作った席の下書き（席のキー → 誰が来るか）。
    * ボードでは点線で出し、来店したらタップして着席に変える。
    * 保存はしない——「予約」と「実際に座っている」を混ぜないため。
+   * id はタップで着席にするとき、どの予約が座ったかをDBに知らせるために持つ。
    */
-  planned: Record<string, { label: string; party: number }>;
+  planned: Record<string, { id: string; label: string; party: number }>;
   /** 席が決まらなかった予約（画面で名指しして知らせる） */
   unplanned: { label: string; party: number }[];
   /** ネット予約の受付停止（当日分だけ止める） */
@@ -95,7 +96,9 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
       .from("reservations")
       .select(FIELDS)
       .eq("biz_date", date)
-      .in("status", ["tentative", "confirmed", "seated"])
+      // 会計済（お帰り済み）も一覧には残す。「今日何組来たか」が閉店まで見えるように。
+      // 席の下書きからは下で除く——帰った組の点線を復活させないため。
+      .in("status", ["tentative", "confirmed", "seated", "completed"])
       .order("starts_at"),
     supabase
       .from("reservations")
@@ -142,19 +145,21 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
     .eq("is_active", true)
     .order("sort_order");
   const units = (unitsData ?? []) as PlanUnit[];
-  const forPlan: PlanResv[] = todays.map((r) => ({
-    id: r.id,
-    party_size: r.party_size,
-    seat_note: r.seat_note ?? "",
-    is_exclusive: false, // 貸切の日は下でまとめて扱う
-    starts_at: r.starts_at,
-    label: surname(r.customer_name),
-  }));
+  const forPlan: PlanResv[] = todays
+    .filter((r) => r.status !== "completed")
+    .map((r) => ({
+      id: r.id,
+      party_size: r.party_size,
+      seat_note: r.seat_note ?? "",
+      is_exclusive: false, // 貸切の日は下でまとめて扱う
+      starts_at: r.starts_at,
+      label: surname(r.customer_name),
+    }));
   const plan = planSeats(forPlan, units, day.mode === "event" ? "event" : "normal");
   const partyOf = new Map(todays.map((r) => [r.id, r.party_size]));
-  const planned: Record<string, { label: string; party: number }> = {};
+  const planned: Record<string, { id: string; label: string; party: number }> = {};
   for (const [key, v] of plan.seats) {
-    planned[key] = { label: v.label, party: partyOf.get(v.id) ?? 0 };
+    planned[key] = { id: v.id, label: v.label, party: partyOf.get(v.id) ?? 0 };
   }
 
   return {
@@ -192,10 +197,16 @@ export async function setNetPause(on: boolean): Promise<{ ok: boolean; error?: s
   return { ok: true };
 }
 
-/** 席のタップを保存する。卓は0/1・カウンターは使用席数 */
+/**
+ * 席のタップを保存する。卓は0/1・カウンターは使用席数。
+ * reservationId は「点線（予約の下書き）の席を着席に変えた」とき、その予約のID。
+ * DB側はこれで予約を「来店中」にし、その組の席が全部空きに戻ったら
+ * 「会計済」へ送って席をその晩のネット予約に開放する（店主指定 2026-08-22）。
+ */
 export async function setSeatState(
   key: string,
   value: number,
+  reservationId?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   // 席の埋まり具合はネット予約の空席判定に直結する（全部埋めれば予約が止まる）。
   // 閲覧のみのアカウントには触らせない。
@@ -206,6 +217,7 @@ export async function setSeatState(
     p_date: todayBizDate(),
     p_key: key,
     p_value: value,
+    p_resv: reservationId ?? null,
   });
   if (error) return { ok: false, error: "保存できませんでした。" };
   return { ok: true };

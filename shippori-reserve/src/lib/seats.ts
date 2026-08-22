@@ -20,6 +20,10 @@ export function computeSeatUsage(rows: Reservation[], excludeId?: string): SeatU
   for (const r of rows) {
     if (r.id === excludeId) continue;
     if (r.status === "cancelled" || r.status === "no_show") continue;
+    // 会計済＝お帰りになった組。席は返して、その晩もう一度売る（店主指定 2026-08-22）。
+    // ネット側の判定（net_reserve・public-booking）は元から会計済を数えていないので、
+    // ここを合わせないと「店内の画面では満席・ネットでは空席」に割れる。
+    if (r.status === "completed") continue;
 
     // 貸切はお店ごと押さえる予約。席が1つも選ばれていなくてもその日は全部ふさがる。
     if (r.is_exclusive) exclusive = true;

@@ -49,7 +49,8 @@ export const STATUSES: {
   { value: "tentative", label: "仮予約", holds: true },
   { value: "confirmed", label: "確定", holds: true },
   { value: "seated", label: "来店中", holds: true },
-  { value: "completed", label: "会計済", holds: true },
+  // 会計済は席を返す＝その晩もう一度ネットに売る（店主指定 2026-08-22）
+  { value: "completed", label: "会計済", holds: false },
   { value: "cancelled", label: "キャンセル", holds: false },
   { value: "no_show", label: "無断キャンセル", holds: false },
 ];

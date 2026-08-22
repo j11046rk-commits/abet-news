@@ -1919,6 +1919,9 @@ textarea.field:-webkit-autofill {
 .fb__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fb__seatnote { margin-left: auto; color: #857c6d; font-size: 0.78rem; flex: none; }
 .fb__hp { flex: none; font-size: 0.68rem; border: 1px solid #b98136; color: #7a5c2e; border-radius: 999px; padding: 0 0.4rem; }
+/* お帰り済み（会計済）。一覧には残すが、済んだことがひと目で分かるよう沈ませる */
+.fb__list li.fb__li--done { opacity: 0.45; }
+.fb__done { flex: none; font-size: 0.68rem; border: 1px solid #9aa08e; color: #6b7261; border-radius: 999px; padding: 0 0.4rem; }
 
 /* 新規予約の停止（とても忙しいときだけ・記録が残る） */
 .fb__pausebtn {
