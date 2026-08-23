@@ -91,6 +91,10 @@ export async function middleware(request: NextRequest) {
     pathname === "/api/ping" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/sw.js" ||
+    // クローラーはCookieを持たない。ここで素通しにしないと /login へ転送され、
+    // robots.txt が一度も配信されない＝検索エンジンへの指示が全部無視される
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
     pathname === "/yoyaku" ||
     pathname.startsWith("/yoyaku/") ||
     pathname.startsWith("/api/public/")

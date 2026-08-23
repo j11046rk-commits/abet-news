@@ -81,6 +81,12 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     .map((r) => ({ r, reason: attentionReason(r) }))
     .filter((x) => x.reason);
   const active = reservations.filter((r) => ACTIVE_STATUSES.includes(r.status));
+  // 「席」の埋まりは、いま席を持っている予約だけで数える。
+  // 会計済は席を返した（その晩もう一度売れる）ので、ここに入れると
+  // 実際より埋まって見え、電話予約を断る判断を誤らせる。
+  const holdingGuests = reservations
+    .filter((r) => r.status === "tentative" || r.status === "confirmed" || r.status === "seated")
+    .reduce((a, r) => a + r.party_size, 0);
   const isEvent = summary.mode === "event";
   const holiday = holidayName(date);
 
@@ -139,7 +145,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
           ) : (
             <div className="summary__item">
               <span className="summary__num">
-                {summary.guest_count}
+                {holdingGuests}
                 <span style={{ fontSize: "0.9rem", color: "var(--text-dim)" }}>/{TOTAL_SEATS}</span>
               </span>
               <span className="summary__label">席</span>

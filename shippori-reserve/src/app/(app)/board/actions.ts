@@ -139,14 +139,23 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
    * 「本当にお客様が座っている席」の区別がつかなくなり、
    * まだ来ていない組が画面から読めなくなる。
    */
-  const { data: unitsData } = await supabase
-    .from("seat_units")
-    .select("name, is_shared, area, capacity, sort_order")
-    .eq("is_active", true)
-    .order("sort_order");
+  const [{ data: unitsData }, { data: seatedData }] = await Promise.all([
+    supabase
+      .from("seat_units")
+      .select("name, is_shared, area, capacity, sort_order")
+      .eq("is_active", true)
+      .order("sort_order"),
+    // いま実際に座っている（タップで紐づいた）予約。実席はもう塗りで出ているので、
+    // 下書きの並べ直しに混ぜない——混ぜると、会計済が出るたびに全体が並べ直り、
+    // 座っている組の点線が別の席に出現する（幽霊席）。
+    supabase.from("seat_log").select("reservation_id").eq("biz_date", date).is("left_at", null).not("reservation_id", "is", null),
+  ]);
   const units = (unitsData ?? []) as PlanUnit[];
+  const seatedIds = new Set(
+    ((seatedData ?? []) as { reservation_id: string }[]).map((s) => s.reservation_id),
+  );
   const forPlan: PlanResv[] = todays
-    .filter((r) => r.status !== "completed")
+    .filter((r) => r.status !== "completed" && !seatedIds.has(r.id))
     .map((r) => ({
       id: r.id,
       party_size: r.party_size,

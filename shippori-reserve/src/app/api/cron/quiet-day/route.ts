@@ -122,7 +122,14 @@ export async function GET(request: Request) {
    *   そうなると予約の控え（絶対に届けたいもの）が月末に止まる。
    */
   const [quota, reach] = await Promise.all([customerQuota(), customerReach()]);
-  if (reach === null || reach === 0) {
+  if (reach === null) {
+    // 読めない＝送らない、は方針どおり。ただし黙らない——LINEの統計APIが
+    // 恒常的に読めなくなると、この機能は誰にも気づかれないまま永久に止まる。
+    await pushLine("⚠️ 本日のクーポン配信を見送りました（LINEの友だち数を取得できません）。");
+    return NextResponse.json({ ok: true, skipped: "no-reach", reach });
+  }
+  if (reach === 0) {
+    // 友だち0人は正常な空振り。知らせることが無い
     return NextResponse.json({ ok: true, skipped: "no-reach", reach });
   }
   if (quota?.remaining == null || quota.remaining - reach < RESERVED_FOR_BOOKINGS) {
@@ -168,16 +175,33 @@ export async function GET(request: Request) {
 
   const sent = await broadcastLineCustomers(text);
   if (!sent) {
-    await pushLine("⚠️ 本日のクーポン配信に失敗しました（LINEへの送信エラー）。");
+    /*
+     * 失敗（またはタイムアウトで成否不明）でも記録は残す。
+     * 5秒で打ち切った場合、LINE側では配信が成立していることがある——
+     * 記録が無いと⑤⑥の歯止めが外れ、次の静かな日に「もう一度」友だち全員へ
+     * 送ってしまう。空振りの記録で月4回の枠を1つ使うほうが、二重配信より軽い。
+     */
+    const { error: recErr } = await admin.from("line_broadcasts").insert({
+      kind: "quiet_day",
+      reach,
+      note: `${today} 送信エラー（成否不明・二重配信防止のため記録）`,
+    });
+    if (recErr) console.error("quiet_day_record_failed", recErr.message);
+    await pushLine("⚠️ 本日のクーポン配信に失敗しました（LINEへの送信エラー・届いている可能性もあります）。");
     return NextResponse.json({ ok: false, reach }, { status: 500 });
   }
 
   // 記録してから店に知らせる。記録が先——知らせに失敗しても、7日の間隔は守られる
-  await admin.from("line_broadcasts").insert({
+  const { error: recErr } = await admin.from("line_broadcasts").insert({
     kind: "quiet_day",
     reach,
     note: `${today} 予約0件のため自動配信`,
   });
+  if (recErr) {
+    // 記録が入らないと7日間隔・月4回の歯止めが外れる。次の配信が近すぎたら人が止められるよう知らせる
+    console.error("quiet_day_record_failed", recErr.message);
+    await pushLine("⚠️ クーポン配信の記録に失敗しました。次回の配信間隔が正しく守られない可能性があります。");
+  }
   await pushLine(
     [
       `📣 本日（${dateJa}）のクーポンを配信しました。`,

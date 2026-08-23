@@ -115,6 +115,8 @@ export type Reservation = {
   allergy: string | null;
   memo: string | null;
   seat_note: string | null;
+  /** LINEで予約したお客様のID（Uで始まる）。控え・リマインドの宛先。PIIとして13か月で消える */
+  line_user_id: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
   created_by: string | null;

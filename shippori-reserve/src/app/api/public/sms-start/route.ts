@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startSmsVerification } from "@/lib/public-booking";
+import { normalizePhone, startSmsVerification } from "@/lib/public-booking";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 
 /**
@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "本文がJSONではありません。" }, { status: 400 });
   }
 
-  const phone = (body.phone ?? "").trim();
+  /*
+   * 回数を数える相手は**正規化した**番号にする。生の文字列のままだと
+   * 「090-1996-8762」「090 1996 8762」「+81 90…」が全部別人として数えられ、
+   * 同じ宛先への上限（1時間3通）が表記の数だけ掛け算できてしまう。
+   * 正規化できない入力は、Twilioに投げる前にここで断る。
+   */
+  const phone = normalizePhone(body.phone ?? "");
   const ip = clientIp(request.headers);
   const busy = {
     ok: false,
@@ -28,7 +34,7 @@ export async function POST(request: Request) {
 
   if (!phone) {
     return NextResponse.json(
-      { ok: false, error: "電話番号を入力してください。" },
+      { ok: false, error: "電話番号を正しく入力してください（10〜11桁）。" },
       { status: 400 },
     );
   }

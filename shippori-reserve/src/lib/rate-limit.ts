@@ -76,11 +76,18 @@ export const RATE: Record<RateRule["kind"], RateRule> = {
 export const subjectKey = (v: string): string =>
   createHash("sha256").update(`shippori:${v}`).digest("hex").slice(0, 32);
 
-/** Vercel の後ろにいるので、送信元は x-forwarded-for の先頭を見る */
+/**
+ * 送信元のIP。Vercel が確かめて付ける x-real-ip を先に見る。
+ * x-forwarded-for の先頭は送信側が自分で書き足せる（X-Forwarded-For: 好きな値 を
+ * 付けて送れば、こちらには「好きな値, 本物のIP」と届く）ので、
+ * 先頭を信じると送信元ごとの回数制限を名乗り替えで素通りされる。
+ */
 export function clientIp(headers: Headers): string | null {
+  const real = headers.get("x-real-ip")?.trim().slice(0, 60);
+  if (real) return real;
   const xff = headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim().slice(0, 60) || null;
-  return headers.get("x-real-ip")?.slice(0, 60) ?? null;
+  return null;
 }
 
 const since = (min: number) => new Date(Date.now() - min * 60_000).toISOString();

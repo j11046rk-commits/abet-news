@@ -126,6 +126,14 @@ export default function NetBooking() {
       if (typeof d.kana === "string") setKana(d.kana);
       if (typeof d.phone === "string") setPhone(d.phone);
       if (typeof d.memo === "string") setMemo(d.memo);
+      /*
+       * 復元しただけでは、その日の空き情報（dayInfo）が無い。取り直さないと、
+       * LINEの認証が切れていたときに「SMSが要る日か」が分からず、
+       * SMSの入力欄を出せないまま確認画面で行き止まりになる。
+       */
+      if (typeof d.date === "string") {
+        loadDay(d.date, typeof d.party === "number" ? d.party : 2);
+      }
       // 全部そろった下書きなら確認画面まで戻す。残る操作は「予約する」を押すだけ
       if (
         typeof d.date === "string" &&
@@ -151,6 +159,8 @@ export default function NetBooking() {
   const [doneViaLine, setDoneViaLine] = useState(false);
   /** 完了時点で友だちだったか。false なら控えは届いていない（友だちでない人には送れない） */
   const [doneFriend, setDoneFriend] = useState<boolean | null>(null);
+  /** サーバーが控えのLINE送信に**実際に成功したか**。これが true のときだけ「お送りしました」と言う */
+  const [doneLineSent, setDoneLineSent] = useState(false);
 
   // SMS認証（サーバー側が有効なときだけ使う）
   const liff = useLiff(process.env.NEXT_PUBLIC_LIFF_ID);
@@ -218,25 +228,37 @@ export default function NetBooking() {
     return () => clearInterval(t);
   }, [sei, mei, kana, phone, smsCode]);
 
+  // 読み込みの失敗は無言にしない。空のカレンダーだけ出すと「全部満席」に見える
+  const [monthError, setMonthError] = useState(false);
+  const [dayError, setDayError] = useState(false);
+
   const loadMonth = useCallback(async (targetYm: string, targetParty: number) => {
     setMonthLoading(true);
+    setMonthError(false);
     try {
       const res = await fetch(`/api/public/availability?ym=${targetYm}&party=${targetParty}`);
       const data = await res.json();
-      setDays(Array.isArray(data.days) ? data.days : []);
+      if (!res.ok || !Array.isArray(data.days)) throw new Error("bad-response");
+      setDays(data.days);
     } catch {
       setDays([]);
+      setMonthError(true);
     }
     setMonthLoading(false);
   }, []);
 
   const loadDay = useCallback(async (targetDate: string, targetParty: number) => {
     setDayInfo(null);
+    setDayError(false);
     try {
       const res = await fetch(`/api/public/availability?date=${targetDate}&party=${targetParty}`);
-      setDayInfo(await res.json());
+      const data = await res.json();
+      // エラー応答をそのまま入れると slots が無く、時間の一覧の描画ごと落ちる
+      if (!res.ok || !Array.isArray(data.slots)) throw new Error("bad-response");
+      setDayInfo(data);
     } catch {
       setDayInfo(null);
+      setDayError(true);
     }
   }, []);
 
@@ -287,7 +309,9 @@ export default function NetBooking() {
     seatDone &&
     sei.trim() !== "" &&
     mei.trim() !== "" &&
-    phoneDigits(phone).length >= 10;
+    // 10〜11桁だけ通す。上限が無いと、12桁でも確認画面に進めてサーバーで弾かれる
+    phoneDigits(phone).length >= 10 &&
+    phoneDigits(phone).length <= 11;
 
   const fullName = `${sei.trim()} ${mei.trim()}`.trim();
 
@@ -318,8 +342,11 @@ export default function NetBooking() {
         setDoneRef(data.reference as string);
         setDoneSeat(isEvent ? "" : (seat?.label ?? ""));
         setDoneToken(typeof data.cancel_token === "string" ? data.cancel_token : "");
-        setDoneViaLine(liff.ready);
+        // 「LINEの予約として通ったか」はサーバーの返事で決める。画面側の liff.ready は
+        // 認証が期限切れでもtrueのままなので、これを信じると嘘の完了画面になる
+        setDoneViaLine(data.via_line === true);
         setDoneFriend(liff.friend);
+        setDoneLineSent(data.line_notified === true);
         /*
          * 予約が確定した回数を数える（GA4）。転換率を出すのに必要な片方。
          * 見た人数はページの計測で分かるが、確定した数はここでしか分からない。
@@ -407,17 +434,18 @@ export default function NetBooking() {
           電話番号で予約された方には、これまでどおりリンクの控えを案内する
           （その方たちにはトークという道が無いので）。
         */}
-        {doneViaLine && doneFriend === false ? (
+        {doneViaLine && !doneLineSent ? (
           /*
-            LINEで予約したが、友だちではない人。控えは**届いていない**
-            （LINEは友だちでない相手に送信できない）ので、「お送りしました」とは
-            言わない——届いていないものを届いたと言うのが、いちばん信用を落とす。
-            友だち追加すれば控えの代わりに前日のご案内から届き、
-            トークでの変更・キャンセルもできるようになる。
+            LINEで予約したが、控えが**届いていない**人。
+            友だちでない（LINEは友だちでない相手に送信できない）か、送信自体が
+            失敗したかのどちらか。いずれにせよ「お送りしました」とは言わない——
+            届いていないものを届いたと言うのが、いちばん信用を落とす。
+            友だちでない人には追加の入口を出す（追加すれば前日のご案内から届き、
+            トークでの変更・キャンセルもできる）。
             それまでのキャンセル手段として、リンクの控えも従来どおり出す。
           */
           <div className="net__note">
-            {FRIEND_URL ? (
+            {FRIEND_URL && doneFriend === false ? (
               <a className="net__friend" href={FRIEND_URL} target="_blank" rel="noopener noreferrer">
                 <span className="net__friend-badge">LINE</span>
                 <span>
@@ -427,6 +455,13 @@ export default function NetBooking() {
                 </span>
               </a>
             ) : null}
+            {doneFriend !== false && (
+              // 友だちなのに送信が失敗した（LINE側の不調など）。理由まで見せる必要は
+              // 無いが、「届いていない」ことだけは伝える
+              <p>
+                <b>LINEへの控えの送信ができませんでした。</b>
+              </p>
+            )}
             <p style={{ marginTop: "0.8rem" }}>
               <b>この画面をお控えください</b>（スクリーンショット推奨）。
             </p>
@@ -552,7 +587,7 @@ export default function NetBooking() {
             </p>
           </div>
         ) : null}
-        {liff.settled && !liff.ready && !liff.inClient && process.env.NEXT_PUBLIC_LIFF_ID && (!isEvent || eventAgreed) ? (
+        {liff.settled && liff.available && !liff.ready && !liff.inClient && process.env.NEXT_PUBLIC_LIFF_ID && (!isEvent || eventAgreed) ? (
           <div className="net__line">
             <p className="net__line-title">LINEで予約すると、かんたんです</p>
             <p className="net__hint">
@@ -709,6 +744,12 @@ export default function NetBooking() {
           )}
         </div>
         {monthLoading && <p className="net__hint">空席を確認しています…</p>}
+        {monthError && !monthLoading && (
+          <p className="net__error">
+            空席情報を読み込めませんでした。電波の良い場所で{" "}
+            <button className="btn" onClick={() => loadMonth(ym, party)}>もう一度読み込む</button>
+          </p>
+        )}
         <p className="net__hint">◯ 空席あり ／ △ 残りわずか ／ × 満席 ／ 休 定休日（火曜）。当日は開始15分前まで承ります。</p>
       </section>
 
@@ -716,6 +757,11 @@ export default function NetBooking() {
         <h2 className="net__step-title"><span className="net__no">3</span>時間{date && <span className="net__picked">{jaDate(date)}</span>}</h2>
         {date === null ? (
           <p className="net__hint">先に日付をお選びください。</p>
+        ) : dayError ? (
+          <p className="net__error">
+            空き時間を読み込めませんでした。{" "}
+            <button className="btn" onClick={() => loadDay(date, party)}>もう一度読み込む</button>
+          </p>
         ) : dayInfo === null ? (
           <p className="net__hint">空き時間を確認しています…</p>
         ) : dayInfo.is_event_late ? (
@@ -814,12 +860,12 @@ export default function NetBooking() {
         <div className="net__namerow">
           <div>
             <label className="net__label" htmlFor="net-sei">姓 <em>必須</em></label>
-            <input id="net-sei" className="field" value={sei} maxLength={20}
+            <input id="net-sei" ref={seiRef} className="field" value={sei} maxLength={20}
               onChange={(e) => setSei(e.target.value)} placeholder="例）山内" autoComplete="family-name" />
           </div>
           <div>
             <label className="net__label" htmlFor="net-mei">名 <em>必須</em></label>
-            <input id="net-mei" className="field" value={mei} maxLength={20}
+            <input id="net-mei" ref={meiRef} className="field" value={mei} maxLength={20}
               onChange={(e) => setMei(e.target.value)} placeholder="例）太郎" autoComplete="given-name" />
           </div>
         </div>

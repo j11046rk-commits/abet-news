@@ -82,6 +82,37 @@ async function pushTo(
 }
 
 /**
+ * お客様のメッセージに**返信**する（webhookの自動返信用）。
+ *
+ * ★push ではなく reply を使う。LINEの無料プランで数えられるのは push の200通で、
+ *   reply は通数を消費しない。自動返信を push で送ると、お客様がトークに
+ *   書くたびに1通減り、連投されるだけで月の枠が枯れて「ご予約の控え」
+ *   （絶対に届けたいもの）まで止まる。
+ *
+ * replyToken は届いたイベントに付いてくる一度きりの引換券（有効期限は短い）。
+ */
+export async function replyLineUser(replyToken: string, text: string): Promise<boolean> {
+  const token = process.env.LINE_CUSTOMER_CHANNEL_ACCESS_TOKEN;
+  if (!token || !replyToken) return false;
+  try {
+    const res = await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ replyToken, messages: [{ type: "text", text: text.slice(0, 4900) }] }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      console.error("line_reply_failed", res.status);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("line_reply_error", e instanceof Error ? e.name : "unknown");
+    return false;
+  }
+}
+
+/**
  * お客様向けアカウントの**友だち全員**へ1通送る（クーポン配信）。
  *
  * ★1回の配信で「友だちの人数ぶん」の通数を使う。

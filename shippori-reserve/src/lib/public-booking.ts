@@ -12,7 +12,7 @@ import { computeSeatUsage, COUNTER_NAME, NO_SEAT, unitOfSeatKey } from "@/lib/se
 import { verifyLineIdToken } from "@/lib/line-login";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
-import { pushLine } from "@/lib/line";
+import { pushLine, pushLineUser } from "@/lib/line";
 import { surname } from "@/lib/staff";
 import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
 
@@ -97,7 +97,7 @@ function deriveDay(date: string, settings: Record<string, unknown>): DayRow {
  */
 async function fetchRange(from: string, to: string) {
   const admin = createAdminClient();
-  const [settingsQ, daysQ, resvQ, unitsQ, boardQ, pauseQ] = await Promise.all([
+  const [settingsQ, daysQ, resvQ, unitsQ, boardQ, pauseQ, seatedQ] = await Promise.all([
     admin.from("settings").select("key, value"),
     admin.from("business_days").select("*").gte("biz_date", from).lte("biz_date", to),
     admin
@@ -113,6 +113,15 @@ async function fetchRange(from: string, to: string) {
       .from("net_pause")
       .select("biz_date")
       .is("ended_at", null)
+      .gte("biz_date", from)
+      .lte("biz_date", to),
+    // いま実際に座っている予約（席ボードのタップで紐づいたもの）。
+    // この予約の席は seat_board 側にもう出ているので、下書きで二重に数えない
+    admin
+      .from("seat_log")
+      .select("reservation_id")
+      .is("left_at", null)
+      .not("reservation_id", "is", null)
       .gte("biz_date", from)
       .lte("biz_date", to),
   ]);
@@ -162,16 +171,27 @@ async function fetchRange(from: string, to: string) {
    * 席ボード（飛び込み）の記録と重ねるときは、席そのものの重なりで見る。
    */
   const planUnits = (unitsQ.data ?? []) as PlanUnit[];
+  /*
+   * 着席中（席ボードで実際の席が点いている）予約は、下書きから外す。
+   * 外さないと、他の組が会計済になるたびに planSeats が全体を並べ直し、
+   * 「本当はC3・C4に座っている組」の下書きがC1・C2に置かれる——
+   * 実席（ボード）と下書きの両方を数えて、カウンターが実際より埋まって見える。
+   */
+  const seatedIds = new Set(
+    ((seatedQ.data ?? []) as { reservation_id: string }[]).map((s) => s.reservation_id),
+  );
   for (const [d, list] of resv) {
     const plan = planSeats(
-      list.map((r) => ({
-        id: r.id,
-        party_size: r.party_size,
-        seat_note: r.seat_note ?? "",
-        is_exclusive: r.is_exclusive,
-        starts_at: r.starts_at,
-        label: "",
-      })),
+      list
+        .filter((r) => !seatedIds.has(r.id))
+        .map((r) => ({
+          id: r.id,
+          party_size: r.party_size,
+          seat_note: r.seat_note ?? "",
+          is_exclusive: r.is_exclusive,
+          starts_at: r.starts_at,
+          label: "",
+        })),
       planUnits,
       days.get(d)?.mode === "event" ? "event" : "normal",
     );
@@ -584,6 +604,26 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   const { day, rows, board } = dayCore(input.date, ctx);
 
   if (day.is_closed) return { ok: false, error: "この日は定休日です。", code: "RETRY" };
+  /*
+   * 現場の「新規予約停止」とイベント当日の締切は、DBの net_reserve も見るが、
+   * ここでも先に見る。DB任せにすると、止めた直後にフォームを開いていた人へ
+   * 汎用の「確定できませんでした」しか返せず、何が起きたか分からない。
+   */
+  if (ctx.paused.has(input.date)) {
+    return {
+      ok: false,
+      error:
+        "ただいま混み合っているため、この日のネット受付を一時停止しております。お電話（0897-47-4494）でお問い合わせください。",
+      code: "RETRY",
+    };
+  }
+  if (day.mode === "event" && input.date <= today) {
+    return {
+      ok: false,
+      error: "イベント営業日の当日のご予約は、お電話（0897-47-4494）にて承ります。",
+      code: "RETRY",
+    };
+  }
   if (!slotMinutes().includes(input.start_min)) {
     return { ok: false, error: "時間を選び直してください。", code: "RETRY" };
   }
@@ -635,6 +675,29 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
    *   （SMSも無効なら、そのまま予約は通る——いまと同じ振る舞い）
    */
   const identity = await verifyLineIdToken(input.line_id_token);
+
+  /*
+   * LINEで確認できた人は電話番号の照合（SMS）を省くぶん、電話番号の欄には
+   * 何を書いても通ってしまう。「同じ電話番号は3件まで」の抑止が、毎回違う
+   * 架空の番号を書くだけで素通りになる——ので、LINEのアカウント単位でも
+   * 同じ上限を掛ける。ふつうのお客様が今後の予約を3件持つことはまず無い。
+   */
+  if (identity) {
+    const { data: sameLine } = await admin
+      .from("reservations")
+      .select("id")
+      .in("status", [...activeStatuses])
+      .gte("biz_date", today)
+      .eq("line_user_id", identity.userId)
+      .limit(3);
+    if ((sameLine ?? []).length >= 3) {
+      return {
+        ok: false,
+        error: "同じLINEアカウントでのご予約が上限に達しています。変更はお電話でお願いします。",
+        code: "REJECT",
+      };
+    }
+  }
 
   if (smsEnabled() && !identity) {
     const code = (input.sms_code ?? "").trim();
@@ -762,7 +825,11 @@ type CancelRow = Pick<
   | "customer_name"
   | "party_size"
   | "seat_note"
+  | "line_user_id"
 >;
+
+const CANCEL_FIELDS =
+  "id, biz_date, starts_at, status, phone, source, customer_name, party_size, seat_note, line_user_id";
 
 export type NetCancelResult = { ok: true } | { ok: false; error: string };
 
@@ -786,7 +853,7 @@ export async function cancelNetReservationByToken(tokenRaw: string): Promise<Net
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, biz_date, starts_at, status, phone, source, customer_name, party_size, seat_note")
+    .select(CANCEL_FIELDS)
     .eq("cancel_token", token)
     .maybeSingle<CancelRow>();
   if (!r) return notFound;
@@ -823,7 +890,7 @@ export async function cancelNetReservation(
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, biz_date, starts_at, status, phone, source, customer_name, party_size, seat_note")
+    .select(CANCEL_FIELDS)
     .eq("reference", reference)
     .maybeSingle<CancelRow>();
 
@@ -873,6 +940,29 @@ async function finishCancel(
    * ここを通るのはWebからの経路だけ。
    */
   await notifyCancelled(r);
+  /*
+   * LINEで予約したお客様には、ご本人にも「キャンセルを受け付けました」を返す。
+   * 親切のためだけではない——予約番号は月ごとの連番で推測できるので、
+   * 万一第三者が番号と電話番号で勝手にキャンセルしても、本人のトークに
+   * 通知が届けば気づける。無言で消える、が一番まずい。
+   */
+  if (r.line_user_id) {
+    try {
+      await pushLineUser(
+        r.line_user_id,
+        [
+          "ご予約のキャンセルを受け付けました。しっぽり亭です。",
+          "",
+          `${fmtDateJa(`${r.biz_date}T12:00:00+09:00`)} ${minutesToLabel(isoToMinutes(r.biz_date, r.starts_at))} ${r.party_size}名様`,
+          "",
+          "またのご利用をお待ちしております。",
+          "お心当たりのないキャンセルの場合は 0897-47-4494 までお電話ください。",
+        ].join("\n"),
+      );
+    } catch {
+      // 届かなくてもキャンセルは済んでいる
+    }
+  }
   return { ok: true };
 }
 

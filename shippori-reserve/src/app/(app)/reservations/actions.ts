@@ -71,9 +71,8 @@ function validate(input: ReservationInput): string | null {
   if (!input.source || !VALID_SOURCES.includes(input.source as ReservationSource)) {
     return "流入元（どこから来た予約か）を選んでください。";
   }
-  if (input.source === "owner_direct" && !input.source_profile_id) {
-    return "オーナー直接の場合は、どのオーナー経由かを選んでください。";
-  }
+  // 「どのオーナー経由か」は必須にしない。いまのフォームには選ぶ欄が無く、
+  // 必須のままだと「オーナー直接」の予約が一度も保存できない（登録も編集も）。
   if (input.status && !VALID_STATUSES.includes(input.status)) return "状態が不正です。";
   return null;
 }
@@ -190,6 +189,45 @@ export async function createReservation(input: ReservationInput): Promise<Action
   return { ok: true, id: data.id };
 }
 
+/**
+ * 更新で書き換えるのは「フォームが持ってきた項目」だけにする。
+ *
+ * toRow の全列をそのまま update に渡すと、フォームに欄が無い項目
+ * （フリガナ・アレルギー・予算・請求書名など、ネット予約や以前の入力で
+ * 入った値）が null や false で上書きされて消える。
+ * input に無い（undefined の）項目は行に含めない＝DBの今の値が残る。
+ */
+async function toUpdateRow(input: ReservationInput) {
+  const full = await toRow(input);
+  const row: Record<string, unknown> = {};
+  const given: Record<string, boolean> = {
+    biz_date: true,
+    starts_at: true,
+    ends_at: true,
+    party_size: true,
+    customer_name: true,
+    source: true,
+    customer_kana: input.customer_kana !== undefined,
+    phone: input.phone !== undefined,
+    source_detail: input.source_detail !== undefined,
+    seat_note: input.seat_note !== undefined,
+    course_id: input.course_id !== undefined,
+    drink_plan: input.drink_plan !== undefined,
+    is_exclusive: input.is_exclusive !== undefined,
+    budget_yen: input.budget_yen !== undefined,
+    needs_invoice: input.needs_invoice !== undefined,
+    invoice_name: input.invoice_name !== undefined,
+    allergy: input.allergy !== undefined,
+    memo: input.memo !== undefined,
+    // オーナー直接をやめたときは紐づけを外す。それ以外は、選ぶ欄が来ない限り触らない
+    source_profile_id: input.source !== "owner_direct" || input.source_profile_id !== undefined,
+  };
+  for (const [col, value] of Object.entries(full)) {
+    if (given[col]) row[col] = value;
+  }
+  return row;
+}
+
 export async function updateReservation(
   id: string,
   input: ReservationInput,
@@ -206,7 +244,7 @@ export async function updateReservation(
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservations")
-    .update({ ...(await toRow(input)), updated_by: me.id })
+    .update({ ...(await toUpdateRow(input)), updated_by: me.id })
     .eq("id", id);
 
   if (error) return { ok: false, error: dbError(error.message, "更新できませんでした。") };

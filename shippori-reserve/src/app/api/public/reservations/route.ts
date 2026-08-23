@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { BOT_REFERENCE, createNetReservation, type NetBookingInput } from "@/lib/public-booking";
+import { BOT_REFERENCE, createNetReservation, normalizePhone, type NetBookingInput } from "@/lib/public-booking";
 import { pushLine, pushLineUser } from "@/lib/line";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 import { surname } from "@/lib/staff";
@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   }
 
   const ip = clientIp(request.headers);
-  const phone = (body?.phone ?? "").trim();
+  // 回数の相手は正規化した番号で数える（表記ゆれで上限を掛け算させない）。
+  // 正規化できない入力は生のまま数える——中身の検査はこの先で正しく弾かれる
+  const rawPhone = (body?.phone ?? "").trim();
+  const phone = normalizePhone(rawPhone) ?? rawPhone;
 
   // 電話番号ごと・送信元ごと・全体の3段。当たるのはほぼ攻撃者だけになる。
   if (!(await withinLimit(RATE.booking, phone, ip))) {
@@ -48,16 +51,22 @@ export async function POST(request: Request) {
 
   // ハニーポットに引っかかったボットには「成功したふり」を返している。
   // それを本物と同じに扱うと、ボットが来るたびにLINEが鳴る。
+  let lineNotified = false;
   if (result.ok && result.reference !== BOT_REFERENCE) {
     await notifyLine(body, result.seat_note);
     // LINEで予約されたお客様には、ご本人にも控えを送る
-    await notifyCustomer(result.line_user_id, body, result.reference);
+    lineNotified = await notifyCustomer(result.line_user_id, body, result.reference);
   }
 
-  // LINEのIDは画面に返さない。ご本人のIDとはいえ、要らないものを外に出さない
+  // LINEのIDは画面に返さない。ご本人のIDとはいえ、要らないものを外に出さない。
+  // 代わりに「LINEの予約として通ったか」「控えが実際に送れたか」だけを返す——
+  // 画面はこれを見て文言を選ぶ。送れていないのに「お送りしました」と出さないため。
   if (result.ok) {
     const { line_user_id: _omit, ...safe } = result;
-    return NextResponse.json(safe, { status: 200 });
+    return NextResponse.json(
+      { ...safe, via_line: !!result.line_user_id, line_notified: lineNotified },
+      { status: 200 },
+    );
   }
   return NextResponse.json(result, { status: 400 });
 }
@@ -75,8 +84,8 @@ async function notifyCustomer(
   lineUserId: string | undefined,
   body: NetBookingInput,
   reference: string,
-): Promise<void> {
-  if (!lineUserId) return;
+): Promise<boolean> {
+  if (!lineUserId) return false;
   try {
     const date = String(body?.date ?? "");
     const min = Number(body?.start_min);
@@ -84,7 +93,7 @@ async function notifyCustomer(
       ? `${fmtDateJa(`${date}T12:00:00+09:00`)} ${Number.isFinite(min) ? minutesToLabel(min) : ""}`.trim()
       : "";
 
-    await pushLineUser(
+    return await pushLineUser(
       lineUserId,
       [
         "ご予約ありがとうございます。しっぽり亭です。",
@@ -99,6 +108,7 @@ async function notifyCustomer(
     );
   } catch {
     // 控えが届かなくても予約は成立している
+    return false;
   }
 }
 

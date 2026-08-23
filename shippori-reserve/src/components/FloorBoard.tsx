@@ -245,11 +245,21 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
    */
   const seatOn = (key: string) => (board[key] ?? 0) > 0;
   const seatPlanned = (key: string) => !seatOn(key) && planned[key] !== undefined;
-  // 点線の席を点けるときは「誰の予約が座ったか」も送る。
-  // DB側はこれで予約を「来店中」にし、その組の席が全部空きに戻ったら
-  // 「会計済」にして席をその晩のネット予約に開放する。
-  const toggleSeat = (key: string) =>
-    seatOn(key) ? save(key, 0) : save(key, 1, planned[key]?.id);
+  /*
+   * 点線（予約の下書き）の席を点けるときだけ、「そのご予約のお客様か、
+   * 別のお客様（飛び込み）か」を一度きく。
+   *
+   * きかずに無条件で予約に紐づけると、点線の席に飛び込みを座らせた場合、
+   * まだ来ていない予約が「来店中」→飛び込みが帰った時点で「会計済」になり、
+   * その席がネットに再販される——本物のお客様が来たとき席が無い（二重予約）。
+   * タップが1回増えるのは点線の席だけで、ふつうの席は今までどおり1タップ。
+   */
+  const [askSeat, setAskSeat] = useState<string | null>(null);
+  const toggleSeat = (key: string) => {
+    if (seatOn(key)) return save(key, 0);
+    if (planned[key] !== undefined) return setAskSeat(key);
+    return save(key, 1);
+  };
 
   // 「使用中」は着席と予約の両方を数える。予約ぶんを空きに数えると、
   // 飛び込みを受けたあとに予約のお客様の席が無くなる。
@@ -494,6 +504,42 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 </button>
                 <button className="btn fb__warnok" onClick={() => switchPause(true)}>
                   停止する
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 点線の席を点けるとき：予約のお客様か、飛び込みかを一度だけきく */}
+        {askSeat !== null && (
+          <div className="fb__alert fb__alert--warn" role="alertdialog">
+            <div className="fb__alert-card">
+              <p className="fb__alert-title">
+                {planned[askSeat]?.label ?? ""} 様（ご予約 {planned[askSeat]?.party ?? "?"}名）のお席です
+              </p>
+              <div className="fb__warnbtns">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    const id = planned[askSeat]?.id;
+                    setAskSeat(null);
+                    save(askSeat, 1, id);
+                  }}
+                >
+                  {planned[askSeat]?.label ?? "ご予約の"} 様 ご来店
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    const key = askSeat;
+                    setAskSeat(null);
+                    save(key, 1);
+                  }}
+                >
+                  別のお客様（飛び込み）
+                </button>
+                <button className="btn" onClick={() => setAskSeat(null)}>
+                  やめる
                 </button>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cancelNetReservation, cancelNetReservationByToken } from "@/lib/public-booking";
+import { cancelNetReservation, cancelNetReservationByToken, normalizePhone } from "@/lib/public-booking";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 
 /**
@@ -19,7 +19,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "本文がJSONではありません。" }, { status: 400 });
   }
 
-  const phone = (body.phone ?? "").trim();
+  const rawPhone = (body.phone ?? "").trim();
+  // 正規化して数える。生のままだとハイフンや空白の入れ方を変えるだけで
+  // 別人として数えられ、総当たりの回数制限が実質外れる
+  const phone = normalizePhone(rawPhone) ?? rawPhone;
   const reference = (body.reference ?? "").trim();
   const token = (body.token ?? "").trim();
   const ip = clientIp(request.headers);

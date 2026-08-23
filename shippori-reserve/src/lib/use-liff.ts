@@ -39,6 +39,12 @@ export type LiffState = {
   /** IDトークンまで取れて、LINEとして予約できる状態 */
   ready: boolean;
   /**
+   * LIFFのSDKが読み込めて init まで通ったか。
+   * false のときに「LINEで予約する」ボタンを出すと、押しても何も起きない
+   * （login() の呼び先が無い）ので、画面はこれを見てボタンごと隠す。
+   */
+  available: boolean;
+  /**
    * 公式アカウントの友だちか。分からなければ null。
    *
    * ★false のときは、控えもリマインドも**届かない**（LINEは友だちでない人に
@@ -75,6 +81,7 @@ function loadSdk(): Promise<LiffSdk | null> {
 export function useLiff(liffId: string | undefined): LiffState {
   const [state, setState] = useState<LiffState>({
     ready: false,
+    available: false,
     friend: null,
     displayName: null,
     idToken: null,
@@ -104,7 +111,7 @@ export function useLiff(liffId: string | undefined): LiffState {
           // 電話番号で予約したいお客様を追い出すことになるので、
           // 「LINEで予約する」を押したときだけ飛ばす（下の startLogin）。
           if (alive)
-            setState({ ready: false, friend: null, displayName: null, idToken: null, inClient, settled: true });
+            setState({ ready: false, available: true, friend: null, displayName: null, idToken: null, inClient, settled: true });
           return;
         }
 
@@ -124,7 +131,7 @@ export function useLiff(liffId: string | undefined): LiffState {
           // 分からないままでよい。予約は止めない
         }
         if (alive) {
-          setState({ ready: !!idToken, friend, displayName, idToken: idToken ?? null, inClient, settled: true });
+          setState({ ready: !!idToken, available: true, friend, displayName, idToken: idToken ?? null, inClient, settled: true });
         }
       } catch (e) {
         console.error("liff_init_failed", e instanceof Error ? e.message : e);
