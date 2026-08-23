@@ -8,6 +8,7 @@ const ig = site.instagram;
 const tel = s.電話番号.replace(/-/g, '');
 const hasLine = r.lineURL && r.lineURL.trim() !== '';
 const hasQR = r.lineQR && r.lineQR.trim() !== '';
+const netURL = (r.ネット予約URL || '').trim();
 ---
 <section class="section" id="reserve" aria-labelledby="reserve-title">
   <div class="container reserve">
@@ -18,6 +19,14 @@ const hasQR = r.lineQR && r.lineQR.trim() !== '';
     </div>
 
     <div class="reserve__card card">
+      {netURL && (
+        <a class="btn btn--primary btn--lg reserve__net" href={netURL}>
+          <Icon name="calendar" size={22} />
+          <span>ネット予約（空席がすぐ分かる）</span>
+        </a>
+      )}
+      {netURL && <p class="reserve__net-note">24時間受付・8名様まで。9名様以上の宴会はお電話で。</p>}
+
       <a class="reserve__phone" href={`tel:${tel}`}>
         <span class="reserve__phone-ico"><Icon name="phone" size={26} /></span>
         <span class="reserve__phone-num">{s.電話番号表示用}</span>
@@ -53,6 +62,8 @@ const hasQR = r.lineQR && r.lineQR.trim() !== '';
 
 <style>
   .reserve__card { max-width: 32rem; margin: 0 auto; padding: 2rem 1.6rem; text-align: center; }
+  .reserve__net { width: 100%; justify-content: center; }
+  .reserve__net-note { margin: 0.6rem 0 1.6rem; font-size: 0.82rem; color: var(--text-dim); }
   .reserve__phone { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; color: var(--text); }
   .reserve__phone-ico { color: var(--gold); }
   .reserve__phone-num { font-family: var(--font-serif); font-size: clamp(2rem, 9vw, 2.6rem); color: var(--gold-soft); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }

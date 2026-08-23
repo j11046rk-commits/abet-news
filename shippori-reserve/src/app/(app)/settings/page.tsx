@@ -28,6 +28,8 @@ export default async function SettingsPage() {
   return (
     <>
       <header className="appbar">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="appbar__logo" />
         <div className="appbar__title">設定</div>
         <div className="appbar__spacer" />
         <span className="appbar__sub">
@@ -85,6 +87,17 @@ export default async function SettingsPage() {
             ))}
           </dl>
         </section>
+
+        <h2 className="section-title">タブレット</h2>
+        <div className="card">
+          <a href="/board" className="btn" style={{ width: "100%", textAlign: "center" }}>
+            席ボードを開く（レジ横タブレット用）
+          </a>
+          <p className="micro" style={{ marginTop: "0.5rem" }}>
+            飛び込みのお客様をワンタップで記録すると、ネット予約の空席がリアルタイムで正確になります。
+            新しいネット予約が入ると音つきでお知らせします。
+          </p>
+        </div>
 
         <h2 className="section-title">アカウント</h2>
         <section className="stack">

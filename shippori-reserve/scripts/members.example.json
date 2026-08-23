@@ -1,0 +1,7 @@
+[
+  { "login_id": "owner1", "display_name": "見本 一郎", "role": "owner", "is_owner_contact": true },
+  { "login_id": "owner2", "display_name": "見本 二郎", "role": "owner", "is_owner_contact": true },
+  { "login_id": "tencho", "display_name": "見本 三郎", "role": "manager" },
+  { "login_id": "staff1", "display_name": "見本 四郎", "role": "staff" },
+  { "login_id": "staff2", "display_name": "見本 五郎", "role": "staff" }
+]

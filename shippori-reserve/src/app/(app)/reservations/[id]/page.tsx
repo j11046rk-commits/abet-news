@@ -94,7 +94,7 @@ export default async function ReservationDetailPage({
             </dd>
 
             <dt>席</dt>
-            <dd>{reservation.seat_note ?? <span className="muted">未定</span>}</dd>
+            <dd>{reservation.seat_note || <span className="muted">未定</span>}</dd>
 
             <dt>コース</dt>
             <dd>

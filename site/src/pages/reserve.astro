@@ -1,0 +1,27 @@
+---
+// shipporitei.jp/reserve — ネット予約への入り口（チラシ・口頭案内用の短い住所）。
+// 実体は予約アプリ（yoyaku.shipporitei.jp）にあるので、開いた瞬間に転送する。
+import site from '../../data/site.json';
+const url = (site.予約問い合わせ.ネット予約URL || 'https://yoyaku.shipporitei.jp/yoyaku').trim();
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ネット予約 | しっぽり亭</title>
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content={`0;url=${url}`} />
+    <link rel="canonical" href={url} />
+    <script is:inline define:vars={{ url }}>location.replace(url);</script>
+    <style>
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center;
+        background: #111726; color: #eef1f8;
+        font-family: "Hiragino Sans", "Yu Gothic", sans-serif; }
+      a { color: #e6c391; }
+    </style>
+  </head>
+  <body>
+    <p>予約ページへ移動しています… <a href={url}>開かない場合はこちら</a></p>
+  </body>
+</html>

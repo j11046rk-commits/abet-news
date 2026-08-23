@@ -45,7 +45,16 @@ export type Profile = {
   is_owner_contact: boolean;
   sort_order: number;
   created_at: string;
+  /** 基本の出勤時刻（営業日0:00からの分）。null＝時間を持たない人（店長・オーナー） */
+  default_start_min: number | null;
+  /** 基本の退勤時刻。null＝LAST（その日の閉店まで） */
+  default_end_min: number | null;
+  /** 普段お休みの曜日（0=日 … 6=土） */
+  off_weekdays: number[];
 };
+
+/** シフト1日ぶんの時間。start が null ＝ その人の基本を使う */
+export type ShiftTimeRow = { start_min: number | null; end_min: number | null };
 
 export type BusinessDay = {
   biz_date: string; // YYYY-MM-DD
@@ -56,6 +65,8 @@ export type BusinessDay = {
   event_capacity: number | null;
   open_min: number; // その日の 0:00 からの経過分。18:00 = 1080
   close_min: number; // 25:00 = 1500
+  /** イベント営業のチラシ（画像またはPDF）の公開URL。イベント日は必須 */
+  flyer_url: string | null;
   note: string | null;
   updated_by: string | null;
   updated_at: string;
@@ -104,6 +115,8 @@ export type Reservation = {
   allergy: string | null;
   memo: string | null;
   seat_note: string | null;
+  /** LINEで予約したお客様のID（Uで始まる）。控え・リマインドの宛先。PIIとして13か月で消える */
+  line_user_id: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
   created_by: string | null;
@@ -147,6 +160,15 @@ export type SeatUsage = {
   taken: string[];
   /** カウンターに入っている人数の合計 */
   counter_used: number;
+  /** その日に貸切のご予約が入っているか（入っていれば席は全部ふさがる） */
+  exclusive: boolean;
+  /**
+   * 席ボードで「いま実際に座っている」専有席。**表示のためだけ**に使う。
+   * 空き判定には入れない（着席済みの予約を直せなくなるため。lib/seats.ts の boardUsage 参照）
+   */
+  seated?: string[];
+  /** 席ボードで埋まっているカウンターの席数。これも表示のためだけ */
+  seated_counter?: number;
 };
 
 export type Shift = {

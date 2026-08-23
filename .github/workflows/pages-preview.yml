@@ -46,6 +46,10 @@ jobs:
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
           GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
         run: node scripts/fetch-ga4.mjs || echo "GA4取得に失敗。コミット済みデータでビルドを継続。"
+      - name: Fetch reservation insights (集計のみ・個人情報は含まない)
+        env:
+          RESERVE_INSIGHTS_TOKEN: ${{ secrets.RESERVE_INSIGHTS_TOKEN }}
+        run: node scripts/fetch-reserve.mjs || echo "予約インサイトの取得に失敗。コミット済みデータでビルドを継続。"
       - name: Build (sub-path for Pages)
         env:
           SITE_URL: ${{ steps.pages.outputs.origin }}

@@ -2,11 +2,18 @@
 import site from '../../data/site.json';
 import Icon from './Icon.astro';
 const s = site.店舗情報;
+const r = site.予約問い合わせ;
 const tel = s.電話番号.replace(/-/g, '');
+const netURL = (r.ネット予約URL || '').trim();
 ---
 <div class="callbar" role="region" aria-label="クイック予約">
-  <a class="callbar__btn callbar__btn--tel" href={`tel:${tel}`}>
-    <Icon name="phone" size={18} /> 電話で予約 <span class="callbar__num">{s.電話番号表示用}</span>
+  {netURL && (
+    <a class="callbar__btn callbar__btn--net" href={netURL}>
+      <Icon name="calendar" size={18} /> ネット予約
+    </a>
+  )}
+  <a class={`callbar__btn callbar__btn--tel${netURL ? ' callbar__btn--tel-compact' : ''}`} href={`tel:${tel}`}>
+    <Icon name="phone" size={18} /> 電話{netURL ? '' : 'で予約 '}{!netURL && <span class="callbar__num">{s.電話番号表示用}</span>}
   </a>
   <a class="callbar__btn callbar__btn--map" href={s.googleマップURL} target="_blank" rel="noopener noreferrer" aria-label="地図を開く">
     <Icon name="pin" size={20} />
@@ -36,6 +43,19 @@ const tel = s.電話番号.replace(/-/g, '');
     background: linear-gradient(135deg, var(--gold), var(--ember));
     color: #1a130b;
     font-size: 0.98rem;
+  }
+  .callbar__btn--net {
+    flex: 1.4;
+    background: linear-gradient(135deg, var(--gold), var(--ember));
+    color: #1a130b;
+    font-size: 0.98rem;
+  }
+  /* ネット予約がある時の電話は控えめな面持ちに（当日枠の受け皿として残す） */
+  .callbar__btn--tel-compact {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    border: 1px solid var(--line);
   }
   .callbar__num { font-variant-numeric: tabular-nums; }
   .callbar__btn--map {

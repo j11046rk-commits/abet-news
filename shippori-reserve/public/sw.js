@@ -5,7 +5,7 @@
  * 古い予約表を見せるほうが、少し遅いより遥かに危険だから。
  * オフライン書き込み（あとで同期）も作らない。二重予約の温床になる。
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL = `shell-${VERSION}`;
 
 const SHELL_ASSETS = [
@@ -42,8 +42,12 @@ self.addEventListener("fetch", (event) => {
   // 予約データが乗ってくる経路は素通し。キャッシュに触れさせない。
   if (url.pathname.startsWith("/api/")) return;
 
-  // ビルド成果物とアイコンだけ cache-first
-  const isStatic = url.pathname.startsWith("/_next/static") || url.pathname.startsWith("/icons/");
+  // ビルド成果物とアイコン・ロゴだけ cache-first。
+  // ロゴは全画面のヘッダーに出るので、毎回取りに行かせない。
+  const isStatic =
+    url.pathname.startsWith("/_next/static") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/logo-");
   if (isStatic) {
     event.respondWith(
       caches.match(request).then(

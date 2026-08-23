@@ -154,7 +154,9 @@
 
   "予約問い合わせ": {
     "見出し": "ご予約・お問い合わせ",
-    "リード": "ご予約は公式LINE・InstagramのDM・お電話で。当日のご予約はお電話が確実です。",
+    "リード": "空席がその場で分かるネット予約が便利です（24時間受付・8名様まで）。公式LINE・InstagramのDM・お電話でも承ります。",
+    "ネット予約URL": "https://yoyaku.shipporitei.jp/yoyaku",
+    "_ネット予約注意": "予約アプリ(yoyaku.shipporitei.jp)の公開ページ。空席は店内の予約台帳と完全連動。9名以上・直前(2時間前以降)は電話へ誘導される。",
     "電話受付": "混雑時は電話に出られない場合がございますので、その際は公式LINEか公式InstagramのDMまでメッセージをお願いいたします。",
     "lineURL": "https://line.me/R/ti/p/@663tfcoy",
     "lineQR": "/images/line-qr.png",

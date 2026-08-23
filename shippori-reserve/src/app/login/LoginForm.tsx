@@ -28,7 +28,13 @@ export default function LoginForm({ next }: { next?: string }) {
       return;
     }
 
-    router.replace(body.must_change_password ? "/password" : (next ?? "/"));
+    /*
+     * 戻り先はこのサイトの中だけ。next はURLに載って外から差し替えられるので、
+     * 検査せずに使うと「本物のログイン画面で入力→偽サイトへ着地」の踏み台になる。
+     * 「/で始まり //ではない」以外はホームへ。
+     */
+    const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    router.replace(body.must_change_password ? "/password" : safeNext);
     router.refresh();
   }
 

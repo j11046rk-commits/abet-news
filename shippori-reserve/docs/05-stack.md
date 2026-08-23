@@ -6,7 +6,7 @@
 |---|---|---|
 | フレームワーク | **Next.js 15（App Router）+ TypeScript** | サーバー側で認証・権限を判定できる。同一プロジェクトでUIとAPIを持てる。**同じリポジトリの `the-oldman/` で既に稼働中＝実績がある** |
 | UI | **Tailwind CSS v4** | 設定ファイルが要らず、スマホ実装が速い。`the-oldman/` と同じ |
-| DB / 認証 | **Supabase（PostgreSQL + Auth + RLS）** | 行レベルセキュリティをDBに置ける。ログインID＋パスワード運用が既に確立済み |
+| DB / 認証 | **Supabase（PostgreSQL + Auth + RLS）**<br>プロジェクト `ytqjgomnktkmoddidypd`・**東京（AWS `ap-northeast-1`）** | 行レベルセキュリティをDBに置ける。ログインID＋パスワード運用が既に確立済み。リージョンは個人情報の所在なので明記する（法28条・確認 2026-08-17） |
 | ホスティング | **Vercel（リージョン `hnd1` = 東京）** | Next.jsの標準。`the-oldman/vercel.json` と同じ設定を流用できる |
 | PWA | **manifest + Service Worker（自前・軽量）** | ライブラリを増やさない。iOS Safari の挙動は自分で握る |
 | 公開フォーム | **既存Astroサイトに静的ページを追加** | 既存のデザイン資産をそのまま使える。サイトの構成を変えずに済む |
@@ -200,3 +200,23 @@ LINE_CHANNEL_ACCESS_TOKEN=       # Phase 5
 | Supabaseの代わりにFirebase | Firestoreでは「席の時間帯重複を禁止する」制約をDBに書けない。SQLの排他制約が今回の要 |
 | Remix / SvelteKit / Nuxt | どれも実現可能だが、`the-oldman` の資産（認証・PWA・レイアウト）を流用できない |
 | React Native / Flutter でネイティブアプリ | App Store申請・審査・更新の手間に対して、得られるものが「ホーム画面アイコン」程度。PWAで足りる |
+
+## HTTPヘッダー（`vercel.json`）の意図
+
+`vercel.json` はコメントを書けない（`//` を入れると Vercel が deploy を拒否する）ので、
+理由はここに残す。
+
+| 設定 | 何のため |
+|---|---|
+| `X-Robots-Tag: noindex, nofollow`（全パス） | スタッフ用の画面が検索に出ないようにする。予約者の氏名と電話が並ぶ画面なので、URLが漏れる経路を1つでも減らす |
+| `X-Robots-Tag: index, follow`（`/yoyaku` だけ） | **お客様向けの予約ページは検索に載せたい。** 上の noindex を打ち消すために置いている |
+| `Referrer-Policy: same-origin` | キャンセルのリンク（`?t=<合言葉>`）を、外部サイトへのリンクで漏らさない |
+| `X-Frame-Options: DENY` | 他サイトの枠に埋め込まれて、予約やキャンセルを踏ませられないようにする |
+| `regions: ["hnd1"]` | 東京。氏名と電話が国内で処理されるようにする（法28条の整理・`docs/09` 参照） |
+| `crons` | 連絡先の保存期間（13か月）の実行。日本時間の昼12時＝店が動いていない時間 |
+
+**`/yoyaku` の1行を消すと、予約ページが検索に出なくなる。**
+もともとページ側の metadata は `index: true` を宣言していたのに、
+全パスの noindex ヘッダーがそれを上から消していた（ヘッダーのほうが強い）。
+宣言と実際が食い違ったまま、「しっぽり亭 予約」で検索しても出ない状態だった（2026-08-17 に発見）。
+キャンセルページ（`/yoyaku/cancel`）は載せない——検索から来る意味が無いので。

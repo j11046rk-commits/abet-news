@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed:accounts": "node scripts/seed-accounts.mjs",

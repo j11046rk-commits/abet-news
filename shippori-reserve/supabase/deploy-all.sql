@@ -1296,3 +1296,2122 @@ insert into sales_monthly (ym, target_yen) values
   ('2026-11', 2840000),
   ('2026-12', 2940000)
 on conflict (ym) do update set target_yen = excluded.target_yen, updated_at = now();
+-- 0021 ネット予約（HP公開フォーム）
+--
+-- お客様向けの予約はこの関数だけが書き込む。判定と登録を1トランザクションで行い、
+-- 同じ営業日への同時送信は advisory lock で直列化する。
+-- 「画面では空いて見えたのに、押した瞬間に別の人が取っていた」場合はエラーで返り、
+-- 席の二重予約はDBの中で構造的に起きない。
+--
+-- 実行権限は service_role のみ（アプリのサーバーAPIからだけ呼べる。ブラウザから直接は呼べない）。
+
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  -- 同じ営業日の判定を直列化する（別の日どうしは並行してよい）
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+
+  if found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  if found and v_day.mode = 'event' then
+    -- イベント営業は席を持たず定員で見る
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_unit.is_shared then
+      -- カウンター：残席で見る
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      -- テーブル・和室：1晩1組（アプリ側と同じ判定）
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+revoke all on function public.net_reserve(date, timestamptz, timestamptz, integer, text, text, text, text, text)
+  from public, anon, authenticated;
+grant execute on function public.net_reserve(date, timestamptz, timestamptz, integer, text, text, text, text, text)
+  to service_role;
+-- 0022 ネット予約の席選択と繁忙日ルール
+--
+-- お客様が席を選べるようになったため、最後の砦（net_reserve）にも
+-- 店のルールを追加する：繁忙日の3名様以下はカウンターのみ。
+-- 画面やAPIをすり抜けた直接POSTでも、このルールはDBの中で必ず効く。
+
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  -- 同じ営業日の判定を直列化する（別の日どうしは並行してよい）
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+
+  if found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  if found and v_day.mode = 'event' then
+    -- イベント営業は席を持たず定員で見る
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    -- 繁忙日の3名様以下はカウンターのみ（店のルール。ネットからは例外なし）
+    if coalesce(v_day.is_busy, false) and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      -- カウンター：残席で見る
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      -- テーブル・和室：1晩1組（アプリ側と同じ判定）
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+-- 0023 ネット予約：金曜・土曜は自動的に繁忙日ルールを適用する
+--
+-- 繁忙日フラグ（business_days.is_busy）は店長の手動設定だが、金土は混むのが常なので
+-- ネット予約に限っては自動で繁忙日扱いにする（3名様以下はカウンターのみ）。
+-- 手動フラグは平日のイベント日などに引き続き使える（OR で効く）。
+
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  -- 同じ営業日の判定を直列化する（別の日どうしは並行してよい）
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+
+  if found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  -- 金(5)・土(6)は自動で繁忙日扱い。手動フラグとORで効く
+  v_busy := coalesce(v_day.is_busy, false) or extract(dow from p_date) in (5, 6);
+
+  if found and v_day.mode = 'event' then
+    -- イベント営業は席を持たず定員で見る
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    -- 繁忙日の3名様以下はカウンターのみ（店のルール。ネットからは例外なし）
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      -- カウンター：残席で見る
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      -- テーブル・和室：1晩1組（アプリ側と同じ判定）
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+-- 0024 金曜・土曜はデフォルトで繁忙日（店主指定）
+--
+-- 「繁忙日」を金土の既定値にする。店長は営業日の設定で個別にオフにできる
+-- （行の is_busy=false を保存すれば、その日はネット予約もアプリも通常扱いに戻る）。
+--
+-- 1) 行の自動作成（ensure_business_day）で金土は is_busy=true で作る
+-- 2) 既存の未来の金土の行を is_busy=true に更新
+-- 3) net_reserve は「行があればその値・無ければ曜日から導出」に変更
+--    （0023の「無条件OR」だと店長がオフにしても効かないため）
+
+create or replace function public.ensure_business_day(d date)
+returns business_days language plpgsql security definer set search_path = public as $$
+declare
+  dow    int := extract(dow from d);          -- 0=日 … 6=土
+  closed boolean;
+  cmin   int;
+  row    business_days;
+begin
+  closed := coalesce(
+    (select value @> to_jsonb(dow) from settings where key = 'closed_weekdays'), false);
+  cmin := case when dow in (5, 6) then 1500 else 1440 end;   -- 金土は25:00まで
+
+  insert into business_days (biz_date, mode, is_closed, open_min, close_min, is_busy)
+  values (d, 'normal', closed, 1080, cmin, dow in (5, 6))    -- 金土は繁忙日で作る
+  on conflict (biz_date) do nothing;
+
+  select * into row from business_days where biz_date = d;
+  return row;
+end;
+$$;
+
+-- 既存の未来の金土を繁忙日に（過去は触らない）
+update business_days
+   set is_busy = true
+ where extract(dow from biz_date) in (5, 6)
+   and biz_date >= current_date
+   and not is_busy;
+
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  -- 同じ営業日の判定を直列化する（別の日どうしは並行してよい）
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  -- 行があれば店長の設定を尊重。無ければ金土を繁忙日として導出
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    -- イベント営業は席を持たず定員で見る
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    -- 繁忙日の3名様以下はカウンターのみ（店のルール。ネットからは例外なし）
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      -- カウンター：残席で見る
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      -- テーブル・和室：1晩1組（アプリ側と同じ判定）
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+-- 0025 席ボード（タブレット常設・飛び込みのリアルタイム管理）
+--
+-- 「実際は飛び込みで埋まっている席」を、レジ横のタブレットからワンタップで記録する。
+-- ネット予約の空席判定は「予約データ ＋ 席ボード」の両方が空いているときだけ◯になる。
+-- 行は営業日(biz_date)ごとに持つ＝日付が変われば自動的にまっさら（昨日の残り事故なし）。
+
+create table if not exists seat_board (
+  biz_date   date not null,
+  -- 'T1' 'T2' 'T3' '和室' はその卓が使用中か(0/1)。'C' はカウンターの使用席数(0〜10)
+  key        text not null,
+  occupied   integer not null default 0 check (occupied between 0 and 10),
+  updated_by uuid references profiles(id),
+  updated_at timestamptz not null default now(),
+  primary key (biz_date, key)
+);
+
+alter table seat_board enable row level security;
+
+do $$ begin
+  create policy seat_board_read on seat_board for select to authenticated using (true);
+exception when duplicate_object then null; end $$;
+
+-- 書き込みはこの関数だけ（テーブル直書きはRLSで不可）
+create or replace function public.set_seat_board(p_date date, p_key text, p_value integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'ログインが必要です';
+  end if;
+  if p_key not in ('T1', 'T2', 'T3', '和室', 'C') then
+    raise exception '席の指定が不正です';
+  end if;
+  if p_value is null or p_value < 0 or p_value > 10 then
+    raise exception '値が不正です';
+  end if;
+  if p_key <> 'C' and p_value > 1 then
+    raise exception '卓は0か1です';
+  end if;
+
+  insert into seat_board (biz_date, key, occupied, updated_by)
+  values (p_date, p_key, p_value, auth.uid())
+  on conflict (biz_date, key)
+  do update set occupied = excluded.occupied, updated_by = auth.uid(), updated_at = now();
+end;
+$$;
+
+grant execute on function public.set_seat_board(date, text, integer) to authenticated;
+
+-- ネット予約の最後の砦にも席ボードを見せる：
+-- 「予約は無いが飛び込みで埋まっている席」への確定を防ぐ
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      -- 席ボード（飛び込み）は予約と重なっている可能性があるので大きい方を採る
+      v_used := greatest(v_used, coalesce(
+        (select occupied from seat_board where biz_date = p_date and key = 'C'), 0));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) or exists (
+        select 1 from seat_board
+         where biz_date = p_date and key = p_seat_note and occupied > 0
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+-- 0026 席ボード：カウンター1席ずつ（C1〜C10）
+-- 0026 席ボード：カウンターを1席ずつ管理できるようにする
+--
+-- タブレットのボードを実店舗の配置（L型カウンター）に合わせ、
+-- 丸椅子を1席ずつタップで記録する方式へ。キーは 'C1'〜'C10'（0/1）。
+-- 旧方式の 'C'（使用席数の合計）も互換のため残し、空席判定は
+-- 「予約」「C」「C1〜C10の合計」のいちばん大きい値を採る。
+
+create or replace function public.set_seat_board(p_date date, p_key text, p_value integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'ログインが必要です';
+  end if;
+  if p_key not in ('T1', 'T2', 'T3', '和室', 'C',
+                   'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10') then
+    raise exception '席の指定が不正です';
+  end if;
+  if p_value is null or p_value < 0 or p_value > 10 then
+    raise exception '値が不正です';
+  end if;
+  if p_key <> 'C' and p_value > 1 then
+    raise exception '席は0か1です';
+  end if;
+
+  insert into seat_board (biz_date, key, occupied, updated_by)
+  values (p_date, p_key, p_value, auth.uid())
+  on conflict (biz_date, key)
+  do update set occupied = excluded.occupied, updated_by = auth.uid(), updated_at = now();
+end;
+$$;
+
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      -- 席ボード（飛び込み）は予約と重なっている可能性があるので大きい方を採る。
+      -- 旧'C'（合計値）と 'C1'〜'C10'（1席ずつ）の両方式に対応
+      v_used := greatest(
+        v_used,
+        coalesce((select occupied from seat_board where biz_date = p_date and key = 'C'), 0),
+        coalesce((select sum(occupied) from seat_board
+                   where biz_date = p_date and key ~ '^C[0-9]+$'), 0));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) or exists (
+        select 1 from seat_board
+         where biz_date = p_date and key = p_seat_note and occupied > 0
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+-- 0027 ネット予約の一時停止（当日分のみ・記録つき）
+-- 0027 ネット予約の一時停止（とても忙しい日に、現場から当日分だけ止める）
+--
+-- 席ボードの「新規予約停止」を押すと、その営業日のネット予約だけが止まる。
+-- 翌日以降の予約はいつもどおり受け付ける（機会損失を最小にするため）。
+--
+-- 止めた時刻と再開した時刻は必ず1行として残す。これは記録のためであると同時に、
+-- 「止めっぱなしにすると月の合計時間として見える」という抑止のためでもある。
+
+create table if not exists net_pause (
+  id         uuid primary key default gen_random_uuid(),
+  biz_date   date not null,
+  started_at timestamptz not null default now(),
+  ended_at   timestamptz,
+  started_by uuid references profiles(id),
+  ended_by   uuid references profiles(id)
+);
+
+-- 同じ営業日に「開いたままの停止」は1つだけ
+create unique index if not exists net_pause_one_open
+  on net_pause (biz_date) where ended_at is null;
+
+create index if not exists net_pause_biz_date on net_pause (biz_date);
+
+alter table net_pause enable row level security;
+
+do $$ begin
+  create policy net_pause_read on net_pause for select to authenticated using (true);
+exception when duplicate_object then null; end $$;
+
+-- 書き込みはこの関数だけ。現場の誰でも押せる（忙しい最中に権限で迷わせない）
+create or replace function public.set_net_pause(p_date date, p_on boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'ログインが必要です';
+  end if;
+
+  if p_on then
+    -- 既に止まっているなら二重に記録しない
+    insert into net_pause (biz_date, started_by)
+    select p_date, auth.uid()
+     where not exists (
+       select 1 from net_pause where biz_date = p_date and ended_at is null
+     );
+  else
+    update net_pause
+       set ended_at = now(), ended_by = auth.uid()
+     where biz_date = p_date and ended_at is null;
+  end if;
+end;
+$$;
+
+grant execute on function public.set_net_pause(date, boolean) to authenticated;
+
+-- 最後の砦にも停止を見せる：止めている間はその日の登録を通さない
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  -- 現場が受付を止めている日
+  if exists (select 1 from net_pause where biz_date = p_date and ended_at is null) then
+    raise exception 'NET_PAUSED';
+  end if;
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      -- 席ボード（飛び込み）は予約と重なっている可能性があるので大きい方を採る。
+      -- 旧'C'（合計値）と 'C1'〜'C10'（1席ずつ）の両方式に対応
+      v_used := greatest(
+        v_used,
+        coalesce((select occupied from seat_board where biz_date = p_date and key = 'C'), 0),
+        coalesce((select sum(occupied) from seat_board
+                   where biz_date = p_date and key ~ '^C[0-9]+$'), 0));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) or exists (
+        select 1 from seat_board
+         where biz_date = p_date and key = p_seat_note and occupied > 0
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+-- 0028 イベント営業のチラシと当日締切
+-- 0028 イベント営業のチラシと、当日ネット予約の締切
+--
+-- イベント営業は通常営業とメニューも価格も違う。お客様が知らずに予約して
+-- 「思っていたのと違う」となるのを防ぐため、
+--   ・イベント日はチラシ（画像/PDF）の登録を必須にする
+--   ・予約ページでチラシを見せ、了承のチェックを取る
+--   ・準備の都合もあるので、ネット予約は前日までで締め切る
+-- という3点を仕組みとして持たせる。
+
+alter table business_days add column if not exists flyer_url text;
+
+comment on column business_days.flyer_url is
+  'イベント営業のチラシ（画像またはPDF）の公開URL。イベント日は必須。';
+
+-- チラシの置き場所。公開バケット（予約ページのお客様が見るため）
+insert into storage.buckets (id, name, public)
+values ('flyers', 'flyers', true)
+on conflict (id) do update set public = true;
+
+do $$ begin
+  create policy flyers_public_read on storage.objects
+    for select using (bucket_id = 'flyers');
+exception when duplicate_object then null; end $$;
+
+-- 最後の砦：イベント日の当日ネット予約は通さない（前日まで）
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+  v_today  date;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  -- 現場が受付を止めている日
+  if exists (select 1 from net_pause where biz_date = p_date and ended_at is null) then
+    raise exception 'NET_PAUSED';
+  end if;
+
+  -- 営業日は朝4時で切り替わる（深夜1時はまだ前日の営業）
+  v_today := ((now() at time zone 'Asia/Tokyo') - interval '4 hours')::date;
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  -- イベント営業のネット予約は前日まで
+  if v_found and v_day.mode = 'event' and p_date <= v_today then
+    raise exception 'NET_EVENT_TODAY';
+  end if;
+
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      v_used := greatest(
+        v_used,
+        coalesce((select occupied from seat_board where biz_date = p_date and key = 'C'), 0),
+        coalesce((select sum(occupied) from seat_board
+                   where biz_date = p_date and key ~ '^C[0-9]+$'), 0));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) or exists (
+        select 1 from seat_board
+         where biz_date = p_date and key = p_seat_note and occupied > 0
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+-- 0029 席を1席ずつ記録し、着席・退席を履歴として残す
+-- 0029 席を1席ずつ記録し、着席・退席を履歴として残す
+--
+-- これまで席ボードは「いま埋まっているか」しか持っていなかった（上書きなので履歴が消える）。
+-- 客席稼働率や時間帯別の滞在時間を後から見られるように、タップのたびに
+-- 「座った時刻・立った時刻」を1行として積み上げる。
+--
+-- あわせて、テーブルと和室も卓ごとではなく席ごとに扱う。
+-- ただし**予約の空席判定は今までどおり「1席でも埋まっていればその卓は満席」**（店主指定）。
+--
+-- いちばん危険なのは、キーの体系を変えた瞬間に空席判定が
+-- 「埋まっている卓を空きと誤認する」ことなので、
+-- 席キー → 卓名 の対応表（seat_slots）をDBに1つだけ置き、判定はすべてそれを通す。
+
+-- ── 席マスタ ─────────────────────────────────────────────
+create table if not exists seat_slots (
+  key        text primary key,   -- 'C1' 'T1-3' 'Z5'
+  unit_name  text not null,      -- seat_units.name と一致（'カウンター' 'T1' '和室'）
+  area       text not null check (area in ('counter', 'table', 'private')),
+  label      text not null,      -- ボードに出す短い名前
+  sort_order integer not null default 0
+);
+
+insert into seat_slots (key, unit_name, area, label, sort_order)
+select 'C' || n, 'カウンター', 'counter', n::text, n
+  from generate_series(1, 10) as n
+on conflict (key) do nothing;
+
+insert into seat_slots (key, unit_name, area, label, sort_order)
+select 'T' || t || '-' || n, 'T' || t, 'table', n::text, t * 10 + n
+  from generate_series(1, 3) as t, generate_series(1, 6) as n
+on conflict (key) do nothing;
+
+insert into seat_slots (key, unit_name, area, label, sort_order)
+select 'Z' || n, '和室', 'private', n::text, 100 + n
+  from generate_series(1, 8) as n
+on conflict (key) do nothing;
+
+alter table seat_slots enable row level security;
+do $$ begin
+  create policy seat_slots_read on seat_slots for select to authenticated using (true);
+exception when duplicate_object then null; end $$;
+
+-- ── 着席のセッション ──────────────────────────────────────
+create table if not exists seat_log (
+  id        bigint generated always as identity primary key,
+  biz_date  date not null,
+  seat_key  text not null,
+  unit_name text not null,
+  area      text not null,
+  seated_at timestamptz not null default now(),
+  left_at   timestamptz,          -- null なら着席中
+  seated_by uuid references profiles(id),
+  left_by   uuid references profiles(id)
+);
+
+-- 同じ席で「開いたままの記録」は1つだけ
+create unique index if not exists seat_log_open_one
+  on seat_log (biz_date, seat_key) where left_at is null;
+create index if not exists seat_log_biz_date on seat_log (biz_date);
+
+alter table seat_log enable row level security;
+do $$ begin
+  create policy seat_log_read on seat_log for select to authenticated using (true);
+exception when duplicate_object then null; end $$;
+
+-- ── 1席ぶんの記録（内部用）────────────────────────────────
+create or replace function public.set_seat_slot(p_date date, p_key text, p_on boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_slot seat_slots%rowtype;
+begin
+  select * into v_slot from seat_slots where key = p_key;
+  if not found then
+    raise exception '席の指定が不正です';
+  end if;
+
+  insert into seat_board (biz_date, key, occupied, updated_by)
+  values (p_date, p_key, case when p_on then 1 else 0 end, auth.uid())
+  on conflict (biz_date, key)
+  do update set occupied = excluded.occupied, updated_by = auth.uid(), updated_at = now();
+
+  if p_on then
+    -- すでに座っている記録があるなら二重に始めない
+    insert into seat_log (biz_date, seat_key, unit_name, area, seated_by)
+    select p_date, p_key, v_slot.unit_name, v_slot.area, auth.uid()
+     where not exists (
+       select 1 from seat_log where biz_date = p_date and seat_key = p_key and left_at is null
+     );
+  else
+    update seat_log
+       set left_at = now(), left_by = auth.uid()
+     where biz_date = p_date and seat_key = p_key and left_at is null;
+  end if;
+end;
+$$;
+
+-- ── 席ボードの書き込み口（署名は変えない）─────────────────
+-- 旧キー（'T1' '和室' 'C'）で来ても席単位へ翻訳して受ける。
+-- こうしておくと、更新前のタブレットが残っていても記録が壊れない。
+create or replace function public.set_seat_board(p_date date, p_key text, p_value integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_on boolean;
+  r    record;
+begin
+  if auth.uid() is null then
+    raise exception 'ログインが必要です';
+  end if;
+  if p_value is null or p_value < 0 or p_value > 10 then
+    raise exception '値が不正です';
+  end if;
+
+  -- 日付が変わったのに閉じ忘れている記録は、その営業日の終わり（翌朝4時）で閉じる
+  update seat_log
+     set left_at = ((biz_date + 1)::timestamp + interval '4 hours') at time zone 'Asia/Tokyo'
+   where left_at is null and biz_date < p_date;
+
+  v_on := p_value > 0;
+
+  if exists (select 1 from seat_slots where key = p_key) then
+    perform set_seat_slot(p_date, p_key, v_on);
+
+  elsif p_key = 'C' then
+    -- 旧方式：使用席数だけが来る。若い番号から順に埋める
+    for r in select key, row_number() over (order by sort_order) as n
+               from seat_slots where unit_name = 'カウンター'
+    loop
+      perform set_seat_slot(p_date, r.key, r.n <= p_value);
+    end loop;
+
+  elsif p_key in ('T1', 'T2', 'T3', '和室') then
+    -- 旧方式：卓ごと。卓が使用中＝その卓の席は全部埋まっている、として翻訳する
+    for r in select key from seat_slots where unit_name = p_key
+    loop
+      perform set_seat_slot(p_date, r.key, v_on);
+    end loop;
+    delete from seat_board where biz_date = p_date and key = p_key;
+
+  else
+    raise exception '席の指定が不正です';
+  end if;
+end;
+$$;
+
+grant execute on function public.set_seat_board(date, text, integer) to authenticated;
+revoke execute on function public.set_seat_slot(date, text, boolean) from public, anon, authenticated;
+
+-- ── 既存データの引っ越し ──────────────────────────────────
+-- 今日以降の旧キー行を席単位に展開して、旧行は消す。
+-- （消さないと、新しい画面からは触れない「一晩中埋まったままの卓」になる）
+-- 過去日はその晩の記録なのでそのまま残す。
+do $$
+declare
+  v_today date := ((now() at time zone 'Asia/Tokyo') - interval '4 hours')::date;
+  b record;
+  s record;
+begin
+  for b in select * from seat_board
+            where biz_date >= v_today and key in ('T1', 'T2', 'T3', '和室', 'C')
+  loop
+    if b.key = 'C' then
+      for s in select key, row_number() over (order by sort_order) as n
+                 from seat_slots where unit_name = 'カウンター'
+      loop
+        insert into seat_board (biz_date, key, occupied)
+        values (b.biz_date, s.key, case when s.n <= b.occupied then 1 else 0 end)
+        on conflict (biz_date, key) do update
+          set occupied = greatest(seat_board.occupied, excluded.occupied);
+      end loop;
+    else
+      for s in select key from seat_slots where unit_name = b.key
+      loop
+        insert into seat_board (biz_date, key, occupied)
+        values (b.biz_date, s.key, b.occupied)
+        on conflict (biz_date, key) do update
+          set occupied = greatest(seat_board.occupied, excluded.occupied);
+      end loop;
+    end if;
+    delete from seat_board where biz_date = b.biz_date and key = b.key;
+  end loop;
+end $$;
+
+-- ── 最後の砦：空席判定を席マスタ経由にする ────────────────
+create or replace function public.net_reserve(
+  p_date      date,
+  p_starts_at timestamptz,
+  p_ends_at   timestamptz,
+  p_party     integer,
+  p_name      text,
+  p_kana      text,
+  p_phone     text,
+  p_memo      text,
+  p_seat_note text
+) returns table (id uuid, reference text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day    business_days%rowtype;
+  v_found  boolean;
+  v_busy   boolean;
+  v_cap    integer;
+  v_guests integer;
+  v_unit   seat_units%rowtype;
+  v_used   integer;
+  v_today  date;
+begin
+  if p_party is null or p_party < 1 or p_party > 8 then
+    raise exception 'NET_PARTY';
+  end if;
+  if p_name is null or length(btrim(p_name)) = 0 then
+    raise exception 'NET_NAME';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('net-reserve-' || p_date::text));
+
+  if exists (select 1 from net_pause where biz_date = p_date and ended_at is null) then
+    raise exception 'NET_PAUSED';
+  end if;
+
+  v_today := ((now() at time zone 'Asia/Tokyo') - interval '4 hours')::date;
+
+  select * into v_day from business_days where biz_date = p_date;
+  v_found := found;
+
+  if v_found and v_day.is_closed then
+    raise exception 'NET_CLOSED';
+  end if;
+
+  if v_found and v_day.mode = 'event' and p_date <= v_today then
+    raise exception 'NET_EVENT_TODAY';
+  end if;
+
+  v_busy := case when v_found then v_day.is_busy
+                 else extract(dow from p_date) in (5, 6) end;
+
+  if v_found and v_day.mode = 'event' then
+    v_cap := coalesce(v_day.event_capacity, 36);
+    select coalesce(sum(party_size), 0) into v_guests
+      from reservations
+     where biz_date = p_date and status in ('tentative', 'confirmed', 'seated');
+    if v_guests + p_party > v_cap then
+      raise exception 'NET_FULL';
+    end if;
+  elsif p_seat_note is not null and p_seat_note <> '指定なし' then
+    select * into v_unit from seat_units where name = p_seat_note and is_active;
+    if not found then
+      raise exception 'NET_SEAT_UNKNOWN';
+    end if;
+    if v_busy and p_party <= 3 and not v_unit.is_shared then
+      raise exception 'NET_BUSY_RULE';
+    end if;
+    if v_unit.is_shared then
+      select coalesce(sum(party_size), 0) into v_used
+        from reservations
+       where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+         and seat_note is not null
+         and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'));
+      -- 席ボード（飛び込み）は予約と重なっている可能性があるので大きい方を採る
+      v_used := greatest(
+        v_used,
+        coalesce((select occupied from seat_board where biz_date = p_date and key = 'C'), 0),
+        coalesce((select count(*) from seat_board b
+                    join seat_slots s on s.key = b.key
+                   where b.biz_date = p_date and b.occupied > 0
+                     and s.unit_name = p_seat_note), 0));
+      if v_used + p_party > v_unit.capacity then
+        raise exception 'NET_FULL';
+      end if;
+    else
+      -- 1席でも埋まっていれば、その卓は満席として扱う（店主指定）。
+      -- coalesce で、席マスタに無い旧キー（'T1' '和室'）はキー自体を卓名とみなす
+      if exists (
+        select 1 from reservations
+         where biz_date = p_date and status in ('tentative', 'confirmed', 'seated')
+           and seat_note is not null
+           and p_seat_note = any(string_to_array(replace(seat_note, ' ', ''), '＋'))
+      ) or exists (
+        select 1 from seat_board b
+          left join seat_slots s on s.key = b.key
+         where b.biz_date = p_date and b.occupied > 0
+           and coalesce(s.unit_name, b.key) = p_seat_note
+      ) then
+        raise exception 'NET_FULL';
+      end if;
+    end if;
+  end if;
+
+  return query
+  insert into reservations
+    (biz_date, starts_at, ends_at, party_size, customer_name, customer_kana, phone,
+     source, source_detail, status, seat_note, memo)
+  values
+    (p_date, p_starts_at, p_ends_at, p_party, btrim(p_name), nullif(btrim(coalesce(p_kana, '')), ''),
+     p_phone, 'web_form', 'ネット予約', 'confirmed', p_seat_note,
+     nullif(btrim(coalesce(p_memo, '')), ''))
+  returning reservations.id, reservations.reference;
+end;
+$$;
+
+-- 0030 売上を税率で分ける（店内飲食と物販の切り分け）
+-- 0030 売上を税率で分ける（店内飲食と物販の切り分け）
+--
+-- うなぎの太巻きのような物販が1日で62万入ると、その日の売上が通常営業の5日分になり、
+-- 平均・前年比・目標の達成判定がすべて歪む。かといって手で分類するのは続かない。
+--
+-- 日本の消費税は、店内で食べれば10%、持ち帰れば8%（軽減税率）。
+-- つまりエアレジが税率別に出している金額が、そのまま「店内飲食」と「物販」の境目になる。
+--   10% … 店内飲食（お酒を含む）
+--    8% … 持ち帰りの食品（太巻き・オードブルなど）
+--
+-- 完全ではない（持ち帰りのお酒は10%、店内で食べた太巻きも10%）が、
+-- この店の商売では実用上まっすぐ切れる。
+--
+-- 解釈ではなく「税率いくらの売上がいくらか」という事実のまま持つ。
+-- 店内／物販への読み替えはアプリ側で行う——将来ルールが変わっても、記録は壊れない。
+
+alter table sales_daily add column if not exists tax10_yen integer
+  check (tax10_yen is null or (tax10_yen >= 0 and tax10_yen <= 100000000));
+alter table sales_daily add column if not exists tax8_yen integer
+  check (tax8_yen is null or (tax8_yen >= 0 and tax8_yen <= 100000000));
+
+comment on column sales_daily.tax10_yen is
+  '消費税10%対象の売上（＝店内飲食）。エアレジの税率別集計から取り込む。未取得の日は null';
+comment on column sales_daily.tax8_yen is
+  '消費税8%対象の売上（＝持ち帰り＝物販）。エアレジの税率別集計から取り込む。未取得の日は null';
+
+-- 手入力（営業日の設定画面）からは税率別を触らない。既存の関数はそのままでよいが、
+-- 引数を増やさずに済むよう、ここでは何も変えない。
+
+-- 分析用ビューがあれば、店内／物販を出せるように作り直す
+-- （supabase/analysis/01_v_sales_day.sql と同じ定義に2列足したもの。無ければ何もしない）
+do $$
+begin
+  if exists (select 1 from information_schema.views
+              where table_schema = 'public' and table_name = 'v_sales_day') then
+    -- 列を途中に足すので、置き換えではなく作り直す
+    execute 'drop view v_sales_day';
+    execute $v$
+      create view v_sales_day with (security_invoker = true) as
+      select
+        s.biz_date,
+        extract(dow from s.biz_date)::int as dow,
+        (array['日','月','火','水','木','金','土'])[extract(dow from s.biz_date)::int + 1] as dow_ja,
+        to_char(s.biz_date, 'YYYY-MM') as ym,
+        extract(year  from s.biz_date)::int as yy,
+        extract(month from s.biz_date)::int as mm,
+        extract(day   from s.biz_date)::int as dd,
+        s.target_yen,
+        s.actual_yen,
+        s.tax10_yen,
+        s.tax8_yen,
+        -- 店内飲食だけの売上。税率別が無い日は、物販が無かったものとして actual をそのまま使う
+        coalesce(s.tax10_yen, s.actual_yen) as dine_in_yen,
+        coalesce(s.tax8_yen, 0)             as retail_yen,
+        (s.tax8_yen is not null and s.tax8_yen > 0) as has_retail,
+        (extract(dow from s.biz_date)::int = 2) as is_tuesday,
+        (extract(dow from s.biz_date)::int in (5,6)) as is_fri_sat,
+        h.name as holiday_name,
+        (h.name is not null) as is_holiday,
+        hn.name as next_holiday_name,
+        (hn.name is not null) as is_holiday_eve,
+        (extract(dow from s.biz_date + 1)::int in (0,6) or hn.name is not null) as tomorrow_off,
+        (to_char(s.biz_date,'MM-DD') between '08-11' and '08-16') as is_obon,
+        (extract(month from s.biz_date)::int = 12
+           and extract(day from s.biz_date)::int >= 10) as is_bounenkai,
+        (to_char(s.biz_date,'MM-DD') between '10-16' and '10-18') as is_taiko_matsuri,
+        b.mode, b.is_busy, b.is_closed, b.event_name, b.open_min, b.close_min
+      from sales_daily s
+      left join jp_holidays h  on h.d = s.biz_date
+      left join jp_holidays hn on hn.d = s.biz_date + 1
+      left join business_days b on b.biz_date = s.biz_date
+    $v$;
+    execute 'grant select on v_sales_day to authenticated';
+    execute 'revoke all on v_sales_day from anon';
+  end if;
+end $$;
+
+
+-- 0031 物販（税率8%）を手でも入れられるようにする
+--
+-- 0030 でエアレジの税率別を受け取る口は作ったが、週次レポート側が税率別を送れるように
+-- なるまでは箱が空のままになる。太巻きの日のような「その日だけ物販が乗った日」は
+-- 店主が数字を知っているので、営業日の設定から直接入れられるようにする。
+--
+-- 入れるのは「うち物販（8%）」の1つだけ。店内飲食は 実績 − 物販 で出す。
+-- 2つ入力させると必ず合計が合わなくなる日が出るので、入り口は1つに絞る。
+
+-- 1) ビューの店内飲食を、税率別が片方しか無くても正しく出せるようにする。
+--    旧: coalesce(tax10, actual)            … tax8 だけ入れた日に物販が二重に乗る
+--    新: coalesce(tax10, actual - tax8)     … どちらの入り方でも合う
+do $$
+begin
+  if exists (select 1 from information_schema.views
+              where table_schema = 'public' and table_name = 'v_sales_day') then
+    execute 'drop view v_sales_day';
+    execute $v$
+      create view v_sales_day with (security_invoker = true) as
+      select
+        s.biz_date,
+        extract(dow from s.biz_date)::int as dow,
+        (array['日','月','火','水','木','金','土'])[extract(dow from s.biz_date)::int + 1] as dow_ja,
+        to_char(s.biz_date, 'YYYY-MM') as ym,
+        extract(year  from s.biz_date)::int as yy,
+        extract(month from s.biz_date)::int as mm,
+        extract(day   from s.biz_date)::int as dd,
+        s.target_yen,
+        s.actual_yen,
+        s.tax10_yen,
+        s.tax8_yen,
+        -- 店内飲食だけの売上。
+        -- エアレジから10%が来ていればそれを使い、無ければ「実績 − 物販」で出す。
+        coalesce(s.tax10_yen, s.actual_yen - coalesce(s.tax8_yen, 0)) as dine_in_yen,
+        coalesce(s.tax8_yen, 0)             as retail_yen,
+        (s.tax8_yen is not null and s.tax8_yen > 0) as has_retail,
+        (extract(dow from s.biz_date)::int = 2) as is_tuesday,
+        (extract(dow from s.biz_date)::int in (5,6)) as is_fri_sat,
+        h.name as holiday_name,
+        (h.name is not null) as is_holiday,
+        hn.name as next_holiday_name,
+        (hn.name is not null) as is_holiday_eve,
+        (extract(dow from s.biz_date + 1)::int in (0,6) or hn.name is not null) as tomorrow_off,
+        (to_char(s.biz_date,'MM-DD') between '08-11' and '08-16') as is_obon,
+        (extract(month from s.biz_date)::int = 12
+           and extract(day from s.biz_date)::int >= 10) as is_bounenkai,
+        (to_char(s.biz_date,'MM-DD') between '10-16' and '10-18') as is_taiko_matsuri,
+        b.mode, b.is_busy, b.is_closed, b.event_name, b.open_min, b.close_min
+      from sales_daily s
+      left join jp_holidays h  on h.d = s.biz_date
+      left join jp_holidays hn on hn.d = s.biz_date + 1
+      left join business_days b on b.biz_date = s.biz_date
+    $v$;
+    execute 'grant select on v_sales_day to authenticated';
+    execute 'revoke all on v_sales_day from anon';
+  end if;
+end $$;
+
+-- 2) 手入力の「うち物販」は、既存の set_sales_day には足さず別の関数にする。
+--    引数を増やすと、アプリを先に出した瞬間に目標・実績の保存まで巻き添えで壊れる。
+--    別関数なら、物販欄だけが後から効くようになるだけで済む。
+create or replace function public.set_sales_retail(p_date date, p_retail integer)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_actual integer;
+begin
+  if not has_permission('sales.write') then
+    raise exception '権限がありません。';
+  end if;
+  if p_retail is null then
+    return;                          -- null は「触らない」
+  end if;
+  if p_retail < 0 then
+    raise exception '金額が不正です。';
+  end if;
+
+  select actual_yen into v_actual from sales_daily where biz_date = p_date;
+
+  -- 物販が実績を超えるのは、どちらかの打ち間違い。入る前に止める。
+  if p_retail > 0 then
+    if v_actual is null then
+      raise exception '先にその日の実績を入れてください。';
+    end if;
+    if p_retail > v_actual then
+      raise exception '物販が実績を超えています。';
+    end if;
+  end if;
+
+  insert into sales_daily (biz_date, tax8_yen, updated_by)
+  values (p_date, p_retail, auth.uid())
+  on conflict (biz_date) do update
+    set tax8_yen   = p_retail,       -- 0 を入れれば「物販なし」に戻せる
+        updated_by = auth.uid(),
+        updated_at = now();
+end;
+$$;
+
+revoke execute on function public.set_sales_retail(date, integer) from public, anon;
+grant  execute on function public.set_sales_retail(date, integer) to authenticated;
+
+
+-- 0032 物販を入れたあとの「実績の後出し訂正」を止める
+--
+-- 0031 の set_sales_retail は、物販を書くときに「物販 ≦ 実績」を確かめる。
+-- ところが逆向きが素通りしていた——先に物販を入れておいて、あとから実績だけを
+-- 小さい額に直せる。そうなると 店内＝実績−物販 が負になり、
+-- カレンダーにも売上タブにもマイナスの金額が出る。
+--
+-- 訂正は実際に起きる（7/26のカニバリの数字を一度直している）。
+-- 入る前に止める。
+
+-- 目標・実績・物販を1回でまとめて書く。
+--
+-- 0031 では set_sales_day と set_sales_retail の2本に分けたが、それだと
+-- 「実績も物販も両方下げる」訂正が通らない。片方ずつ書くので、実績を先に下げると
+-- まだ古いままの物販を下回って弾かれ、物販を先に下げると実績を超えて弾かれる。
+-- 訂正は実際に起きるので（7/26の数字を一度直している）、3つ揃えて1回で見る。
+create or replace function public.set_sales_day_all(
+  p_date   date,
+  p_target integer,
+  p_actual integer,
+  p_retail integer
+)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_actual integer;
+  v_retail integer;
+begin
+  if not has_permission('sales.write') then
+    raise exception '権限がありません。';
+  end if;
+  if (p_target is not null and p_target < 0)
+     or (p_actual is not null and p_actual < 0)
+     or (p_retail is not null and p_retail < 0) then
+    raise exception '金額が不正です。';
+  end if;
+
+  select actual_yen, tax8_yen into v_actual, v_retail
+    from sales_daily where biz_date = p_date;
+
+  -- null は「触らない」。書いたあとの姿で見る。
+  v_actual := coalesce(p_actual, v_actual);
+  v_retail := coalesce(p_retail, v_retail);
+
+  if v_retail is not null and v_retail > 0 then
+    if v_actual is null then
+      raise exception '先にその日の実績を入れてください。';
+    end if;
+    if v_retail > v_actual then
+      raise exception '物販が実績を超えています。';
+    end if;
+  end if;
+
+  insert into sales_daily (biz_date, target_yen, actual_yen, tax8_yen, updated_by)
+  values (p_date, p_target, p_actual, p_retail, auth.uid())
+  on conflict (biz_date) do update
+    set target_yen = coalesce(p_target, sales_daily.target_yen),
+        actual_yen = coalesce(p_actual, sales_daily.actual_yen),
+        tax8_yen   = coalesce(p_retail, sales_daily.tax8_yen),
+        updated_by = auth.uid(),
+        updated_at = now();
+end;
+$$;
+
+revoke execute on function public.set_sales_day_all(date, integer, integer, integer) from public, anon;
+grant  execute on function public.set_sales_day_all(date, integer, integer, integer) to authenticated;
+
+-- 分析ビューの「店内」も、アプリと同じ式に揃える。
+--   旧: coalesce(tax10, actual - tax8)   … 10%を優先
+--   新: coalesce(actual - tax8, tax10)   … 実績を優先
+--
+-- 画面には「店内 ＋ 物販 ＝ 合計」が並ぶので、この足し算が必ず合う必要がある。
+-- 10%を優先すると、商品券や0%対象がある日に合わなくなる。
+-- 実績が無い日だけ、エアレジの10%を予備に使う。
+do $$
+begin
+  if exists (select 1 from information_schema.views
+              where table_schema = 'public' and table_name = 'v_sales_day') then
+    execute 'drop view v_sales_day';
+    execute $v$
+      create view v_sales_day with (security_invoker = true) as
+      select
+        s.biz_date,
+        extract(dow from s.biz_date)::int as dow,
+        (array['日','月','火','水','木','金','土'])[extract(dow from s.biz_date)::int + 1] as dow_ja,
+        to_char(s.biz_date, 'YYYY-MM') as ym,
+        extract(year  from s.biz_date)::int as yy,
+        extract(month from s.biz_date)::int as mm,
+        extract(day   from s.biz_date)::int as dd,
+        s.target_yen,
+        s.actual_yen,
+        s.tax10_yen,
+        s.tax8_yen,
+        coalesce(s.actual_yen - coalesce(s.tax8_yen, 0), s.tax10_yen) as dine_in_yen,
+        coalesce(s.tax8_yen, 0)             as retail_yen,
+        (s.tax8_yen is not null and s.tax8_yen > 0) as has_retail,
+        (extract(dow from s.biz_date)::int = 2) as is_tuesday,
+        (extract(dow from s.biz_date)::int in (5,6)) as is_fri_sat,
+        h.name as holiday_name,
+        (h.name is not null) as is_holiday,
+        hn.name as next_holiday_name,
+        (hn.name is not null) as is_holiday_eve,
+        (extract(dow from s.biz_date + 1)::int in (0,6) or hn.name is not null) as tomorrow_off,
+        (to_char(s.biz_date,'MM-DD') between '08-11' and '08-16') as is_obon,
+        (extract(month from s.biz_date)::int = 12
+           and extract(day from s.biz_date)::int >= 10) as is_bounenkai,
+        (to_char(s.biz_date,'MM-DD') between '10-16' and '10-18') as is_taiko_matsuri,
+        b.mode, b.is_busy, b.is_closed, b.event_name, b.open_min, b.close_min
+      from sales_daily s
+      left join jp_holidays h  on h.d = s.biz_date
+      left join jp_holidays hn on hn.d = s.biz_date + 1
+      left join business_days b on b.biz_date = s.biz_date
+    $v$;
+    execute 'grant select on v_sales_day to authenticated';
+    execute 'revoke all on v_sales_day from anon';
+  end if;
+end $$;
+
+
+-- 0033 セキュリティ監査で見つかった穴を塞ぐ（2026-08-11）
+--
+-- 予約者の氏名と電話番号を守るための回。運用ルールではなく、仕組みで塞ぐ。
+-- 見つかったもののうち、DB側で直すぶんをここにまとめる。
+
+-- ─────────────────────────────────────────────────────────────
+-- 1) 公開APIの回数制限を入れるための土台
+--
+-- SMS送信も公開キャンセルも、いまは何回でも叩ける。
+-- 電話番号を変えながら回せば、店のTwilio残高で他人にSMSを撃ち込める。
+-- 番号を変えても効くのは「宛先ごと」ではなく「全体の天井」なので、3段で見る。
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public_attempts (
+  id         bigserial primary key,
+  kind       text not null,               -- 'sms' / 'cancel'
+  subject    text,                        -- 電話番号や予約番号のハッシュ（生値は入れない）
+  ip         text,
+  ok         boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists public_attempts_recent
+  on public_attempts (kind, created_at desc);
+create index if not exists public_attempts_subject
+  on public_attempts (kind, subject, created_at desc);
+
+alter table public_attempts enable row level security;
+-- ポリシーを1つも作らない＝service role 以外は触れない
+revoke all on public_attempts from public, anon, authenticated;
+
+comment on table public_attempts is
+  '公開APIの試行回数。個人情報は入れない（subject はハッシュ）。service role のみ読み書き';
+
+-- 古い記録は溜めない。回数を見るのが目的で、履歴を残すのが目的ではない。
+create or replace function public.sweep_public_attempts()
+returns void language sql security definer set search_path = public as $$
+  delete from public_attempts where created_at < now() - interval '2 days';
+$$;
+revoke execute on function public.sweep_public_attempts() from public, anon, authenticated;
+
+-- ─────────────────────────────────────────────────────────────
+-- 2) キャンセルの鍵を、推測できない値にする
+--
+-- 予約番号 R-YYMM-NNNN は月ごとの連番。電話番号を1つ知っていれば、
+-- 0001 から順に投げるだけで他人の予約を消せるし、消さなくても
+-- 「この番号の人がこの店に予約している」ことを確かめられる。
+-- 番号は電話口で読み上げる表示用として残し、鍵は別に持つ。
+-- ─────────────────────────────────────────────────────────────
+alter table reservations
+  add column if not exists cancel_token uuid not null default gen_random_uuid();
+
+comment on column reservations.cancel_token is
+  'Webキャンセルの鍵。予約番号は連番で推測できるので、URLにはこちらを載せる';
+
+-- ─────────────────────────────────────────────────────────────
+-- 3) 関数の EXECUTE 権限を締める
+--
+-- PostgreSQL は新しい関数の EXECUTE を既定で PUBLIC に与える。
+-- revoke を1本書き忘れた ensure_business_day() は、いま anon から呼べる状態で、
+-- security definer なので RLS を無視して business_days を返してしまう。
+-- 「書き忘れない」という運用ではなく、既定値そのものを変えて塞ぐ。
+-- ─────────────────────────────────────────────────────────────
+revoke execute on all functions in schema public from public, anon;
+-- これから作る関数も、既定で anon には渡さない
+alter default privileges in schema public revoke execute on functions from public, anon;
+
+-- anon に戻す関数は無い。
+-- 公開予約（net_reserve）はブラウザからではなく、サーバー側が service role で呼んでいる。
+-- ブラウザ用の Supabase クライアント（src/lib/supabase/client.ts）は
+-- どこからも import されていないので、anon が DB を直接触る経路は存在しない。
+
+-- ─────────────────────────────────────────────────────────────
+-- 4) 席ボードと予約停止を「有効なスタッフ」だけに
+--
+-- いまの検査は auth.uid() is null だけ。退職者は profiles.is_active を
+-- false にしても Supabase Auth 側は生きているので、古いパスワードで
+-- トークンを取れば席を全部埋められる＝ネット予約を止められる。
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare v_src text;
+begin
+  -- 既存の定義の「ログインが必要です」判定だけを差し替える
+  select pg_get_functiondef(p.oid) into v_src
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'set_seat_board';
+  if v_src is not null then
+    v_src := replace(v_src, 'if auth.uid() is null then', 'if not public.is_active_user() then');
+    execute v_src;
+  end if;
+
+  select pg_get_functiondef(p.oid) into v_src
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'set_net_pause';
+  if v_src is not null then
+    v_src := replace(v_src, 'if auth.uid() is null then', 'if not public.is_active_user() then');
+    execute v_src;
+  end if;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- 5) 席まわりのテーブルを anon から切り離す
+--
+-- 0009 の revoke は「その時点で存在したテーブル」にしか効いていない。
+-- そのあとに足した seat_board / seat_slots / seat_log / net_pause は、
+-- anon の権限が付いたまま。読み取りポリシーも using(true) で、
+-- ログインさえしていれば退職者でもフロアの状況が読める。
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare t text;
+begin
+  foreach t in array array['seat_board','seat_slots','seat_log','net_pause'] loop
+    if exists (select 1 from information_schema.tables
+                where table_schema='public' and table_name=t) then
+      execute format('alter table %I enable row level security', t);
+      execute format('revoke all on %I from public, anon', t);
+      execute format('grant select on %I to authenticated', t);
+      -- 読み取りは「有効なスタッフ」に限る
+      execute format('drop policy if exists %I on %I', t || '_select', t);
+      execute format(
+        'create policy %I on %I for select to authenticated using (is_active_user())',
+        t || '_select', t);
+    end if;
+  end loop;
+end $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- 6) 監査ログから個人情報の値を落とす
+--
+-- write_audit() は before/after に行を丸ごと入れている。予約1件ごとに
+-- 氏名・電話・メモの完全なコピーが audit_logs に増え続け、画面も保持期間も無い。
+-- しかも将来「氏名を伏せる」UPDATE を流すと、その UPDATE 自体が
+-- before に平文を新しく書き込む。マスクするほど平文が増える。
+-- 先にここを直さないと、保持期間の実装が丸ごと無駄になる。
+--
+-- 「誰がいつどの予約を触ったか」は残るので、監査の目的は損なわれない。
+-- 値のハッシュも入れない（電話番号は10^11通りしかなく、総当たりで戻せる）。
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.write_audit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  key_col text   := coalesce(tg_argv[0], 'id');
+  pii     text[] := array['customer_name','customer_kana','phone','memo',
+                          'allergy','invoice_name','source_detail','cancel_reason'];
+  b jsonb := case when tg_op = 'INSERT' then null else to_jsonb(old) end;
+  a jsonb := case when tg_op = 'DELETE' then null else to_jsonb(new) end;
+  rec jsonb := coalesce(a, b);
+  k text;
+begin
+  if tg_table_name = 'reservations' then
+    foreach k in array pii loop
+      if b ? k and b->>k is not null then b := jsonb_set(b, array[k], '"***"'::jsonb); end if;
+      if a ? k and a->>k is not null then a := jsonb_set(a, array[k], '"***"'::jsonb); end if;
+    end loop;
+  end if;
+  insert into audit_logs (actor, action, target_table, target_id, before, after)
+  values (auth.uid(), tg_table_name || '.' || lower(tg_op), tg_table_name, rec ->> key_col, b, a);
+  return coalesce(new, old);
+end;
+$$;
+
+-- すでに貯まっているぶんを1回だけ洗う
+update audit_logs
+   set before = before - 'customer_name' - 'customer_kana' - 'phone' - 'memo'
+                       - 'allergy' - 'invoice_name' - 'source_detail' - 'cancel_reason',
+       after  = after  - 'customer_name' - 'customer_kana' - 'phone' - 'memo'
+                       - 'allergy' - 'invoice_name' - 'source_detail' - 'cancel_reason'
+ where target_table = 'reservations'
+   and (before is not null or after is not null);
+
+-- ─────────────────────────────────────────────────────────────
+-- 7) 連絡先の保存期間
+--
+-- 来店日から13か月たった予約の「連絡先だけ」を消す。
+-- 人数・時刻・流入元・席・状態は残すので、売上と集計は無傷。
+-- 基準は status ではなく biz_date にする。status を手で completed に
+-- 変える運用は忙しい店では回らず、大半が confirmed のまま残るため。
+--
+-- 呼び出しは pg_cron が使えるなら日次、使えないなら
+-- 週次レポートのバッチから RPC で1日1回呼ぶ。
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.purge_reservation_pii(p_months integer default 13)
+returns integer language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  update reservations
+     set customer_name = '（保存期間経過）',   -- NOT NULL かつ空文字禁止なので置き換える
+         customer_kana = null,
+         phone         = null,
+         memo          = null,
+         allergy       = null,
+         invoice_name  = null,
+         source_detail = null
+   where biz_date < (now() at time zone 'Asia/Tokyo')::date - make_interval(months => p_months)
+     and customer_name <> '（保存期間経過）';
+  get diagnostics n = row_count;
+  insert into audit_logs (actor, action, target_table, target_id, before, after)
+  values (null, 'reservations.purge', 'reservations', null, null,
+          jsonb_build_object('rows', n, 'months', p_months));
+  return n;
+end;
+$$;
+revoke execute on function public.purge_reservation_pii(integer) from public, anon, authenticated;
+
+comment on function public.purge_reservation_pii(integer) is
+  '来店日から指定月数を過ぎた予約の連絡先を消す。人数・時刻・流入元は残す';
+
+
+-- 0034 2026年12月の月間売上目標を訂正（店主確認 2026-08-11）
+--
+-- 0020 に入れた 2026-12 の月間目標が 2,940,000円 だったが、正しくは 3,940,000円。
+-- 桁の打ち間違い（3→2）。
+--
+-- 見つかった経緯：日毎目標（0019）の合計と月間目標（0020）を突き合わせたところ、
+-- 12月だけが 999,998円 ずれていた。他の6か月は配分の丸め差（±6円）で一致している。
+--
+--   月        日毎の合計    月間目標      差
+--   2026-06   2,689,999    2,690,000        -1
+--   2026-07   2,750,002    2,750,000        +2
+--   2026-08   3,119,997    3,120,000        -3
+--   2026-09   2,780,002    2,780,000        +2
+--   2026-10   2,110,003    2,110,000        +3
+--   2026-11   2,839,994    2,840,000        -6
+--   2026-12   3,939,998    2,940,000  +999,998  ← ここだけ桁違い
+--
+-- 店主が別の場で目標を直したとき、日毎目標だけが差し替わり、月間目標の表が
+-- 古いまま残っていた。日毎の合計（＝店主提供の配分）が正なので、そちらに合わせる。
+--
+-- 直さないと12月は、実績が294万に届いた時点で「月間目標達成」の紙吹雪が出る。
+-- 年間で一番大きい月の道のりゲージが、100万円ぶん手前でいっぱいになる。
+--
+-- 教訓：日毎目標（0019）と月間目標（0020）は同じ数字を2か所に持っている。
+-- 片方だけ直すとこうなる。どちらかを直すときは必ず両方見ること。
+
+update sales_monthly set target_yen = 3940000, updated_at = now()
+ where ym = '2026-12' and target_yen = 2940000;
+
+
+-- 0035 2026年の売上目標を「日次の合計＝月間目標」にそろえる（店主指示 2026-08-11）
+--
+-- 日毎目標（0019）は月間目標を曜日指数で割って作ったので、配分の丸めで
+-- 毎月数円の端数が出ていた。店主の指示で、端数はその月の**営業最終日**に寄せて
+-- 日次の合計と月間目標をぴったり一致させる。
+--
+-- ずれは最大でも6円（11月）。営業最終日の目標が数円動くだけで、
+-- 日々の運用には何の影響もない。逆に、ここが合っていないと
+-- 「日毎を全部達成したのに月間が1円足りない」という気持ち悪い状態が起きる。
+--
+-- あわせて、1〜5月の月間目標が抜けていたので入れる。
+-- 値は日次の合計を1万円単位に丸めたもの（差はいずれも±6円以内なので一意に決まる）。
+--
+--   月        日次の合計    月間目標     端数
+--   2026-01   3,000,002    3,000,000      -2   ← 月間目標を新設
+--   2026-02   3,000,000    3,000,000       0   ← 月間目標を新設
+--   2026-03   3,799,999    3,800,000      +1   ← 月間目標を新設
+--   2026-04   2,839,996    2,840,000      +4   ← 月間目標を新設
+--   2026-05   2,929,998    2,930,000      +2   ← 月間目標を新設
+--   2026-06   2,689,999    2,690,000      +1
+--   2026-07   2,750,002    2,750,000      -2
+--   2026-08   3,119,997    3,120,000      +3
+--   2026-09   2,780,002    2,780,000      -2
+--   2026-10   2,110,003    2,110,000      -3
+--   2026-11   2,839,994    2,840,000      +6
+--   2026-12   3,939,998    3,940,000      +2
+
+-- ── 1) 抜けていた月間目標を入れる ──────────────────────────
+insert into sales_monthly (ym, target_yen) values
+  ('2026-01', 3000000),
+  ('2026-02', 3000000),
+  ('2026-03', 3800000),
+  ('2026-04', 2840000),
+  ('2026-05', 2930000)
+on conflict (ym) do nothing;
+
+-- ── 2) 端数を営業最終日に寄せる ────────────────────────────
+--
+-- 営業最終日＝その月で target_yen が 0 より大きい最後の日。
+-- 火曜定休の日は 0 が入っているので、そこを最終日に選ばないようにする
+-- （2026年4月から火曜定休。3月までは火曜も営業しているので 3/31(火) が正しく最終日になる）。
+--
+-- 差が0なら何もしない＝この回を何度流しても結果は同じ。
+do $$
+declare
+  r      record;
+  v_sum  integer;
+  v_last date;
+  v_diff integer;
+begin
+  for r in select ym, target_yen from sales_monthly where ym like '2026-%' order by ym loop
+    select sum(target_yen), max(biz_date)
+      into v_sum, v_last
+      from sales_daily
+     where to_char(biz_date, 'YYYY-MM') = r.ym
+       and coalesce(target_yen, 0) > 0;
+
+    continue when v_last is null;              -- 日毎目標がまだ無い月は触らない
+
+    v_diff := r.target_yen - coalesce(v_sum, 0);
+    continue when v_diff = 0;
+
+    -- 端数が数円で収まらないなら、それは丸めではなく入力の食い違い。
+    -- 黙って直さず止める（12月の桁違いのようなケースを吸収してしまわないため）。
+    if abs(v_diff) > 100 then
+      raise exception '% の端数が % 円で、丸めの範囲を超えています。目標そのものを確認してください。',
+        r.ym, v_diff;
+    end if;
+
+    update sales_daily
+       set target_yen = target_yen + v_diff
+     where biz_date = v_last;
+  end loop;
+end $$;
+
+-- ── 3) そろったことを確かめる ──────────────────────────────
+do $$
+declare r record; v_sum integer;
+begin
+  for r in select ym, target_yen from sales_monthly where ym like '2026-%' loop
+    select coalesce(sum(target_yen), 0) into v_sum
+      from sales_daily
+     where to_char(biz_date, 'YYYY-MM') = r.ym and coalesce(target_yen, 0) > 0;
+    if v_sum <> r.target_yen then
+      raise exception '% がそろっていません（日次の合計 % ／ 月間目標 %）', r.ym, v_sum, r.target_yen;
+    end if;
+  end loop;
+end $$;
+
+
+-- 0036 席まわりの読み取りポリシーの二重掛けを解く（0033 の取りこぼし）
+--
+-- 0033 で seat_board / seat_slots / seat_log / net_pause の読み取りを
+-- is_active_user() に絞ったつもりだったが、効いていなかった。
+--
+-- 元からあったポリシー名が <table>_read で、0033 が作ったのは <table>_select。
+-- PostgreSQL の permissive なポリシーは **OR で結合される** ので、
+--   (true) OR (is_active_user())
+-- となって常に真。つまり退職者でもフロアの状況が読めるままだった。
+--
+-- 教訓：ポリシーを「置き換える」つもりのときは、同じ名前で作り直すか、
+-- 古いほうを名指しで消すこと。名前を変えて足すと、足しただけになる。
+--
+-- 書き込みのポリシーは元々1つも無い（更新は security definer 関数だけが行う）ので、
+-- SELECT のポリシーを1本にするだけでよい。
+
+do $$
+declare
+  t text;
+  p record;
+begin
+  foreach t in array array['seat_board','seat_slots','seat_log','net_pause'] loop
+    if not exists (select 1 from information_schema.tables
+                    where table_schema='public' and table_name=t) then
+      continue;
+    end if;
+
+    -- この表の SELECT ポリシーのうち、今回の <table>_select 以外を全部落とす
+    for p in
+      select pol.polname
+        from pg_policy pol
+        join pg_class c on c.oid = pol.polrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public'
+         and c.relname = t
+         and pol.polcmd = 'r'
+         and pol.polname <> t || '_select'
+    loop
+      execute format('drop policy %I on %I', p.polname, t);
+    end loop;
+
+    -- 念のため、残す1本を作り直す（0033 が流れていない環境でも成立させる）
+    execute format('drop policy if exists %I on %I', t || '_select', t);
+    execute format(
+      'create policy %I on %I for select to authenticated using (is_active_user())',
+      t || '_select', t);
+  end loop;
+end $$;
+
+-- 確かめる：SELECT ポリシーがちょうど1本で、条件が is_active_user() であること
+do $$
+declare t text; v_cnt integer; v_qual text;
+begin
+  foreach t in array array['seat_board','seat_slots','seat_log','net_pause'] loop
+    if not exists (select 1 from information_schema.tables
+                    where table_schema='public' and table_name=t) then
+      continue;
+    end if;
+    select count(*), max(pg_get_expr(pol.polqual, pol.polrelid))
+      into v_cnt, v_qual
+      from pg_policy pol
+      join pg_class c on c.oid = pol.polrelid
+      join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname='public' and c.relname = t and pol.polcmd = 'r';
+    if v_cnt <> 1 or v_qual <> 'is_active_user()' then
+      raise exception '% の読み取りポリシーが想定と違います（% 本 / %）', t, v_cnt, v_qual;
+    end if;
+  end loop;
+end $$;
+
+
+-- 0037 貸切の日はネット予約を受けない（DB側の最後の砦）
+--
+-- 貸切（is_exclusive・25名様〜のフロア一体利用）は、席が個別に埋まっていなくても
+-- その日は店ごと押さえている。ところが空席判定はどこも is_exclusive を見ておらず、
+-- 貸切の日でも予約ページが「◯空席あり」を出し、お客様が予約できてしまっていた。
+-- 来店して初めて貸切だと分かる——店にとってもお客様にとっても一番まずい形。
+--
+-- アプリ側（src/lib/public-booking.ts の dayStatus）でも塞いだが、
+-- net_reserve は「アプリを信用せず、DBが最後に拒否する」ための関数なので、
+-- ここにも同じ判定を置く。
+--
+-- 差し込む場所は advisory lock を取ったすぐ後、NET_PAUSED の隣。
+-- どちらも「席の空き以前に、その日はもう受けない」という同じ性質の判定なので。
+--
+-- 既存の合図と同じく例外で返す。予約ページ側は NET_FULL と同じ扱いにして
+-- 「たった今この枠が埋まりました」と出す（貸切であることは外に出さない）。
+
+do $$
+declare
+  v_src text;
+  v_new text;
+begin
+  select pg_get_functiondef(p.oid) into v_src
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'net_reserve';
+
+  if v_src is null then
+    raise exception 'net_reserve が見つかりません。0021〜0029 が適用されているか確認してください。';
+  end if;
+
+  -- 何度流しても同じ結果になるように
+  if position('NET_EXCLUSIVE' in v_src) > 0 then
+    raise notice '貸切の判定はすでに入っています。何もしません。';
+    return;
+  end if;
+
+  -- 目印は 0027 で入った NET_PAUSED の判定ブロック。その直後に足す。
+  if position('raise exception ''NET_PAUSED'';' in v_src) = 0 then
+    raise exception 'net_reserve の中に NET_PAUSED の判定が見つかりません。定義が想定と違います。';
+  end if;
+
+  -- 差し込む前と後を、そのままの姿で書く（$old$ … $old$ で囲めば引用符も改行も素通し）。
+  -- エスケープの積み木で組むと、読む人が「実際どういう文字列になるのか」を
+  -- 頭の中で組み立てないと分からなくなる。ここは1文字違えば置換が外れる場所なので。
+  v_new := replace(
+    v_src,
+$old$    raise exception 'NET_PAUSED';
+  end if;$old$,
+$new$    raise exception 'NET_PAUSED';
+  end if;
+
+  -- 貸切は店ごと押さえる予約。席の空きにかかわらずネットからは受けない。
+  if exists (
+    select 1 from reservations
+     where biz_date = p_date
+       and is_exclusive
+       and status in ('tentative','confirmed','seated')
+  ) then
+    raise exception 'NET_EXCLUSIVE';
+  end if;$new$
+  );
+
+  if v_new = v_src then
+    raise exception '差し込みに失敗しました（置換が一致しませんでした）。';
+  end if;
+
+  execute v_new;
+  raise notice '貸切の判定を net_reserve に追加しました。';
+end $$;
+
+-- 入ったことを確かめる
+do $$
+begin
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'net_reserve'
+       and position('NET_EXCLUSIVE' in pg_get_functiondef(p.oid)) > 0
+  ) then
+    raise exception 'net_reserve に貸切の判定が入っていません。';
+  end if;
+end $$;
+
+-- 貸切の日を素早く引けるように（1日に何度も見る判定なので）
+create index if not exists reservations_exclusive_idx
+  on reservations (biz_date)
+  where is_exclusive and status in ('tentative','confirmed','seated');

@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { apiProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { can } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 
 const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
 
 /** 表示名・ロール・有効/無効・オーナー直通の対象かどうかを変更する */
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const me = await getProfile();
-  if (!me || !can(me.role, "account.write")) {
-    return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
-  }
+  const gate = await apiProfile("account.write");
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const me = gate.me;
 
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
@@ -39,6 +37,23 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   const admin = createAdminClient();
   const { error } = await admin.from("profiles").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: "更新できませんでした。" }, { status: 400 });
+
+  /*
+   * ★「無効にする」を、ログインそのものが通らない状態にする。
+   *
+   * これまでは profiles.is_active を false にするだけで、Supabase Auth 側の
+   * ユーザーとパスワードはそのまま生きていた。/api/auth/login は
+   * サインインが成功したあとで is_active を見て signOut しているだけなので、
+   * アプリを通さずに Supabase を直接叩けば、辞めた人が古いパスワードで
+   * トークンを取れてしまう（席を全部埋めてネット予約を止める、等ができる）。
+   *
+   * 出勤停止と同時に、鍵そのものを止める。
+   */
+  if (patch.is_active === false) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "876000h" }); // 実質永久
+  } else if (patch.is_active === true) {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
+  }
 
   return NextResponse.json({ ok: true });
 }

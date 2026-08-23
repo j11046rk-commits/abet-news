@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { fmtYen } from "@/lib/sales";
+import { fmtYen, guestsPerCheck, hitOf, perGuest, shownYen } from "@/lib/sales";
 import { chipColors } from "@/lib/staff";
 
 export type SalesBoardDay = {
@@ -13,8 +13,17 @@ export type SalesBoardDay = {
   holiday: boolean;
   closed: boolean;
   target: number | null;
-  actual: number | null;
   isToday: boolean;
+  /** 店内の売上。日毎の表示と達成判定はこれだけを見る */
+  dineIn: number | null;
+  /** 物販の売上。0 なら物販なし */
+  retail: number;
+  /** その日の合計（店内＋物販）。月間に積むのはこれ */
+  total: number | null;
+  /** 客数（エアレジ）。取り込めていない日は null */
+  guests: number | null;
+  /** 会計数＝伝票の枚数（おおよその組数）。取り込めていない日は null */
+  checks: number | null;
 };
 
 export type SalesContrib = {
@@ -86,6 +95,13 @@ function Confetti() {
  * B 連続達成ストリーク🔥（今月の現在と最長）
  * C 達成した日に出勤していた人へ⭐（確定シフト×達成日）
  * D 月間目標への道のりゲージ（25/50/75の節目＋ペースからの月末着地予測）
+ *
+ * ★物差しが2つある（店主指示 2026-08「日毎からは外して、月間には計上する」）
+ *   店内だけで見る … A の日次バナー・B ストリーク・C ⭐・グリッドの金色
+ *   物販込みで見る … D のゲージ・月間目標の達成・実績タイル・残り・達成率
+ *   物販そのもの   … 別枠の「今月の物販」カード
+ * どれか1つだけ基準を動かすと、同じ日について画面ごとに答えが違う状態になる。
+ * 日毎の判定は必ず lib/sales.ts の hitOf() を通すこと。
  */
 export default function SalesBoard({
   days,
@@ -100,36 +116,108 @@ export default function SalesBoard({
   contrib: SalesContrib[];
   shiftsPublished: boolean;
 }) {
-  const { dailySum, cumTarget, cumLabel, actualTotal, inMonth } = useMemo(() => {
+  const {
+    dailySum,
+    cumTarget,
+    cumLabel,
+    actualTotal,
+    retailTotal,
+    retailDays,
+    inMonth,
+    guestTotal,
+    checkTotal,
+    guestSales,
+    guestRetail,
+    guestDays,
+  } = useMemo(() => {
+    /*
+     * 「ここまでの目標」の締め日。
+     *
+     * 実績はエアレジから翌朝に入るので、昼間に開くと今日のぶんはまだ無い。
+     * それなのに今日の目標まで足して比べると、達成率は毎日、
+     * 今日の目標1日ぶんだけ低く出る。夕方に見るほど悪く見えるのに、
+     * 何もしていないのに翌朝には戻る——数字が信用されなくなる。
+     *
+     * 締め日は「実績が入っている最後の日」に合わせる（＝ふつうは昨日）。
+     * 日付を決め打ちにしないのは、取り込みが何日か止まったときに
+     * 締め日がその日のまま止まり、画面の見出しがそれを教えてくれるから。
+     */
+    const lastWithActual = days.reduce<string | null>(
+      (last, d) => (d.total != null && d.date <= today ? d.date : last),
+      null,
+    );
+
     let dailySum = 0;
     let cumTarget = 0;
     let actualTotal = 0;
+    let retailTotal = 0;
+    const retailDays: SalesBoardDay[] = [];
+    // 客数は「取り込めた日」だけを足す。客単価の分子も同じ日ぶんに揃える——
+    // 月の半分しか客数が無い月に月まるごとの売上を割ると、客単価が倍に見える。
+    let guestTotal = 0;
+    let checkTotal = 0;
+    let guestSales = 0;
+    let guestRetail = 0;
+    let guestDays = 0;
     for (const d of days) {
+      if (d.guests != null && d.guests > 0) {
+        guestTotal += d.guests;
+        guestSales += d.total ?? 0;
+        guestRetail += d.retail;
+        guestDays += 1;
+      }
+      if (d.checks != null) checkTotal += d.checks;
       if (d.target) {
         dailySum += d.target;
-        if (d.date <= today) cumTarget += d.target;
+        if (lastWithActual && d.date <= lastWithActual) cumTarget += d.target;
       }
-      if (d.actual) actualTotal += d.actual;
+      // 月間は合計（物販込み）で積む。店内合計は下で引き算して出すので、
+      // 画面に並ぶ「店内 ＋ 物販 ＝ 合計」は必ず合う。
+      if (d.total != null) actualTotal += d.total;
+      if (d.retail > 0) {
+        retailTotal += d.retail;
+        retailDays.push(d);
+      }
     }
     const inMonth = days.some((d) => d.isToday);
-    const cumLabel = inMonth
-      ? `${Number(today.slice(5, 7))}/${Number(today.slice(8))}までの目標`
-      : "現時点の目標";
-    return { dailySum, cumTarget, cumLabel, actualTotal, inMonth };
+    const cumLabel = lastWithActual
+      ? `${Number(lastWithActual.slice(5, 7))}/${Number(lastWithActual.slice(8))}までの目標`
+      : inMonth
+        ? "ここまでの目標"
+        : "現時点の目標";
+    return {
+      dailySum,
+      cumTarget,
+      cumLabel,
+      actualTotal,
+      retailTotal,
+      retailDays,
+      inMonth,
+      guestTotal,
+      checkTotal,
+      guestSales,
+      guestRetail,
+      guestDays,
+    };
   }, [days, today]);
 
-  // B: ストリーク。実績が入っている営業日だけを時系列で見る（休業日は数えない・途切れさせない）
+  const dineTotal = actualTotal - retailTotal;
+  /** 売上が入っている日数。客数が何日ぶん取り込めているかを見せる相手 */
+  const daysWithSales = days.filter((d) => d.total != null).length;
+
+  // B: ストリーク。店内の売上が入っている営業日だけを時系列で見る
+  //    （休業日は数えない・途切れさせない。物販は日毎の判定には入れない）
   const { currentStreak, bestStreak, latest } = useMemo(() => {
-    const judged = days.filter((d) => d.target != null && d.actual != null);
+    const judged = days.filter((d) => d.target != null && d.target > 0 && d.dineIn != null);
     let currentStreak = 0;
     for (let i = judged.length - 1; i >= 0; i--) {
-      if (judged[i].actual! >= judged[i].target!) currentStreak++;
+      if (hitOf(judged[i])) currentStreak++;
       else break;
     }
     let bestStreak = 0;
     let run = 0;
     for (const d of judged) {
-      if (d.actual! >= d.target!) {
+      if (hitOf(d)) {
         run++;
         if (run > bestStreak) bestStreak = run;
       } else {
@@ -145,15 +233,19 @@ export default function SalesBoard({
   const cumRate = cumTarget > 0 ? rate1(actualTotal, cumTarget) : null;
   const onPace = cumRate !== null && cumRate >= 100;
 
-  // A: 祝うのは「最新の実績の日が達成」or「月間達成」
-  const latestHit = latest !== null && latest.actual! >= latest.target!;
+  // A: 祝うのは「最新の日の店内が達成」or「月間（物販込み）が達成」
+  //    左右で基準が違うのは意図的。前者は今日の店の地力、後者は今月のゴール。
+  const latestHit = latest !== null && hitOf(latest);
   const monthlyHit = monthTarget > 0 && actualTotal >= monthTarget;
 
-  // D: ゲージと着地予測（いまのペース＝実績÷今日までの目標 を月間に引き伸ばす）
-  const progress = monthTarget > 0 ? Math.min(100, (actualTotal / monthTarget) * 100) : 0;
+  // D: ゲージと着地予測
+  //    伸ばすのは店内だけ。物販は不定期の単発なので、月末まで同じ率で続く前提が成り立たない
+  //    （月初に62万入ると予測が跳ねて2000万になる）。既に入った物販はそのまま足す。
+  const progress = monthTarget > 0 ? Math.max(0, Math.min(100, (actualTotal / monthTarget) * 100)) : 0;
+  const paceBase = dailySum > 0 ? dailySum : monthTarget; // 月の商売の分布は日毎目標が知っている
   const forecast =
-    inMonth && cumTarget > 0 && actualTotal > 0
-      ? Math.round((monthTarget * actualTotal) / cumTarget)
+    inMonth && cumTarget > 0 && dineTotal > 0
+      ? retailTotal + Math.round((dineTotal * paceBase) / cumTarget)
       : null;
   const [gaugeGrown, setGaugeGrown] = useState(false);
   useEffect(() => {
@@ -173,6 +265,7 @@ export default function SalesBoard({
 
   return (
     <div className="stack">
+      {/* 左は店内の達成、右は月間（物販込み）の達成。基準が違うので片方だけ直さないこと */}
       {(latestHit || monthlyHit) && <Confetti />}
 
       {/* A: 達成のお祝い */}
@@ -182,14 +275,20 @@ export default function SalesBoard({
           <span>
             {fmtYen(monthTarget)} を超えました（＋{fmtYen(actualTotal - monthTarget)}）
           </span>
+          {retailTotal > 0 ? (
+            <span className="micro">うち物販 {fmtYen(retailTotal)}</span>
+          ) : null}
         </section>
       ) : latestHit && latest ? (
         <section className="card cheer">
           <span>
             🎉 {Number(latest.date.slice(5, 7))}/{Number(latest.date.slice(8))} 目標達成！{" "}
-            <strong>{fmtYen(latest.actual!)}</strong>
-            <span className="micro">（＋{fmtYen(latest.actual! - latest.target!)}）</span>
+            <strong>{fmtYen(latest.dineIn!)}</strong>
+            <span className="micro">（＋{fmtYen(latest.dineIn! - latest.target!)}）</span>
           </span>
+          {latest.retail > 0 ? (
+            <span className="micro">この日は物販も {fmtYen(latest.retail)}</span>
+          ) : null}
           {currentStreak >= 2 ? (
             <span className="cheer__streak">🔥 {currentStreak}日連続達成中！</span>
           ) : null}
@@ -242,7 +341,7 @@ export default function SalesBoard({
                 達成まで あと <strong>{fmtYen(shownRemaining)}</strong>
               </span>
             ) : (
-              <span className="salesnum--hit">目標達成🎯 ＋{fmtYen(shownRemaining)}</span>
+              <span className="salesnum--hit">目標達成 ＋{fmtYen(shownRemaining)}</span>
             )}
           </p>
         ) : null}
@@ -255,13 +354,17 @@ export default function SalesBoard({
         ) : null}
       </section>
 
-      {/* 現時点（月初〜今日の日毎目標の累計）に対する実績 */}
+      {/*
+        ここまでの実績と、それと同じ日までの日毎目標の累計。ここは物販込みの合計で見る。
+        3つの数字は必ず同じ締め日で揃える（真ん中の見出しがその日付を出している）。
+        片方だけ今日まで数えると、今日のぶんが入る翌朝まで達成率が低く出続ける。
+      */}
       <section className="summary">
         <div className="summary__item">
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
             {fmtYen(shownActual)}
           </span>
-          <span className="summary__label">実績</span>
+          <span className="summary__label">{retailTotal > 0 ? "実績（物販こみ）" : "実績"}</span>
         </div>
         <div className="summary__item">
           <span className="summary__num">{cumTarget > 0 ? fmtYen(shownCum) : "—"}</span>
@@ -271,9 +374,85 @@ export default function SalesBoard({
           <span className={`summary__num ${onPace ? "salesnum--hit" : ""}`}>
             {cumRate === null ? "—" : `${(shownCumRate / 10).toFixed(1)}%`}
           </span>
-          <span className="summary__label">現時点の達成率</span>
+          <span className="summary__label">達成率</span>
         </div>
       </section>
+
+      {/*
+        客数と客単価。エアレジの日別売上に並んでいる数字をそのまま持ってきて、
+        割り算だけここでやる（平均は保存しない・実績を直したときに置いていかれるため）。
+
+        **物販は客単価から抜く**（店主指示 2026-08-18）。太巻きが62万入った日を混ぜると
+        その月の客単価だけ跳ね上がり、店の地力が読めなくなる。日毎の売上を店内だけで
+        見ているのと同じ考え方で、ここも店内（合計 − 物販）で割る。
+      */}
+      {guestTotal > 0 ? (
+        <section className="card">
+          <div className="summary" style={{ margin: 0 }}>
+            <div className="summary__item">
+              <span className="summary__num">{guestTotal.toLocaleString()}</span>
+              <span className="summary__label">客数（名）</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">
+                {fmtYen(perGuest(guestSales - guestRetail, guestTotal) ?? 0)}
+              </span>
+              <span className="summary__label">客単価</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">
+                {checkTotal > 0 ? checkTotal.toLocaleString() : "—"}
+              </span>
+              <span className="summary__label">組数（会計）</span>
+            </div>
+          </div>
+          <p className="micro" style={{ margin: "0.5rem 0 0", lineHeight: 1.8 }}>
+            {guestsPerCheck(guestTotal, checkTotal) !== null
+              ? `1組あたり ${guestsPerCheck(guestTotal, checkTotal)}名。`
+              : ""}
+            {guestRetail > 0
+              ? `客単価は物販（お持ち帰り ${fmtYen(guestRetail)}）を除いた店内の売上で出しています。`
+              : ""}
+            {guestDays < daysWithSales
+              ? `※ 客数が取り込めているのは ${guestDays}日ぶんです（売上は ${daysWithSales}日ぶん）。客単価はその${guestDays}日ぶんで出しています。`
+              : ""}
+          </p>
+        </section>
+      ) : null}
+
+      {/* 物販の別枠。物販があった月だけ出す（無い月に「¥0」の枠は出さない） */}
+      {retailTotal > 0 ? (
+        <section className="card retail">
+          <p className="micro" style={{ letterSpacing: "0.12em", margin: 0 }}>
+            今月の物販
+          </p>
+          <p className="retail__num">{fmtYen(retailTotal)}</p>
+
+          <ul className="retail__days">
+            {retailDays.map((d) => (
+              <li key={d.date}>
+                <span>
+                  {Number(d.date.slice(5, 7))}/{d.day}（{d.dowLabel}）
+                </span>
+                <strong>{fmtYen(d.retail)}</strong>
+              </li>
+            ))}
+          </ul>
+
+          <p className="retail__sum">
+            店内 {fmtYen(Math.max(0, dineTotal))} ＋ 物販 {fmtYen(retailTotal)} ＝ 合計{" "}
+            <strong>{fmtYen(actualTotal)}</strong>
+          </p>
+          {cumTarget > 0 ? (
+            <p className="micro" style={{ margin: 0 }}>
+              店内だけのペースは {rate1(Math.max(0, dineTotal), cumTarget).toFixed(1)}%。
+            </p>
+          ) : null}
+          <p className="micro" style={{ margin: 0 }}>
+            物販は日毎の売上には入れず、月間の合計にだけ入れています。
+          </p>
+        </section>
+      ) : null}
 
       {/* 月のグリッド。各日に目標と実績（1円単位）。 */}
       <div className="salesgrid" role="grid" aria-label="日毎の売上目標と実績">
@@ -286,13 +465,14 @@ export default function SalesBoard({
           <div key={`pad-${i}`} />
         ))}
         {days.map((d) => {
-          const hit = d.target != null && d.actual != null && d.actual >= d.target;
+          const hit = hitOf(d);
+          const dine = shownYen(d.dineIn);
           return (
             <Link
               key={d.date}
               href={`/day/${d.date}`}
-              className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""}`}
-              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 実績${d.actual != null ? fmtYen(d.actual) : "なし"}`}
+              className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""} ${hit ? "salescell--hit" : ""}`}
+              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 店内${dine != null ? fmtYen(dine) : "なし"}${d.retail > 0 ? ` 物販${fmtYen(d.retail)}` : ""}`}
             >
               <span
                 className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
@@ -304,18 +484,21 @@ export default function SalesBoard({
               ) : (
                 <>
                   <span className={`salescell__a ${hit ? "salescell__a--hit" : ""}`}>
-                    {d.actual != null ? `${d.actual.toLocaleString()}${hit ? "🎯" : ""}` : "ー"}
+                    {dine != null ? dine.toLocaleString() : "ー"}
                   </span>
                   <span className="salescell__t">{d.target ? d.target.toLocaleString() : ""}</span>
                 </>
               )}
+              {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}
+              {d.retail > 0 ? <span className="salescell__r">＋物販</span> : null}
             </Link>
           );
         })}
       </div>
 
       <p className="micro" style={{ textAlign: "center", margin: 0 }}>
-        上段＝実績（<span className="salesnum--hit">金色🎯＝目標達成</span>）・下段＝目標（円）。タップでその日の詳細へ。
+        上段＝店内の売上（<span className="salesnum--hit">金色に光る日＝目標達成</span>）・下段＝目標（円）。
+        物販があった日は「＋物販」と出ます。タップでその日の詳細へ。
       </p>
 
       {/* C: 達成貢献⭐ */}
@@ -334,7 +517,7 @@ export default function SalesBoard({
               ))}
             </div>
             <p className="micro" style={{ margin: "0.4rem 0 0" }}>
-              目標を達成した日に出勤していた人に⭐がつきます。
+              店内の売上が目標を達成した日に出勤していた人に⭐がつきます。
               {anyStars && bestStreak >= 2 ? `今月の最長連続達成は ${bestStreak} 日。` : ""}
             </p>
           </>

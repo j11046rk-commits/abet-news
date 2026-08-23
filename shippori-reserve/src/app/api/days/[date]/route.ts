@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { apiProfile } from "@/lib/auth";
 import { getDailySummary, getSeatUsage } from "@/lib/queries";
-import { can } from "@/lib/constants";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -10,10 +9,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * exclude= に予約IDを渡すと、その予約自身のぶんは埋まりに数えない（編集用）。
  */
 export async function GET(request: Request, ctx: { params: Promise<{ date: string }> }) {
-  const me = await getProfile();
-  if (!me || !can(me.role, "reservation.read")) {
-    return NextResponse.json({ error: "権限がありません。" }, { status: 403 });
-  }
+  const gate = await apiProfile("reservation.read");
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
   const { date } = await ctx.params;
   if (!DATE_RE.test(date)) {

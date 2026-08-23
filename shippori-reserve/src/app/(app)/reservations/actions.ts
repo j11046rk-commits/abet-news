@@ -10,9 +10,9 @@ import {
   getStayMinutes,
 } from "@/lib/queries";
 import { can, SOURCES, STATUSES } from "@/lib/constants";
-import { computeSeatUsage, NO_SEAT } from "@/lib/seats";
+import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
 import { minutesToIso } from "@/lib/time";
-import type { ReservationSource, ReservationStatus } from "@/lib/types";
+import type { Reservation, ReservationSource, ReservationStatus } from "@/lib/types";
 
 export type ReservationInput = {
   biz_date: string;
@@ -42,6 +42,19 @@ export type ActionResult = { ok: true; id: string } | { ok: false; error: string
 const VALID_SOURCES = SOURCES.map((s) => s.value);
 const VALID_STATUSES = STATUSES.map((s) => s.value);
 
+/**
+ * DBが日本語で返した理由を取り出す（無ければ渡された文言）。
+ *
+ * 席の重なりはDB側のトリガーでも止めている。そこで止まったとき、
+ * 「登録できませんでした」とだけ返すと、スタッフには何が悪いのか分からない。
+ * DBは「『T1』はこの日すでに予約が入っています。」と教えてくれているので、
+ * それをそのまま見せる。
+ */
+const dbError = (message: string | undefined, fallback: string): string => {
+  const jp = message?.match(/[ぁ-んァ-ヶ一-龠「][^\n]*/);
+  return jp ? jp[0] : fallback;
+};
+
 const trim = (v: string | undefined | null) => {
   const t = (v ?? "").trim();
   return t === "" ? null : t;
@@ -58,9 +71,8 @@ function validate(input: ReservationInput): string | null {
   if (!input.source || !VALID_SOURCES.includes(input.source as ReservationSource)) {
     return "流入元（どこから来た予約か）を選んでください。";
   }
-  if (input.source === "owner_direct" && !input.source_profile_id) {
-    return "オーナー直接の場合は、どのオーナー経由かを選んでください。";
-  }
+  // 「どのオーナー経由か」は必須にしない。いまのフォームには選ぶ欄が無く、
+  // 必須のままだと「オーナー直接」の予約が一度も保存できない（登録も編集も）。
   if (input.status && !VALID_STATUSES.includes(input.status)) return "状態が不正です。";
   return null;
 }
@@ -78,8 +90,7 @@ async function seatConflictError(
     .split("＋")
     .map((s) => s.trim())
     .filter(Boolean)
-    .filter((s) => s !== NO_SEAT);
-  if (seats.length === 0) return null;
+    .filter((s) => s !== NO_SEAT && s !== EXCLUSIVE_SEAT);
 
   const [day, rows, units] = await Promise.all([
     getDailySummary(input.biz_date),
@@ -89,6 +100,16 @@ async function seatConflictError(
   if (day.mode === "event") return null;
 
   const usage = computeSeatUsage(rows, excludeId);
+
+  // 貸切の日はお店ごと押さえてある。あとから席を1つだけ入れられると、
+  // 当日その組と貸切のお客様が鉢合わせる——一番やってはいけない形。
+  // 貸切をやめる（この予約を編集して外す）のが先。
+  if (usage.exclusive) {
+    return input.is_exclusive
+      ? "この日はすでに貸切のご予約が入っています。"
+      : "この日は貸切のご予約が入っています。先に貸切の予約をご確認ください。";
+  }
+  if (seats.length === 0) return null;
 
   for (const name of seats) {
     const unit = units.find((u) => u.name === name);
@@ -156,13 +177,55 @@ export async function createReservation(input: ReservationInput): Promise<Action
     .single<{ id: string }>();
 
   if (error || !data) {
-    return { ok: false, error: "登録できませんでした。入力内容をご確認ください。" };
+    return {
+      ok: false,
+      error: dbError(error?.message, "登録できませんでした。入力内容をご確認ください。"),
+    };
   }
 
   revalidatePath("/");
   revalidatePath("/reservations");
   revalidatePath("/day/[date]", "page");
   return { ok: true, id: data.id };
+}
+
+/**
+ * 更新で書き換えるのは「フォームが持ってきた項目」だけにする。
+ *
+ * toRow の全列をそのまま update に渡すと、フォームに欄が無い項目
+ * （フリガナ・アレルギー・予算・請求書名など、ネット予約や以前の入力で
+ * 入った値）が null や false で上書きされて消える。
+ * input に無い（undefined の）項目は行に含めない＝DBの今の値が残る。
+ */
+async function toUpdateRow(input: ReservationInput) {
+  const full = await toRow(input);
+  const row: Record<string, unknown> = {};
+  const given: Record<string, boolean> = {
+    biz_date: true,
+    starts_at: true,
+    ends_at: true,
+    party_size: true,
+    customer_name: true,
+    source: true,
+    customer_kana: input.customer_kana !== undefined,
+    phone: input.phone !== undefined,
+    source_detail: input.source_detail !== undefined,
+    seat_note: input.seat_note !== undefined,
+    course_id: input.course_id !== undefined,
+    drink_plan: input.drink_plan !== undefined,
+    is_exclusive: input.is_exclusive !== undefined,
+    budget_yen: input.budget_yen !== undefined,
+    needs_invoice: input.needs_invoice !== undefined,
+    invoice_name: input.invoice_name !== undefined,
+    allergy: input.allergy !== undefined,
+    memo: input.memo !== undefined,
+    // オーナー直接をやめたときは紐づけを外す。それ以外は、選ぶ欄が来ない限り触らない
+    source_profile_id: input.source !== "owner_direct" || input.source_profile_id !== undefined,
+  };
+  for (const [col, value] of Object.entries(full)) {
+    if (given[col]) row[col] = value;
+  }
+  return row;
 }
 
 export async function updateReservation(
@@ -181,10 +244,10 @@ export async function updateReservation(
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservations")
-    .update({ ...(await toRow(input)), updated_by: me.id })
+    .update({ ...(await toUpdateRow(input)), updated_by: me.id })
     .eq("id", id);
 
-  if (error) return { ok: false, error: "更新できませんでした。" };
+  if (error) return { ok: false, error: dbError(error.message, "更新できませんでした。") };
 
   revalidatePath("/");
   revalidatePath("/reservations");
@@ -211,6 +274,45 @@ export async function setReservationStatus(
     return { ok: false, error: "キャンセルの理由を入力してください。" };
   }
 
+  /*
+   * キャンセルを取り消すときは、席がまだ空いているか見る。
+   *
+   * 見ていなかった。キャンセルした予約の席は当然そのあと他のお客様に出るので、
+   * 「キャンセルを取り消す」を押すと、同じ席を2組が持ったまま当日を迎える。
+   * 画面のどこにも警告は出ず、来店して初めて分かる——予約の仕組みとして
+   * 一番やってはいけない形。登録と変更では見ているのに、ここだけ抜けていた。
+   */
+  if (status !== "cancelled" && status !== "no_show") {
+    const supabase0 = await createClient();
+    const { data: cur } = await supabase0
+      .from("reservations")
+      .select("biz_date, party_size, seat_note, status, is_exclusive")
+      .eq("id", id)
+      .maybeSingle<Pick<Reservation, "biz_date" | "party_size" | "seat_note" | "status" | "is_exclusive">>();
+
+    // いま有効な予約の状態を変えるだけなら、席は既に自分のもの。見る必要は無い。
+    if (cur && (cur.status === "cancelled" || cur.status === "no_show")) {
+      const conflict = await seatConflictError(
+        {
+          biz_date: cur.biz_date,
+          start_min: 0, // 席の判定に時刻は使わない（1つの席は1晩1組）
+          party_size: cur.party_size,
+          customer_name: "-",
+          source: "phone",
+          seat_note: cur.seat_note ?? "",
+          is_exclusive: cur.is_exclusive,
+        },
+        id,
+      );
+      if (conflict) {
+        return {
+          ok: false,
+          error: `${conflict}この予約を戻すには、席を選び直してください。`,
+        };
+      }
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("reservations")
@@ -221,7 +323,7 @@ export async function setReservationStatus(
     })
     .eq("id", id);
 
-  if (error) return { ok: false, error: "変更できませんでした。" };
+  if (error) return { ok: false, error: dbError(error.message, "変更できませんでした。") };
 
   revalidatePath("/");
   revalidatePath("/reservations");

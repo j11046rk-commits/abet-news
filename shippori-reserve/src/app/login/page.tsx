@@ -40,6 +40,14 @@ export default async function LoginPage({
           <br />
           パスワードを忘れた場合はオーナーに再発行を依頼してください。
         </p>
+
+        {/*
+          お客様がここに着くことがある（短いURLだけを見て入力した場合など）。
+          「STAFF ONLY」と書かれた画面で行き止まりにせず、1タップで予約へ渡す。
+        */}
+        <p className="gate__guest">
+          <a href="/yoyaku">ご予約のお客様はこちら ›</a>
+        </p>
       </div>
     </div>
   );

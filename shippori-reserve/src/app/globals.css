@@ -51,8 +51,9 @@ body {
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* アプリ内のスクロールに閉じる（引っ張って再読み込みを起こさない） */
-  overscroll-behavior-y: contain;
+  /* アプリ内のスクロールに閉じる。none で端の跳ね返り(バウンス)ごと止め、
+     一番上まで戻したときにヘッダーの上へ余白が見える現象を防ぐ */
+  overscroll-behavior-y: none;
 }
 
 h1,
@@ -86,7 +87,12 @@ textarea {
 
 .app {
   min-height: 100dvh;
-  padding-top: calc(var(--safe-t));
+  /*
+    ノッチ・ステータスバーの逃げは .appbar が自分で持っている。
+    ここにも同じぶんを足していたので、上の余白が二重になっていた
+    （Dynamic Island の端末で約120pt——画面の1/6が空白）。
+    ヘッダーを持たない画面（席ボード）は、自分の側で逃げを取る。
+  */
   padding-bottom: calc(var(--tabbar-h) + var(--safe-b));
 }
 
@@ -97,7 +103,11 @@ textarea {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.7rem 1rem;
+  /*
+    ホーム画面から起動(PWA)するとステータスバーの下に潜るので、ノッチぶんを上に足す。
+    足すのはここだけ（.app 側にも入れていて、上の余白が二重になっていた）。
+  */
+  padding: calc(0.55rem + var(--safe-t)) 1rem 0.55rem;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
@@ -382,6 +392,19 @@ textarea {
   border-color: color-mix(in srgb, var(--seal) 45%, transparent);
 }
 
+/* 枠のない文字だけのボタン。畳んである欄を開くような、脇役の操作に使う */
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--gold-soft);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
 .btn-sm {
   min-height: 2.1rem;
   padding: 0.25em 0.8em;
@@ -587,6 +610,25 @@ textarea.field {
   line-height: 1.8;
 }
 
+/* 迷って着いたお客様の逃げ道。押せることが分かる大きさで、けれど主役ではない */
+.gate__guest {
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.gate__guest a {
+  color: var(--gold-soft);
+  font-size: 0.9rem;
+}
+
+/* シフトチップの時間。名前より一段落として、並んでも読みにくくならないように */
+.shiftchip__time {
+  font-size: 0.78em;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
 .brand-dot {
   color: var(--gold);
 }
@@ -670,6 +712,10 @@ textarea.field {
 .salesline__actual--hit {
   color: var(--gold);
   font-weight: 600;
+}
+/* 物販。日毎の達成判定には関わらないので、金色はまとわせない */
+.salesline__retail {
+  color: var(--text-dim);
 }
 
 /* 確認ポップアップ（繁忙日の3名様以下×テーブル・和室など） */
@@ -895,6 +941,55 @@ textarea.field {
   color: var(--text-dim);
   line-height: 1.1;
   letter-spacing: -0.02em;
+}
+/* 物販があった日の小さな印。7列のセルは狭いので金額は出さない（別枠カードで出す） */
+.salescell__r {
+  font-size: 0.5rem;
+  color: var(--gold-soft);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* 月の物販（別枠）。物販があった月だけ出る */
+.retail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.retail__num {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+.retail__days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.retail__days li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 0.2rem;
+}
+.retail__sum {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+.retail__sum strong {
+  color: var(--text);
 }
 
 .mrow__body {
@@ -1343,3 +1438,872 @@ textarea.field {
   color: var(--gold);
   margin: 1.4rem 0 0.6rem;
 }
+
+/* ═══════════════ ネット予約（お客様向け・/yoyaku）═══════════════
+   スタッフアプリと同じ濃紺×金。ただし片手のスマホで迷わず進める
+   縦一直線のウィザードで、タブバーは持たない。 */
+
+.net {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: calc(1rem + var(--safe-t)) 1rem calc(2.5rem + var(--safe-b));
+}
+
+.net__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.2rem 1rem;
+}
+.net__shop { margin: 0; font-size: 0.78rem; color: var(--text-dim); letter-spacing: 0.06em; }
+.net__title { margin: 0; font-family: var(--font-serif); font-size: 1.45rem; color: var(--gold-soft); }
+
+.net__flow { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.net__card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.net__step-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.net__no {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.net__picked { margin-left: auto; font-size: 0.82rem; color: var(--gold-soft); font-weight: 400; }
+
+.net__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.net__chip {
+  min-width: 3.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 1rem;
+}
+.net__chip:disabled { opacity: 0.32; text-decoration: line-through; }
+.net__chip--on { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+
+.net__hint { margin: 0.7rem 0 0; font-size: 0.82rem; color: var(--text-dim); line-height: 1.7; }
+.net__hint a, .net__note a, .net__foot a, .net__event a { color: var(--gold-soft); }
+.net__event { margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--beer); }
+
+/* お預かりする情報の説明。読める大きさは保ちつつ、入力の邪魔にならない位置と濃さで */
+.net__privacy {
+  margin: 1rem 0 0.9rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  font-size: 0.8rem;
+  line-height: 1.75;
+  color: var(--text-dim);
+}
+.net__privacy p { margin: 0 0 0.45rem; }
+.net__privacy p:last-child { margin-bottom: 0; }
+.net__privacy a { color: var(--gold-soft); }
+.net__privacy-title {
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+}
+
+.net__monthnav { display: flex; align-items: center; justify-content: center; gap: 0.9rem; margin-bottom: 0.7rem; }
+.net__month { font-size: 1.02rem; font-weight: 600; min-width: 7rem; text-align: center; }
+
+.net__cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.28rem; }
+.net__dow { text-align: center; font-size: 0.72rem; color: var(--text-dim); padding-bottom: 0.15rem; }
+.net__dow--sun { color: #e08585; }
+.net__dow--sat { color: #7ba3e0; }
+
+.net__day {
+  aspect-ratio: 1 / 1.12;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  padding: 0;
+}
+.net__day:disabled { opacity: 0.42; }
+.net__day-n { font-size: 0.88rem; line-height: 1.1; }
+.net__day-m { font-size: 0.72rem; line-height: 1; }
+.net__day--ok .net__day-m { color: var(--gold-soft); }
+.net__day--few .net__day-m { color: var(--warn); }
+.net__day--full .net__day-m, .net__day--closed .net__day-m { color: var(--text-dim); }
+.net__day--sel { background: var(--gold); border-color: var(--gold); }
+.net__day--sel .net__day-n, .net__day--sel .net__day-m { color: var(--bg); font-weight: 700; }
+
+.net__label { display: block; margin: 0.8rem 0 0.3rem; font-size: 0.85rem; color: var(--text-dim); }
+.net__label:first-of-type { margin-top: 0; }
+.net__label em { font-style: normal; color: var(--seal); font-size: 0.75rem; margin-left: 0.25rem; }
+
+.net__confirm-btn { width: 100%; margin-top: 1rem; padding: 0.85rem; font-size: 1.05rem; }
+.net__btnrow { display: flex; gap: 0.6rem; margin-top: 1rem; }
+.net__grow { flex: 1; }
+
+.net__error {
+  margin: 0 0 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--seal) 16%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--seal) 45%, var(--line));
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.net__summary { margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.net__summary > div { display: flex; gap: 0.8rem; }
+.net__summary dt { flex: none; width: 4.6rem; color: var(--text-dim); font-size: 0.85rem; padding-top: 0.1rem; }
+.net__summary dd { margin: 0; }
+.net__summary--big dd { font-size: 1.05rem; }
+
+.net__fineprint { margin: 0.9rem 0 0; font-size: 0.8rem; color: var(--text-dim); line-height: 1.7; }
+
+.net__done { text-align: center; }
+.net__done-mark { margin: 0; font-size: 2.2rem; }
+.net__done h2 { margin: 0.3rem 0 0.4rem; font-family: var(--font-serif); color: var(--gold-soft); }
+.net__done-lead { margin: 0 0 1rem; font-size: 0.9rem; color: var(--text-dim); }
+.net__ref {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--bg-3);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+}
+.net__ref-label { font-size: 0.75rem; color: var(--text-dim); }
+.net__ref-num { font-size: 1.6rem; font-weight: 700; letter-spacing: 0.08em; color: var(--gold-soft); }
+.net__done .net__summary { text-align: left; }
+.net__note { margin-top: 1rem; font-size: 0.85rem; color: var(--text-dim); line-height: 1.8; text-align: left; }
+.net__note p { margin: 0 0 0.3rem; }
+
+.net__foot { margin: 0.4rem 0 0; text-align: center; font-size: 0.85rem; color: var(--text-dim); }
+.net__pagefoot {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.net__pagefoot p { margin: 0.15rem 0; }
+.net__pagefoot a { color: var(--gold-soft); }
+
+/* スタッフの戻り道。お客様には用が無いので、探せば見つかる程度に落とす */
+.net__staff { margin-top: 0.9rem !important; }
+.net__staff a { color: var(--text-dim); font-size: 0.75rem; }
+
+/* ネット予約：席選択と姓名2列 */
+.net__seats { display: flex; flex-direction: column; gap: 0.5rem; }
+.net__seat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 0.98rem;
+  text-align: left;
+}
+.net__seat:disabled { opacity: 0.45; }
+.net__seat:disabled .net__seat-name { text-decoration: line-through; }
+.net__seat--on { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 700; }
+.net__seat-why { flex: none; font-size: 0.75rem; color: var(--text-dim); }
+.net__seat--on .net__seat-why { color: var(--bg); }
+.net__busy {
+  margin: 0 0 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.net__namerow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+
+/* ネット予約：SMS認証 */
+.net__sms {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+}
+.net__sms-title { margin: 0 0 0.4rem; font-size: 0.92rem; font-weight: 600; color: var(--gold-soft); }
+.net__sms-send, .net__sms-resend { width: 100%; margin-top: 0.6rem; }
+.net__sms-code { margin-top: 0.6rem; font-size: 1.3rem; letter-spacing: 0.3em; text-align: center; }
+
+/* 自動入力(オートフィル)の黄色・白塗りを打ち消して、濃紺テーマに馴染ませる */
+input.field:-webkit-autofill,
+input.field:-webkit-autofill:hover,
+input.field:-webkit-autofill:focus,
+textarea.field:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  box-shadow: 0 0 0 1000px var(--bg-3) inset;
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-3) inset;
+  border-color: var(--line);
+  transition: background-color 99999s ease-out;
+}
+
+/* カレンダー：予約1件ずつを白っぽく浮かせるカードに（店主指定・その25） */
+.mcard {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  padding: 0.34rem 0.6rem;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.28);
+}
+.mcard + .mcard { margin-top: 0.35rem; }
+.mcard .mline { padding: 0; }
+
+/* ═══════════ 売上グリッド：目標達成日は金色に光らせる（絵文字廃止・その26）═══════════ */
+.salescell--hit {
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--gold) 34%, transparent), transparent 70%),
+    color-mix(in srgb, var(--gold) 14%, var(--bg-2));
+  border-color: var(--gold);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--gold) 55%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--gold) 22%, transparent);
+  animation: hitglow 2.4s ease-in-out infinite;
+}
+.salescell--hit .salescell__a { color: var(--gold-soft); text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent); }
+@keyframes hitglow {
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 45%, transparent), inset 0 0 12px color-mix(in srgb, var(--gold) 18%, transparent); }
+  50% { box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 75%, transparent), inset 0 0 18px color-mix(in srgb, var(--gold) 30%, transparent); }
+}
+
+/* ═══════════ 席ボード（タブレット常設・/board）═══════════
+   実店舗の配置を模す：左=和室（茜）・中央=L型カウンター（金・1席ずつ）・右=テーブル3卓（青）。
+   タブレットで見やすいよう白背景（アプリ本体の濃紺とは独立したテーマ）。 */
+.fbwrap {
+  background: #f4f1ea;
+  color: #2e2a24;
+  min-height: 100dvh;
+}
+.fb {
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: calc(0.8rem + var(--safe-t)) 1rem calc(var(--tabbar-h) + 1.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.fb__head { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.fb__logo { width: 2.8rem; height: 2.8rem; object-fit: contain; flex: none; }
+.fb__head h1 { margin: 0; font-family: var(--font-serif); font-size: 1.35rem; color: #7a5c2e; }
+.fb__date { margin: 0; font-size: 1rem; color: #6b6459; font-variant-numeric: tabular-nums; }
+.fb__cap {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1e5c39;
+  background: #eaf6ee;
+  border: 1px solid #bfe0cb;
+  border-radius: 10px;
+  padding: 0.05rem 0.7rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.fb__cap b { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fb__clock {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: #4a4438;
+  background: #fff;
+  border: 1px solid #e2dccf;
+  border-radius: 10px;
+  padding: 0.05rem 0.7rem;
+  line-height: 1.5;
+}
+.fb__sum { margin: 0; margin-left: auto; font-size: 0.9rem; color: #6b6459; }
+.fb__saving { font-size: 0.8rem; color: #a15c00; }
+
+/* 図に幅を目一杯回す。横に並べると図が縮んで席が押しにくくなる */
+.fb__body { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
+
+/* フロア図：1000×430 の固定キャンバスを画面幅に合わせて等倍で縮小・拡大する。
+   位置は座標で固定＝1枚の絵と同じ扱いなので、端末や画面サイズが変わっても配置は崩れない */
+.fb__floor {
+  background: #fff;
+  border: 1px solid #e2dccf;
+  border-radius: 16px;
+  padding: 9px;
+  overflow-x: auto;
+}
+.fb__canvas { position: relative; transform-origin: top left; }
+.fb__canvas > * { position: absolute; margin: 0; }
+
+/* ── 和室（個室・掘りごたつ）：茜 ── */
+.fb__room {
+  border-radius: 14px;
+  border: 2.5px solid #c9603f;
+  background: #fff;
+  color: #2e2a24;
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* 押すのは席。枠は見た目だけ */
+}
+.fb__room--on { background: color-mix(in srgb, #c9603f 16%, #fff); }
+.fb__roomtop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 190px;
+  height: 96px;
+  background: color-mix(in srgb, #c9603f 12%, #fff);
+  border: 1px solid color-mix(in srgb, #c9603f 45%, #fff);
+  border-radius: 12px;
+}
+.fb__roomtop b { font-size: 17px; }
+.fb__roomtop small { font-size: 11px; opacity: 0.75; white-space: nowrap; }
+
+/* ── L型カウンター（金）── */
+.fb__hbar {
+  border-radius: 10px 10px 0 10px;
+  background: linear-gradient(180deg, #dcbd8d, #cfa96f);
+  border: 1px solid #b8946757;
+  display: grid;
+  place-items: center;
+  color: #5b4426;
+  font-size: 15px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.fb__vbar {
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(90deg, #dcbd8d, #cfa96f);
+  border: 1px solid #b8946757;
+  border-top: none;
+  pointer-events: none;
+}
+.fb__hint { font-size: 12px; color: #857c6d; pointer-events: none; }
+.fb__mark { object-fit: contain; opacity: 0.16; pointer-events: none; }
+
+/* ── テーブル3卓（6名掛け）：青 ── */
+.fb__tbl {
+  border-radius: 14px;
+  border: 2.5px solid #5b8dd6;
+  background: #fff;
+  color: #2e2a24;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 6px;
+  pointer-events: none;
+}
+.fb__tbl--on { background: color-mix(in srgb, #5b8dd6 16%, #fff); }
+.fb__tbllabel { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.fb__tbllabel b { font-size: 17px; }
+.fb__tbllabel small { font-size: 11px; opacity: 0.75; }
+/* 天板（席の間に置く板。文字は載せない） */
+.fb__tbltop {
+  background: color-mix(in srgb, #5b8dd6 14%, #fff);
+  border: 1px solid color-mix(in srgb, #5b8dd6 45%, #fff);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+/* ── 席（36個すべて共通のタップ対象）── */
+.fb__seat {
+  border-radius: 12px;
+  border: 2.5px solid #cbb389;
+  background: #fff;
+  color: #937f58;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  z-index: 2;
+}
+.fb__seat--counter { border-radius: 50%; }
+.fb__seat--table { border-color: #9dbbe6; color: #4f76b0; }
+.fb__seat--room { border-color: #e0a08a; color: #a9563c; }
+.fb__seat--on {
+  color: #fff;
+  font-weight: 700;
+  background: #b98136;
+  border-color: #a06a24;
+}
+.fb__seat--table.fb__seat--on { background: #5b8dd6; border-color: #4573b5; }
+.fb__seat--room.fb__seat--on { background: #c9603f; border-color: #ab4b2d; }
+
+/*
+ * 予約（まだご来店前）。点線＝「押さえてあるが、まだ座っていない」。
+ * 塗り（着席）と一目で違って見えることが要件——同じ見た目にすると
+ * 開店直後から全部埋まって見えて、誰を待っているのか分からなくなる。
+ * 席番号の代わりに姓を出す。誰が来るかが分かるほうが現場では速い。
+ */
+.fb__seat--planned {
+  border-style: dashed;
+  border-color: #b98136;
+  background: #fdf6e9;
+  color: #8a6a2f;
+  font-weight: 700;
+}
+.fb__seat-name {
+  font-size: 11px;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+/* 席が決まらなかった予約。数が合わないことを黙って隠さない */
+.fb__nofit {
+  margin: 0.4rem 0 0;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  background: #fdece7;
+  border: 1px solid #e6b3a3;
+  color: #8f3d22;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* 状態表示（空き=緑 / 使用中=白抜き） */
+.fb__state { font-style: normal; font-size: 13px; font-weight: 700; color: #1a7f4b; white-space: nowrap; }
+.fb__zashiki--on .fb__state, .fb__table--on .fb__state { color: #fff; }
+
+/* 右側：今日の予約 */
+.fb__side {
+  border: 1px solid #e2dccf;
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.8rem;
+}
+.fb__side h2 { margin: 0 0 0.5rem; font-size: 0.95rem; color: #7a5c2e; }
+.fb__empty { margin: 0; font-size: 0.85rem; color: #857c6d; }
+.fb__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; max-height: 24rem; overflow-y: auto; }
+.fb__list li { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.88rem; background: #f6f3ec; border-radius: 8px; padding: 0.35rem 0.5rem; }
+.fb__list li.fb__li--table { box-shadow: inset 3px 0 0 #5b8dd6; }
+.fb__list li.fb__li--room { box-shadow: inset 3px 0 0 #c9603f; }
+.fb__list li.fb__li--counter { box-shadow: inset 3px 0 0 #d2a25c; }
+.fb__time { font-family: var(--font-serif); color: #7a5c2e; font-variant-numeric: tabular-nums; flex: none; }
+.fb__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb__seatnote { margin-left: auto; color: #857c6d; font-size: 0.78rem; flex: none; }
+.fb__hp { flex: none; font-size: 0.68rem; border: 1px solid #b98136; color: #7a5c2e; border-radius: 999px; padding: 0 0.4rem; }
+/* お帰り済み（会計済）。一覧には残すが、済んだことがひと目で分かるよう沈ませる */
+.fb__list li.fb__li--done { opacity: 0.45; }
+.fb__done { flex: none; font-size: 0.68rem; border: 1px solid #9aa08e; color: #6b7261; border-radius: 999px; padding: 0 0.4rem; }
+
+/* 新規予約の停止（とても忙しいときだけ・記録が残る） */
+.fb__pausebtn {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #9a3412;
+  background: #fff;
+  border: 2px solid #e7b9a4;
+  border-radius: 10px;
+  padding: 0.25rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fb__pausebtn--on { color: #fff; background: #1a7f4b; border-color: #14663c; }
+.fb__pausebtn:disabled { color: #a9a294; border-color: #e4dfd4; cursor: default; }
+
+.fb__paused {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  background: #fdeceb;
+  border: 2px solid #d8503f;
+  border-radius: 12px;
+  padding: 0.6rem 0.9rem;
+  color: #8c2f22;
+}
+.fb__paused b { font-size: 1.05rem; }
+.fb__paused-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: #d8503f;
+  flex: none;
+  animation: fbpulse 1.4s ease-in-out infinite;
+}
+@keyframes fbpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.fb__paused-min { font-variant-numeric: tabular-nums; font-weight: 700; }
+.fb__paused-note { font-size: 0.82rem; }
+.fb__paused-btn {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1a7f4b;
+  border: none;
+  border-radius: 10px;
+  padding: 0.45rem 1.1rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fb__pausesum { margin: 0; font-size: 0.78rem; color: #857c6d; }
+
+.fb__alert--warn { animation: none; background: rgba(46, 42, 36, 0.55); }
+.fb__alert--warn .fb__alert-card { border-color: #d8503f; box-shadow: 0 0 40px rgba(216, 80, 63, 0.4); }
+.fb__alert--warn .fb__alert-title { color: #b23a29; }
+.fb__warnlist {
+  margin: 0 0 0.8rem;
+  padding-left: 1.1rem;
+  text-align: left;
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+.fb__warnnow {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  background: #f6f3ec;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+.fb__warnbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.fb__warnbtns .btn { color: #2e2a24; border-color: #d8d0bf; }
+.fb__warnok { color: #fff !important; background: #d8503f; border-color: #d8503f !important; }
+
+/* 新しいネット予約のお知らせ（確認するまで消えない） */
+.fb__alert {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(46, 42, 36, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  animation: fbflash 1.6s ease-in-out infinite;
+}
+@keyframes fbflash {
+  0%, 100% { background: rgba(46, 42, 36, 0.55); }
+  50% { background: rgba(120, 70, 20, 0.55); }
+}
+.fb__alert-card {
+  width: min(30rem, 100%);
+  background: #fff;
+  color: #2e2a24;
+  border: 2px solid #b98136;
+  border-radius: 16px;
+  padding: 1.3rem;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(185, 129, 54, 0.55);
+}
+.fb__alert-title { margin: 0 0 0.7rem; font-size: 1.3rem; font-weight: 700; color: #a15c00; }
+.fb__alert-line { margin: 0.3rem 0; font-size: 1.05rem; line-height: 1.7; }
+.fb__alert-ok { width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1.1rem; }
+
+/* 席種の色分け（カレンダー・日別）: テーブル=青系・和室=茜系・カウンター=金系 */
+.mcard--table { border-left: 4px solid #5b8dd6; background: color-mix(in srgb, #5b8dd6 10%, rgba(255, 255, 255, 0.06)); }
+.mcard--room { border-left: 4px solid #c9603f; background: color-mix(in srgb, #c9603f 12%, rgba(255, 255, 255, 0.06)); }
+.mcard--counter { border-left: 4px solid var(--gold); }
+.card--seat-table { border-left: 4px solid #5b8dd6; background: color-mix(in srgb, #5b8dd6 9%, var(--bg-2)); }
+.card--seat-room { border-left: 4px solid #c9603f; background: color-mix(in srgb, #c9603f 11%, var(--bg-2)); }
+.card--seat-counter { border-left: 4px solid var(--gold); }
+
+/* カレンダー: 目標達成日はその日の欄全体が金色に光る */
+.mrow--hit {
+  background:
+    radial-gradient(140% 120% at 50% 40%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 78%),
+    color-mix(in srgb, var(--gold) 7%, transparent);
+  border-radius: 10px;
+  border-bottom-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  animation: hitglow 2.4s ease-in-out infinite;
+}
+
+/* カレンダーの日毎売上: 達成日は売上グリッドと同じ金色の光をまとう */
+.salesline__actual--hit {
+  color: var(--gold-soft);
+  background:
+    radial-gradient(120% 140% at 50% 50%, color-mix(in srgb, var(--gold) 30%, transparent), transparent 75%);
+  border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
+  border-radius: 999px;
+  padding: 0 0.55rem;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 70%, transparent);
+  animation: hitglow 2.4s ease-in-out infinite;
+}
+
+/* イベント営業のチラシと同意（予約ページ／営業日設定） */
+.net__event { display: flex; flex-direction: column; gap: 0.5rem; }
+.net__event p { margin: 0; }
+.net__flyerlink a { text-decoration: underline; }
+.net__flyer {
+  display: block;
+  width: 100%;
+  max-height: 26rem;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.net__agree {
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border: 2px solid var(--seal);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--seal) 10%, var(--bg-2));
+}
+.net__agree-link { margin: 0 0 0.6rem; font-size: 0.88rem; }
+.net__agree-link a { text-decoration: underline; }
+.net__agree-box { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.92rem; line-height: 1.7; }
+.net__agree-box input { width: 1.35rem; height: 1.35rem; margin-top: 0.15rem; flex: none; }
+
+.flyer-preview { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+.flyer-preview img {
+  width: 100%;
+  max-height: 18rem;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+
+/* 予約ページ左上の「ホームページへ戻る」 */
+.net__home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.3rem 0.9rem;
+  margin-bottom: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--gold-soft);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+
+/* ───────────────────────────────────────────────
+   年間の売上（/sales/year）
+   グラフは自前のCSSで描く。図のためだけに重い部品を足さない。
+   ─────────────────────────────────────────────── */
+.ybars {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0.25rem;
+  align-items: end;
+  height: 150px;
+}
+.ybar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+.ybar__track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-3);
+  border-radius: 3px 3px 0 0;
+  /* 棒は下から伸びる。上詰めにすると月ごとの高さが比べられない */
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+/*
+  棒は目標の高さで2つに割る。目標までが .ybar__fill（落とした金）、
+  超えたぶんが .ybar__over（明るい金）。達成した月を金一色で塗ると、
+  目標の線が同じ金に埋もれて「どれだけ超えたか」が見えなくなる。
+*/
+.ybar__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--gold);
+  opacity: 0.5;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+.ybar__over {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--gold-soft);
+  border-radius: 3px 3px 0 0;
+  z-index: 2;
+}
+/* 進行中の月は、まだ伸びる途中だと分かるように薄くする */
+.ybar__fill--now { opacity: 0.3; }
+.ybar__over.ybar__fill--now { opacity: 0.6; }
+/* 目標の線。金の上でも空の目盛りの上でも読めるよう、金ではなく淡い青灰で引く */
+.ybar__goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--text-dim);
+  opacity: 0.85;
+  z-index: 3;
+}
+.ylegend__over { color: var(--gold-soft); }
+.ybar__label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  padding-top: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.ybar__label--now { color: var(--gold); font-weight: 700; }
+
+.ytable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+.ytable th,
+.ytable td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.ytable th {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.ytable td.num { text-align: right; }
+.ytable tr:last-child td { border-bottom: none; }
+.ytable__now td { background: var(--bg-2); }
+.ytable a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+
+/*
+  読み込み中の骨組み（loading.tsx）。
+  光が流れるだけの飾りなので、動きを減らす設定の端末では止める。
+*/
+.skel {
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--bg-3) 25%, #26314e 50%, var(--bg-3) 75%);
+  background-size: 200% 100%;
+  animation: skel-slide 1.2s ease-in-out infinite;
+}
+.skel--bar { height: 3rem; margin-top: calc(var(--safe-t) + 0.75rem); }
+.skel--card { height: 6.5rem; }
+.skel--row { height: 3.25rem; }
+@keyframes skel-slide {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: none; }
+}
+
+
+/*
+  予約登録の席選びに出す「いま着席中」の印（席ボードと揃えるため）。
+  選べなくはしない——着席済みの予約を直せなくなるため（lib/seats.ts の boardUsage 参照）。
+  枠だけを朱にして、押せることが見た目から分かるようにする。
+*/
+.chip--seated {
+  border-color: var(--seal);
+}
+.chip__seated {
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--seal);
+  color: #fff;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  vertical-align: 0.05rem;
+}
+
+
+/* ネット予約：LINEでの本人確認の欄（SMSの欄と並びを揃える） */
+.net__line {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(6, 199, 85, 0.45); /* LINEの緑。ここだけ店の色から外す */
+  border-radius: 12px;
+  background: rgba(6, 199, 85, 0.07);
+}
+.net__line-title {
+  margin: 0 0 0.3rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.net__line-btn {
+  margin-top: 0.6rem;
+  width: 100%;
+  background: #06c755;
+  border-color: #06c755;
+  color: #fff;
+  font-weight: 700;
+}
+
+
+/* 予約完了画面の友だち追加の導線（電話番号で予約した人にだけ出る） */
+.net__friend {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(6, 199, 85, 0.45);
+  border-radius: 12px;
+  background: rgba(6, 199, 85, 0.07);
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.5;
+}
+.net__friend-badge {
+  flex: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  background: #06c755;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* プライバシーポリシー */
+.net__privacy h3 {
+  margin: 1.1rem 0 0.3rem;
+  font-size: 0.95rem;
+  color: var(--gold-soft);
+}
+.net__privacy ul {
+  margin: 0.2rem 0 0.6rem;
+  padding-left: 1.2rem;
+}
+.net__privacy li { margin: 0.15rem 0; }
+.net__privacy p { margin: 0.3rem 0 0.6rem; }
+.net__privacy a { color: var(--gold-soft); }

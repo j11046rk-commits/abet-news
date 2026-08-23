@@ -7,9 +7,13 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "しっぽり亭 予約管理",
-    short_name: "しっぽり予約",
+    short_name: "しっぽり管理",
     description: "しっぽり亭 店舗予約管理",
-    start_url: "/",
+    // ホーム画面のアプリは必ずログイン画面から始める。
+    // ログイン済みならそのままカレンダーへ抜けるので、手間は増えない。
+    // 素のドメイン（/）はお客様の予約ページへ送る作りなので、
+    // 入れたばかりの端末がここから始まると、スタッフが予約ページに着いてしまう。
+    start_url: "/login",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

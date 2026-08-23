@@ -2,6 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["hnd1"],
+  "crons": [
+    { "path": "/api/cron/purge", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/remind", "schedule": "0 10 * * *" },
+    { "path": "/api/cron/quiet-day", "schedule": "0 4 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -12,6 +17,10 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" }
       ]
+    },
+    {
+      "source": "/yoyaku",
+      "headers": [{ "key": "X-Robots-Tag", "value": "index, follow" }]
     }
   ]
 }

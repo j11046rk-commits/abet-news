@@ -17,5 +17,7 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "scripts"]
+  // テストは node --test が素のまま読むので、import に .ts を付ける必要がある。
+  // Next のビルド対象からも外す（画面に混ざらない）。
+  "exclude": ["node_modules", "scripts", "**/*.test.ts"]
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SourceBadge } from "@/components/Badges";
 import { startLabel } from "@/lib/time";
+import { seatKind } from "@/lib/seats";
 import type { Reservation } from "@/lib/types";
 
 export default function ReservationCard({
@@ -18,15 +19,30 @@ export default function ReservationCard({
   note?: string | null;
 }) {
   const cancelled = r.status === "cancelled" || r.status === "no_show";
+  /*
+   * 「来店中」「会計済」は札で見分ける。会計済は席を返す＝同じ席にもう1件
+   * 予約が入りうるので、これが無いと一覧に同じ席の2件が同じ見た目で並び、
+   * どちらが生きている予約か分からない。
+   */
+  const seatedNow = r.status === "seated";
+  const done = r.status === "completed";
+
+  const kind = seatKind(r.seat_note);
 
   return (
-    <article className={`card ${attention ? "card--flag" : ""}`}>
+    <article className={`card ${attention ? "card--flag" : ""} ${kind ? `card--seat-${kind}` : ""}`}>
       <Link href={`/reservations/${r.id}`} className="resv" style={{ color: "inherit" }}>
         <div className="resv__time">{startLabel(r)}</div>
         <div>
           <div
             className="resv__name"
-            style={cancelled ? { textDecoration: "line-through", opacity: 0.6 } : undefined}
+            style={
+              cancelled
+                ? { textDecoration: "line-through", opacity: 0.6 }
+                : done
+                  ? { opacity: 0.55 }
+                  : undefined
+            }
           >
             {r.customer_name} <span className="muted">様</span>
             <span className="muted" style={{ fontWeight: 400 }}>
@@ -37,6 +53,8 @@ export default function ReservationCard({
           <div className="resv__meta">
             <SourceBadge source={r.source} />
             {cancelled ? <span className="badge badge--cancelled">キャンセル</span> : null}
+            {seatedNow ? <span className="badge badge--seated">来店中</span> : null}
+            {done ? <span className="badge badge--completed">会計済</span> : null}
             {r.seat_note ? <span>{r.seat_note}</span> : null}
             {r.phone ? <span>{r.phone}</span> : null}
             {registrar ? <span>受付 {registrar}</span> : null}
