@@ -76,12 +76,16 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [planned, setPlanned] = useState(initial.planned);
   const [unplanned, setUnplanned] = useState(initial.unplanned);
   const [alerts, setAlerts] = useState<BoardSnapshot["reservations"]>([]);
+  // お客様からのLINEメッセージ。ネット予約と同じ、音つきで消えないお知らせに積む
+  const [lineAlerts, setLineAlerts] = useState<BoardSnapshot["line_msgs"]>([]);
   const [saving, setSaving] = useState(false);
   const [pause, setPause] = useState(initial.pause);
   const [askPause, setAskPause] = useState(false);
   const [openNow, setOpenNow] = useState(initial.open_now);
 
   const seenIds = useRef<Set<string>>(new Set(initial.recent_net.map((r) => r.id)));
+  // 画面を開いた時点より前のメッセージは鳴らさない（開くたびに過去分が鳴ると狼少年になる）
+  const seenMsgIds = useRef<Set<number>>(new Set(initial.line_msgs.map((m) => m.id)));
   const audioCtx = useRef<AudioContext | null>(null);
 
   // この時刻までは、取り直した席の状態を画面に当てない（自分のタップを守る猶予）。
@@ -159,6 +163,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         if (snap.date !== date) {
           // 営業日が変わった＝ボードはまっさら。お知らせも仕切り直し
           seenIds.current = new Set(snap.recent_net.map((r) => r.id));
+          seenMsgIds.current = new Set(snap.line_msgs.map((m) => m.id));
           setDate(snap.date);
         } else {
           // 未来日も含む「新しく入ったネット予約」を拾う
@@ -166,6 +171,12 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           snap.recent_net.forEach((r) => seenIds.current.add(r.id));
           if (fresh.length > 0) {
             setAlerts((prev) => [...prev, ...fresh]);
+          }
+          // お客様からのLINEメッセージも同じ扱いで積む
+          const freshMsgs = snap.line_msgs.filter((m) => !seenMsgIds.current.has(m.id));
+          snap.line_msgs.forEach((m) => seenMsgIds.current.add(m.id));
+          if (freshMsgs.length > 0) {
+            setLineAlerts((prev) => [...prev, ...freshMsgs]);
           }
         }
         // 席の状態は、いま自分が押した直後だけ上書きしない。
@@ -185,13 +196,14 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     return () => clearInterval(timer);
   }, [date]);
 
-  // お知らせが出ている間は繰り返し鳴らして気づかせる
+  // お知らせが出ている間は繰り返し鳴らして気づかせる（予約もLINEメッセージも同じ）
   useEffect(() => {
-    if (alerts.length === 0) return;
+    if (alerts.length === 0 && lineAlerts.length === 0) return;
     beep();
     const timer = setInterval(beep, 5_000);
     return () => clearInterval(timer);
-  }, [alerts.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alerts.length, lineAlerts.length]);
 
   async function save(key: string, value: number, reservationId?: string) {
     const prev = board[key] ?? 0;
@@ -559,6 +571,31 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 </p>
               ))}
               <button className="btn btn-primary fb__alert-ok" onClick={() => setAlerts([])}>
+                確認した
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/*
+          お客様からのLINEメッセージ（店主要望 2026-08-24）。
+          店のLINEグループにも転送しているが、営業中は誰も見ない——
+          レジ横のこの画面で、ネット予約と同じ音で気づけるようにする。
+          返信はここからはできない（LINE公式アカウントのアプリから）。
+        */}
+        {lineAlerts.length > 0 && (
+          <div className="fb__alert" role="alertdialog">
+            <div className="fb__alert-card">
+              <p className="fb__alert-title">お客様からLINEにメッセージ</p>
+              {lineAlerts.map((m) => (
+                <p key={m.id} className="fb__alert-line">
+                  <b>{m.label} 様</b>「{m.text.length > 80 ? `${m.text.slice(0, 80)}…` : m.text}」
+                </p>
+              ))}
+              <p className="fb__hint" style={{ position: "static", margin: "0.6rem 0 0" }}>
+                ご返信は「LINE公式アカウント」アプリのチャットからお願いします。
+              </p>
+              <button className="btn btn-primary fb__alert-ok" onClick={() => setLineAlerts([])}>
                 確認した
               </button>
             </div>

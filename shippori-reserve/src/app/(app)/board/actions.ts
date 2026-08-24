@@ -43,6 +43,11 @@ export type BoardSnapshot = {
   pause: PauseState;
   /** いま営業時間内か（停止ボタンは営業中しか押せない） */
   open_now: boolean;
+  /**
+   * お客様からのLINEメッセージ（直近24時間）。ネット予約と同じ音つきのお知らせに使う。
+   * 営業中、店のLINEグループの転送は誰も見ない——レジ横の音なら気づける（店主要望 2026-08-24）。
+   */
+  line_msgs: { id: number; label: string; text: string; at: string }[];
 };
 
 export type PauseState = {
@@ -90,7 +95,7 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
   const FIELDS =
     "id, reference, biz_date, starts_at, party_size, customer_name, seat_note, source, status";
   const monthFrom = `${date.slice(0, 7)}-01`;
-  const [boardQ, resvQ, netQ, pauseQ] = await Promise.all([
+  const [boardQ, resvQ, netQ, pauseQ, msgQ] = await Promise.all([
     supabase.from("seat_board").select("key, occupied").eq("biz_date", date),
     supabase
       .from("reservations")
@@ -112,6 +117,13 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
       .select("biz_date, started_at, ended_at")
       .gte("biz_date", monthFrom)
       .lte("biz_date", date),
+    // お客様からのLINEメッセージ（直近24時間・お知らせの監視対象）
+    supabase
+      .from("line_messages")
+      .select("id, line_user_id, text, created_at")
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   const board: Record<string, number> = {};
@@ -171,6 +183,25 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
     planned[key] = { id: v.id, label: v.label, party: partyOf.get(v.id) ?? 0 };
   }
 
+  /*
+   * メッセージに「どなたか」を添える。LINEのIDそのものは画面に出せないので、
+   * 同じIDで入っている予約からお名前（姓）を引く。予約が無ければ「お客様」。
+   */
+  type MsgRow = { id: number; line_user_id: string; text: string; created_at: string };
+  const msgs = (msgQ.data ?? []) as MsgRow[];
+  const nameOf = new Map<string, string>();
+  const msgUserIds = [...new Set(msgs.map((m) => m.line_user_id))];
+  if (msgUserIds.length > 0) {
+    const { data: linked } = await supabase
+      .from("reservations")
+      .select("line_user_id, customer_name")
+      .in("line_user_id", msgUserIds)
+      .order("created_at", { ascending: false });
+    for (const r of (linked ?? []) as { line_user_id: string; customer_name: string }[]) {
+      if (!nameOf.has(r.line_user_id)) nameOf.set(r.line_user_id, surname(r.customer_name));
+    }
+  }
+
   return {
     date,
     board,
@@ -180,6 +211,12 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
     unplanned: plan.unplanned.map((r) => ({ label: r.label, party: r.party_size })),
     pause,
     open_now: !day.is_closed && isOpenNow(day.open_min, day.close_min),
+    line_msgs: msgs.map((m) => ({
+      id: m.id,
+      label: nameOf.get(m.line_user_id) ?? "お客様",
+      text: m.text,
+      at: m.created_at,
+    })),
   };
 }
 
