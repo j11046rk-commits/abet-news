@@ -11,6 +11,17 @@ export const metadata: Metadata = {
   description:
     "新居浜のおばんざい居酒屋「しっぽり亭」のネット予約。空席をその場で確認して、その場でご予約が確定します（8名様まで・当日は開始15分前まで）。",
   robots: { index: true, follow: true },
+  /*
+   * お客様がホーム画面に追加したときのための予約専用マニフェスト。
+   * これが無いと親（スタッフ用）の設定を拾い、名前「しっぽり管理」・
+   * 開始URL /login のショートカットができてしまう（店主報告 2026-08-24）。
+   */
+  manifest: "/manifest-yoyaku.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "しっぽり亭予約",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 /*

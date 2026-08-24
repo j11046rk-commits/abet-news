@@ -90,6 +90,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === "/api/ping" ||
     pathname === "/manifest.webmanifest" ||
+    pathname === "/manifest-yoyaku.webmanifest" ||
     pathname === "/sw.js" ||
     // クローラーはCookieを持たない。ここで素通しにしないと /login へ転送され、
     // robots.txt が一度も配信されない＝検索エンジンへの指示が全部無視される
