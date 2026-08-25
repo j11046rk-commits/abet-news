@@ -139,11 +139,20 @@ async function fetchRange(from: string, to: string) {
   // 席ボード（タブレットの飛び込み記録）。日付ごとにまとめる。
   // 席は1席ずつ記録されるが、予約の空席判定は「1席でも埋まっていればその卓は満席」（店主指定）
   const board = new Map<string, BoardState>();
+  // 点灯中の席キー（日付ごと）。下書きの並べ直しが実席を避けるために使う。
+  // 避けないと、着席中の組の席に別の組の下書きが重なり、カウンターの
+  // 使用席数が実際より少なく（重なったぶんだけ）数えられる。
+  const litByDate = new Map<string, Set<string>>();
   // カウンターは「何席か」ではなく「どの席か」で持つ。
   // 飛び込みの記録と予約の下書きを合わせるとき、数だけだと重なりを見分けられず、
   // 別の席に座っている2組を1組ぶんに数えてしまう（＝空いているように見える）。
   const stools = new Map<string, Set<string>>();
   for (const b of (boardQ.data ?? []) as { biz_date: string; key: string; occupied: number }[]) {
+    if (b.occupied > 0 && b.key !== "C") {
+      const lit = litByDate.get(b.biz_date) ?? new Set<string>();
+      lit.add(b.key);
+      litByDate.set(b.biz_date, lit);
+    }
     const cur = board.get(b.biz_date) ?? { taken: [], counterUsed: 0 };
     if (b.key === "C") cur.counterUsed = Math.max(cur.counterUsed, b.occupied);
     else if (/^C\d+$/.test(b.key)) {
@@ -194,6 +203,7 @@ async function fetchRange(from: string, to: string) {
         })),
       planUnits,
       days.get(d)?.mode === "event" ? "event" : "normal",
+      litByDate.get(d) ?? new Set(),
     );
     const cur = board.get(d) ?? { taken: [], counterUsed: 0 };
     const set = stools.get(d) ?? new Set<string>();
@@ -737,6 +747,12 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   });
 
   if (error) {
+    // どの砦で止まったかだけ残す（NET_FULL等の種別のみ・個人情報なし）。
+    // 関数の引数不一致など系統的な故障もここに出る——黙って全滅させない
+    console.error(
+      "net_reserve_failed",
+      (error.message.match(/NET_[A-Z_]+/) ?? [error.message.slice(0, 80)])[0],
+    );
     if (/NET_EVENT_TODAY/.test(error.message)) {
       return {
         ok: false,

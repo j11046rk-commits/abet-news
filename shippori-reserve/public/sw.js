@@ -5,7 +5,7 @@
  * 古い予約表を見せるほうが、少し遅いより遥かに危険だから。
  * オフライン書き込み（あとで同期）も作らない。二重予約の温床になる。
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL = `shell-${VERSION}`;
 
 const SHELL_ASSETS = [
@@ -54,8 +54,12 @@ self.addEventListener("fetch", (event) => {
         (hit) =>
           hit ||
           fetch(request).then((res) => {
-            const copy = res.clone();
-            caches.open(SHELL).then((cache) => cache.put(request, copy));
+            // 404や5xxを覚えてしまうと、cache-firstゆえ二度と取り直さず
+            // その端末だけ壊れたまま固定される。成功した応答だけを覚える。
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(SHELL).then((cache) => cache.put(request, copy));
+            }
             return res;
           }),
       ),

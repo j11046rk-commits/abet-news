@@ -167,3 +167,21 @@ test("カウンターのキーは席ボードと同じ形", () => {
   assert.deepEqual(COUNTER_KEYS.slice(0, 3), ["C1", "C2", "C3"]);
   assert.equal(COUNTER_KEYS.at(-1), "C10");
 });
+
+// ── 点灯中の席（実際に座っている席）を避ける ─────────────────
+
+test("点灯中の席には下書きを置かない（着席した組の席に次の組の点線が重ならない）", () => {
+  // 2名組の最優先ブロックは C1・C2。そこが点灯中（別の組が着席中）なら
+  // 次の候補 C6・C7 に置かれる——点灯席に置くと点線が描かれず、組が画面から消える
+  const plan = planSeats([r(2, "カウンター")], UNITS, "normal", new Set(["C1", "C2"]));
+  const keys = [...plan.seats.keys()].sort();
+  assert.deepEqual(keys, ["C6", "C7"]);
+});
+
+test("卓も点灯中の椅子を避けて残りに座らせる", () => {
+  const plan = planSeats([r(2, "T1")], UNITS, "normal", new Set(["T1-1", "T1-4"]));
+  for (const k of plan.seats.keys()) {
+    assert.ok(k !== "T1-1" && k !== "T1-4", k);
+  }
+  assert.equal(plan.seats.size, 2);
+});

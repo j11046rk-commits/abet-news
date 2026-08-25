@@ -301,7 +301,10 @@ export default function NetBooking() {
    * 本人確認としては同じ役目を果たす。同じことを2回証明させる意味がない。
    * LINEが使えない・確かめられないときは、これまでどおりSMSの道を通る。
    */
-  const smsRequired = dayInfo?.sms_required === true && (!liff.ready || forceSms);
+  // forceSms（サーバーがSMSを求めた）は dayInfo が読めていなくても最優先で効かせる。
+  // dayInfo 前提にすると、下書き復元直後に読み込みが失敗したとき
+  // 「SMSで確認してください」と言われるのに入力欄が出ない行き止まりになる
+  const smsRequired = forceSms || (dayInfo?.sms_required === true && !liff.ready);
   const seatDone = isEvent || seat !== null;
   const canConfirm =
     date !== null &&
@@ -367,6 +370,9 @@ export default function NetBooking() {
       } else {
         setError(data.error ?? "予約できませんでした。");
         setStep("pick");
+        // エラー文は入力画面の最上部に出る。確認画面の最下部（送信ボタン）から
+        // 戻るとスクロール位置が中腹に残り、「黙って入力が消えた」ように見える
+        window.scrollTo({ top: 0, behavior: "smooth" });
         if (data.code === "RETRY") {
           // たった今埋まった等。最新の空きを取り直して選び直してもらう
           setSeat(null);
@@ -377,6 +383,7 @@ export default function NetBooking() {
     } catch {
       setError("通信に失敗しました。電波の良い場所でもう一度お試しください。");
       setStep("pick");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     setSending(false);
   };
@@ -550,6 +557,18 @@ export default function NetBooking() {
         <p className="net__fineprint">
           キャンセルは開始2時間前までWebで、それ以降はお電話でお願いします。
         </p>
+        {/*
+          下書き復元の直後は、この日の空き情報（SMSが要る日か・イベント日か）を
+          取り直している。読めないまま送信させない——失敗したら言葉で言う。
+        */}
+        {date !== null && dayError ? (
+          <p className="net__error">
+            この日の情報を読み込めませんでした。{" "}
+            <button className="btn" onClick={() => loadDay(date, party)}>もう一度読み込む</button>
+          </p>
+        ) : date !== null && dayInfo === null ? (
+          <p className="net__hint">この日の空き情報を確認しています…</p>
+        ) : null}
         {isEvent && (
           <div className="net__agree">
             {dayInfo?.flyer_url && (
@@ -671,7 +690,10 @@ export default function NetBooking() {
             className="btn btn-primary net__grow"
             onClick={submit}
             disabled={
-              sending || (isEvent && !eventAgreed) || (smsRequired && smsCode.length < 4)
+              sending ||
+              dayInfo === null || // 空き情報が読めるまで送らせない（SMS要否・イベント判定が決まらない）
+              (isEvent && !eventAgreed) ||
+              (smsRequired && smsCode.length < 4)
             }
           >
             {sending ? "送信中…" : "この内容で予約する"}

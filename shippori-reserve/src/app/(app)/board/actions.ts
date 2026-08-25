@@ -176,7 +176,9 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
       starts_at: r.starts_at,
       label: surname(r.customer_name),
     }));
-  const plan = planSeats(forPlan, units, day.mode === "event" ? "event" : "normal");
+  // 点灯中の席は下書きの置き場所から外す（点灯席に点線は描かれない＝組が消える）
+  const litKeys = new Set(Object.keys(board).filter((k) => (board[k] ?? 0) > 0));
+  const plan = planSeats(forPlan, units, day.mode === "event" ? "event" : "normal", litKeys);
   const partyOf = new Map(todays.map((r) => [r.id, r.party_size]));
   const planned: Record<string, { id: string; label: string; party: number }> = {};
   for (const [key, v] of plan.seats) {
@@ -253,6 +255,8 @@ export async function setSeatState(
   key: string,
   value: number,
   reservationId?: string,
+  /** ダイアログで「別のお客様（飛び込み）」と明示されたとき true（90秒の紐づけ直しを抑止） */
+  walkIn?: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
   // 席の埋まり具合はネット予約の空席判定に直結する（全部埋めれば予約が止まる）。
   // 閲覧のみのアカウントには触らせない。
@@ -264,6 +268,7 @@ export async function setSeatState(
     p_key: key,
     p_value: value,
     p_resv: reservationId ?? null,
+    p_walkin: walkIn === true,
   });
   if (error) return { ok: false, error: "保存できませんでした。" };
   return { ok: true };

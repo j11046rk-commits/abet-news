@@ -78,6 +78,13 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [alerts, setAlerts] = useState<BoardSnapshot["reservations"]>([]);
   // お客様からのLINEメッセージ。ネット予約と同じ、音つきで消えないお知らせに積む
   const [lineAlerts, setLineAlerts] = useState<BoardSnapshot["line_msgs"]>([]);
+  /*
+   * メッセージの常設一覧（直近24時間）。お知らせダイアログは「新着に気づく」ため、
+   * こちらは「消灯・再読込の間に届いた連絡も見える」ため。ダイアログだけだと、
+   * タブレットが閉じている間に届いたメッセージは開いた瞬間に既読扱いになり、
+   * ボードの上では二度と現れない。
+   */
+  const [lineMsgs, setLineMsgs] = useState<BoardSnapshot["line_msgs"]>(initial.line_msgs);
   const [saving, setSaving] = useState(false);
   const [pause, setPause] = useState(initial.pause);
   const [askPause, setAskPause] = useState(false);
@@ -161,7 +168,15 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
       try {
         const snap = await getBoardSnapshot();
         if (snap.date !== date) {
-          // 営業日が変わった＝ボードはまっさら。お知らせも仕切り直し
+          /*
+           * 営業日が変わった（朝4時）。仕切り直す前に、この周回で初めて見えた
+           * 新着だけは拾って鳴らす——3:59に届いた連絡が切替に飲み込まれて
+           * 無音で既読になるのを防ぐ（深夜営業の店なので現実に起きる時間帯）。
+           */
+          const lastNet = snap.recent_net.filter((r) => !seenIds.current.has(r.id));
+          if (lastNet.length > 0) setAlerts((prev) => [...prev, ...lastNet]);
+          const lastMsgs = snap.line_msgs.filter((m) => !seenMsgIds.current.has(m.id));
+          if (lastMsgs.length > 0) setLineAlerts((prev) => [...prev, ...lastMsgs]);
           seenIds.current = new Set(snap.recent_net.map((r) => r.id));
           seenMsgIds.current = new Set(snap.line_msgs.map((m) => m.id));
           setDate(snap.date);
@@ -185,6 +200,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         // 消えた席をもう一度押すと今度は逆に点く——お客様がいないのに使用中になる。
         if (quietUntil.current < Date.now()) setBoard(snap.board);
         setResv(snap.reservations);
+        setLineMsgs(snap.line_msgs);
         setPlanned(snap.planned);
         setUnplanned(snap.unplanned);
         setPause(snap.pause);
@@ -205,12 +221,12 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alerts.length, lineAlerts.length]);
 
-  async function save(key: string, value: number, reservationId?: string) {
+  async function save(key: string, value: number, reservationId?: string, walkIn?: boolean) {
     const prev = board[key] ?? 0;
     quietUntil.current = Date.now() + 8_000;
     setBoard((b) => ({ ...b, [key]: value }));
     setSaving(true);
-    const res = await setSeatState(key, value, reservationId);
+    const res = await setSeatState(key, value, reservationId, walkIn);
     setSaving(false);
     quietUntil.current = Date.now() + 5_000;
     if (!res.ok) setBoard((b) => ({ ...b, [key]: prev }));
@@ -266,10 +282,17 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
    * その席がネットに再販される——本物のお客様が来たとき席が無い（二重予約）。
    * タップが1回増えるのは点線の席だけで、ふつうの席は今までどおり1タップ。
    */
-  const [askSeat, setAskSeat] = useState<string | null>(null);
+  /*
+   * ダイアログは**タップした瞬間の下書き**を丸ごと覚える。
+   * planned は15秒ごとに作り直されるので、席キーだけ覚えて表示のたびに
+   * 引き直すと、開いている間に同じ席が別の予約を指すことがある——
+   * スタッフが確認した名前と違う予約を着席にする事故のもと。
+   */
+  const [askSeat, setAskSeat] = useState<{ key: string; id: string; label: string; party: number } | null>(null);
   const toggleSeat = (key: string) => {
     if (seatOn(key)) return save(key, 0);
-    if (planned[key] !== undefined) return setAskSeat(key);
+    const p = planned[key];
+    if (p !== undefined) return setAskSeat({ key, id: p.id, label: p.label, party: p.party });
     return save(key, 1);
   };
 
@@ -488,6 +511,23 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
                 })}
               </ul>
             )}
+            <h2 style={{ marginTop: "1.1rem" }}>お客様からのLINE（24時間）</h2>
+            {lineMsgs.length === 0 ? (
+              <p className="fb__empty">メッセージはありません</p>
+            ) : (
+              <ul className="fb__list">
+                {lineMsgs.map((m) => (
+                  <li key={m.id}>
+                    <span className="fb__time">
+                      {new Date(m.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span className="fb__name">
+                      {m.label} 様：{m.text.length > 60 ? `${m.text.slice(0, 60)}…` : m.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </aside>
         </div>
 
@@ -527,25 +567,26 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           <div className="fb__alert fb__alert--warn" role="alertdialog">
             <div className="fb__alert-card">
               <p className="fb__alert-title">
-                {planned[askSeat]?.label ?? ""} 様（ご予約 {planned[askSeat]?.party ?? "?"}名）のお席です
+                {askSeat.label} 様（ご予約 {askSeat.party}名）のお席です
               </p>
               <div className="fb__warnbtns">
                 <button
                   className="btn btn-primary"
                   onClick={() => {
-                    const id = planned[askSeat]?.id;
+                    const s = askSeat;
                     setAskSeat(null);
-                    save(askSeat, 1, id);
+                    save(s.key, 1, s.id);
                   }}
                 >
-                  {planned[askSeat]?.label ?? "ご予約の"} 様 ご来店
+                  {askSeat.label} 様 ご来店
                 </button>
                 <button
                   className="btn"
                   onClick={() => {
-                    const key = askSeat;
+                    const s = askSeat;
                     setAskSeat(null);
-                    save(key, 1);
+                    // 「飛び込み」と明示されたことをDBまで伝える（90秒の紐づけ直しを抑止）
+                    save(s.key, 1, undefined, true);
                   }}
                 >
                   別のお客様（飛び込み）

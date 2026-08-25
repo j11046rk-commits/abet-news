@@ -30,6 +30,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
+  /*
+   * お客様のトーク（line_messages・保持30日）もここで消す。
+   * webhookが「次のメッセージのついで」にも消すが、トークが1か月以上
+   * 途絶えるとそのついでが来ない——約束した保持期間は、毎日必ず走る
+   * この場所で保証する。
+   */
+  const { error: msgErr } = await admin
+    .from("line_messages")
+    .delete()
+    .lt("created_at", new Date(Date.now() - 30 * 86400_000).toISOString());
+  if (msgErr) console.error("line_messages_purge_failed", msgErr.message);
+
   // 消した件数は audit_logs にも残る（reservations.purge）。
   return NextResponse.json({ ok: true, purged: data ?? 0 });
 }

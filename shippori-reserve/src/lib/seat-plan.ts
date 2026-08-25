@@ -139,6 +139,13 @@ export function planSeats(
   resv: readonly PlanResv[],
   units: readonly PlanUnit[],
   mode: "normal" | "event" = "normal",
+  /**
+   * いま実際に座っている（席ボードで点灯中の）席のキー。
+   * ここを埋まり扱いにしないと、着席した組を下書きから外した瞬間、
+   * 次の組の点線が点灯中の席へ再配置される——点灯席には点線が描かれないので、
+   * まだ来ていない組がフロア図から消え、受入可の人数も過大になる。
+   */
+  occupied: ReadonlySet<string> = new Set(),
 ): SeatPlan {
   const seats = new Map<string, PlannedSeat>();
   const unplanned: PlanResv[] = [];
@@ -169,7 +176,7 @@ export function planSeats(
   const fillUnit = (u: PlanUnit, r: PlanResv): boolean => {
     const keys = keysOfUnit(u);
     const order = facingOrder(u.capacity);
-    const free = order.map((n) => keys[n - 1]).filter((k) => k && !seats.has(k));
+    const free = order.map((n) => keys[n - 1]).filter((k) => k && !seats.has(k) && !occupied.has(k));
     if (free.length === 0) return false;
     // 卓は1晩1組なので、人数が定員を超えていても取れるだけ座らせる
     for (const k of free.slice(0, Math.min(r.party_size, free.length))) {
@@ -181,7 +188,7 @@ export function planSeats(
   const counterTaken = (): Set<number> => {
     const t = new Set<number>();
     COUNTER_KEYS.forEach((k, i) => {
-      if (seats.has(k)) t.add(i + 1);
+      if (seats.has(k) || occupied.has(k)) t.add(i + 1);
     });
     return t;
   };

@@ -73,7 +73,8 @@ export async function POST(request: Request) {
     try {
       if (ev.type === "follow") {
         // 友だち追加。前にブロックされていた人が戻ることもあるので、解除を消しておく
-        await admin.from("line_friends").upsert(
+        // ★supabase-jsは失敗しても例外を投げない。errorを見ないと名簿の破れに気づけない
+        const { error } = await admin.from("line_friends").upsert(
           {
             line_user_id: userId,
             followed_at: new Date().toISOString(),
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
           },
           { onConflict: "line_user_id" },
         );
+        if (error) console.error("line_follow_upsert_failed", error.message);
       } else if (ev.type === "unfollow") {
         /*
          * 行は消さない。消すと「一度も友だちでなかった人」と区別がつかなくなり、
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
          *   （followed_at は本当の追加日時が分からないので登録時刻が入る。
          *     unfollowed_at が入っている行では使わないので実害はない）
          */
-        await admin.from("line_friends").upsert(
+        const { error } = await admin.from("line_friends").upsert(
           {
             line_user_id: userId,
             unfollowed_at: new Date().toISOString(),
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
           },
           { onConflict: "line_user_id" },
         );
+        if (error) console.error("line_unfollow_upsert_failed", error.message);
       } else if (ev.type === "message" && ev.message?.type === "text" && ev.source?.type === "user") {
         // source.type を見るのは、ボットがグループに入れられたときのため。
         // グループの雑談を「お客様からの連絡」として店へ流し、発言者の個人トークに
@@ -115,16 +118,25 @@ export async function POST(request: Request) {
           .eq("line_user_id", userId)
           .maybeSingle<{ last_message_at: string | null }>();
 
-        await admin
+        /*
+         * last_message_at は**メッセージの発生時刻**（ev.timestamp）で入れる。
+         * 受信時刻(now)で入れると、LINE側の再送（何十分も後に届き直す）で
+         * 時刻が進み、その後の本物の新規メッセージへの自動返信が余計に間引かれる。
+         */
+        const sentAt = Number.isFinite(ev.timestamp)
+          ? new Date(ev.timestamp as number).toISOString()
+          : new Date().toISOString();
+        const { error: upErr } = await admin
           .from("line_friends")
           .upsert(
             {
               line_user_id: userId,
-              last_message_at: new Date().toISOString(),
+              last_message_at: sentAt,
               updated_at: new Date().toISOString(),
             },
             { onConflict: "line_user_id" },
           );
+        if (upErr) console.error("line_message_upsert_failed", upErr.message);
 
         /*
          * LINE側の再送（届け直し）には送り返さない。名簿の更新は済ませる
@@ -146,11 +158,17 @@ export async function POST(request: Request) {
          * （15秒ポーリングが拾う）。営業中にグループの転送は誰も見ないが、
          * レジ横の音なら気づける。お知らせ用なので30日より古い行はついでに消す。
          */
-        await admin.from("line_messages").insert({ line_user_id: userId, text });
-        await admin
+        const { error: msgErr } = await admin
+          .from("line_messages")
+          .insert({ line_user_id: userId, text });
+        // ここが失敗すると「グループには流れるがレジ横は鳴らない」状態に
+        // 誰も気づけない。黙って死なせない
+        if (msgErr) console.error("line_messages_insert_failed", msgErr.message);
+        const { error: delErr } = await admin
           .from("line_messages")
           .delete()
           .lt("created_at", new Date(Date.now() - 30 * 86400_000).toISOString());
+        if (delErr) console.error("line_messages_cleanup_failed", delErr.message);
 
         await pushLine(
           `【お客様の公式LINEにメッセージ】\n${text}\n\n（アプリの予約一覧からご対応ください）`,

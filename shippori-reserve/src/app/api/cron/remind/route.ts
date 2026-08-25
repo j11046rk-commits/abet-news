@@ -56,6 +56,15 @@ export async function GET(request: Request) {
   }
 
   const today = todayBizDate();
+  /*
+   * 深夜〜午前の手動実行は送らない。todayBizDate は朝4時まで前日扱いなので、
+   * 深夜1時に叩くと「明日」が実はその日の晩になり、文言がずれた上に
+   * 深夜のプッシュ通知になる。定期実行は19:00 JSTなのでここは通らない。
+   * 動かなかった日の手動リカバリは、翌日の日中〜夕方に叩けば足りる。
+   */
+  if (nowJst().getHours() < 10) {
+    return NextResponse.json({ ok: true, skipped: "quiet-hours" });
+  }
   const target = shiftDate(today, 1); // 明日ご来店のぶん
   const admin = createAdminClient();
 
@@ -77,17 +86,40 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, date: target, target: 0, sent: 0, skipped: 0 });
   }
 
+  // ブロックされた方には送らない。送っても届かないうえ、通数だけ減る
+  const ids = rows.map((r) => r.line_user_id).filter((v): v is string => !!v);
+  const blocked = new Set<string>();
+  if (ids.length > 0) {
+    const { data: friends } = await admin
+      .from("line_friends")
+      .select("line_user_id, unfollowed_at")
+      .in("line_user_id", ids);
+    for (const f of (friends ?? []) as { line_user_id: string; unfollowed_at: string | null }[]) {
+      if (f.unfollowed_at) blocked.add(f.line_user_id);
+    }
+  }
+
+  // 実際に送る予定の人数（当日予約・ブロック済みを除く）。
+  // 頭数を大きく見積もると、残数ギリギリの月に送れるはずのリマインドまで見送ってしまう
+  const todayCal = fmtDate(nowJst());
+  const sendable = rows.filter(
+    (r) => r.line_user_id && !blocked.has(r.line_user_id) && fmtDate(r.created_at) !== todayCal,
+  ).length;
+  if (sendable === 0) {
+    return NextResponse.json({ ok: true, date: target, target: rows.length, sent: 0, skipped: rows.length });
+  }
+
   /*
    * 今月の残りを見て、控えのぶんを空けておけるか確かめる。
    * 分からないときは送る側に倒す（調べられないことを理由に連絡が止まるほうが危ない）。
    */
   const quota = await customerQuota();
-  if (quota?.remaining != null && quota.remaining - rows.length < RESERVED_FOR_BOOKINGS) {
+  if (quota?.remaining != null && quota.remaining - sendable < RESERVED_FOR_BOOKINGS) {
     await pushLine(
       [
         "⚠️ LINEの残り通数が少ないため、前日リマインドを見送りました。",
         `残り ${quota.remaining} 通（上限 ${quota.limit}・使用 ${quota.used}）`,
-        `明日ご来店の対象 ${rows.length} 名様`,
+        `明日ご来店の対象 ${sendable} 名様`,
         "",
         "ご予約の控えを優先しています。プランの変更をご検討ください。",
       ].join("\n"),
@@ -100,19 +132,6 @@ export async function GET(request: Request) {
       skipped: rows.length,
       reason: "quota",
     });
-  }
-
-  // ブロックされた方には送らない。送っても届かないうえ、通数だけ減る
-  const ids = rows.map((r) => r.line_user_id).filter((v): v is string => !!v);
-  const blocked = new Set<string>();
-  if (ids.length > 0) {
-    const { data: friends } = await admin
-      .from("line_friends")
-      .select("line_user_id, unfollowed_at")
-      .in("line_user_id", ids);
-    for (const f of (friends ?? []) as { line_user_id: string; unfollowed_at: string | null }[]) {
-      if (f.unfollowed_at) blocked.add(f.line_user_id);
-    }
   }
 
   let sent = 0;

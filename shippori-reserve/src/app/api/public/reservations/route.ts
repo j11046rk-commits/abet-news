@@ -49,6 +49,12 @@ export async function POST(request: Request) {
   await recordAttempt("booking", phone, ip, result.ok);
   void sweepSometimes();
 
+  // 失敗の種別だけログに残す（個人情報は書かない）。これが無いと、
+  // 「なぜ予約できなかったのか」を運用で一切追えない——系統的な故障にも気づけない
+  if (!result.ok) {
+    console.log("net_booking_fail", result.code ?? "invalid-input");
+  }
+
   // ハニーポットに引っかかったボットには「成功したふり」を返している。
   // それを本物と同じに扱うと、ボットが来るたびにLINEが鳴る。
   let lineNotified = false;
