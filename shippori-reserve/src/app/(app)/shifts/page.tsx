@@ -121,6 +121,8 @@ export default async function ShiftsPage({
     mode === "manage"
       ? { ...Object.fromEntries(requested.times), ...Object.fromEntries(confirmed.times) }
       : Object.fromEntries(requested.times);
+  // 確定シフトの時間（タイムバー表示用。希望の時間と混ぜない）
+  const confirmedTimes: Record<string, ShiftTimeRow> = Object.fromEntries(confirmed.times);
 
   const myDefault = {
     default_start_min: me.default_start_min ?? null,
@@ -188,6 +190,7 @@ export default async function ShiftsPage({
           requestOpen={requestOpen}
           myDefault={myDefault}
           times={times}
+        confirmedTimes={confirmedTimes}
           defaults={Object.fromEntries(
             profiles.map((p) => [
               p.id,

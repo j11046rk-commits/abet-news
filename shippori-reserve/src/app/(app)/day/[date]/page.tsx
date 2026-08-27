@@ -175,7 +175,8 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               シフト表へ ›
             </Link>
           </div>
-          {!summary.is_closed && <ShiftTimeBar entries={shiftBarEntries} />}
+          {/* 編集できる人はエディタ側が同じバーをライブで出す（二重に出さない） */}
+          {!summary.is_closed && !canEditShift && <ShiftTimeBar entries={shiftBarEntries} />}
           {canEditShift ? (
             // 前後の日に移動したら編集状態を作り直す（key が無いと前の日の下書きが残る）
             <DayShiftEditor

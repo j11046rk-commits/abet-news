@@ -11,6 +11,7 @@ import {
   type ShiftDefault,
 } from "@/lib/shift-time";
 import type { ShiftTimeRow } from "@/lib/types";
+import ShiftTimeBar, { type ShiftBarEntry } from "@/components/ShiftTimeBar";
 
 export type DayShiftStaff = {
   id: string;
@@ -61,6 +62,22 @@ export default function DayShiftEditor({
   const defOf = (id: string): ShiftDefault =>
     staff.find((p) => p.id === id)?.def ?? { default_start_min: null, default_end_min: null };
 
+  /*
+   * 17〜25時のタイムバー用。編集中はチップや時間を触るたびに動くので、
+   * 「21時台が1人になる」に保存する前に気づける（店主要望 2026-08-28）。
+   */
+  const barEntries = (
+    idList: string[],
+    timeMap: Record<string, ShiftTimeRow>,
+  ): ShiftBarEntry[] =>
+    idList.flatMap((id) => {
+      const p = staff.find((s) => s.id === id);
+      if (!p) return [];
+      const t = resolveShiftTime(timeMap[id] ?? null, p.def);
+      if (!t) return [{ name: p.name, colorIndex: p.colorIndex, start: 1020, end: 1500, wholeDay: true }];
+      return [{ name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? closeMin }];
+    });
+
   const save = () =>
     startTransition(async () => {
       const res = await updateDayShifts(
@@ -83,6 +100,8 @@ export default function DayShiftEditor({
   if (!editing) {
     const onShift = staff.filter((p) => initial.includes(p.id));
     return (
+      <>
+      <ShiftTimeBar entries={barEntries(initial, initialTimes)} />
       <div className="chips" style={{ alignItems: "center" }}>
         {onShift.length > 0 ? (
           onShift.map((p) => {
@@ -112,11 +131,14 @@ export default function DayShiftEditor({
           編集
         </button>
       </div>
+      </>
     );
   }
 
   return (
     <div className="stack" style={{ gap: "0.5rem" }}>
+      {/* タップ・時間変更のたびに動く。保存前に「21時台が1人」に気づける */}
+      <ShiftTimeBar entries={barEntries(ids, times)} />
       <div className="chips">
         {staff.map((p) => {
           const on = ids.includes(p.id);

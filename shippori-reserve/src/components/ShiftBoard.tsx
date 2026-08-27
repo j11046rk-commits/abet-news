@@ -14,6 +14,7 @@ import {
   type ShiftDefault,
 } from "@/lib/shift-time";
 import type { ShiftTimeRow } from "@/lib/types";
+import ShiftTimeBar, { ShiftHourStrip, type ShiftBarEntry } from "@/components/ShiftTimeBar";
 
 export type BoardStaff = { id: string; name: string; colorIndex: number };
 export type BoardDay = {
@@ -67,6 +68,7 @@ export default function ShiftBoard({
   requestOpen,
   myDefault,
   times,
+  confirmedTimes,
   defaults,
 }: {
   ym: string;
@@ -88,6 +90,8 @@ export default function ShiftBoard({
   myDefault: ShiftDefault | null;
   /** すでに入っている時間（`${date}|${profile_id}` → 時間） */
   times: Record<string, ShiftTimeRow>;
+  /** 確定シフトの時間（`${date}|${profile_id}` → 時間）。スタッフ向けのタイムバー表示に使う */
+  confirmedTimes: Record<string, ShiftTimeRow>;
   /** 全員の基本の時間（profile_id → 基本） */
   defaults: Record<string, ShiftDefault>;
 }) {
@@ -204,6 +208,23 @@ export default function ShiftBoard({
       setDirty(false);
       router.refresh();
     });
+
+  /*
+   * 確定シフトを 17〜25時のタイムバーに直す（店主要望 2026-08-28）。
+   * スタッフが「自分は何時から・誰と一緒か・薄い時間帯はどこか」を
+   * 名前の並びではなく帯で読めるようにする。
+   */
+  const confirmedEntriesOf = (d: BoardDay): ShiftBarEntry[] =>
+    (confirmedInit[d.date] ?? []).flatMap((id) => {
+      const p = staff.find((x) => x.id === id);
+      if (!p) return [];
+      const t = resolveShiftTime(confirmedTimes[`${d.date}|${id}`] ?? null, defaults[id] ?? null);
+      if (!t) return [{ name: p.name, colorIndex: p.colorIndex, start: 1020, end: 1500, wholeDay: true }];
+      return [{ name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? d.closeMin }];
+    });
+  const confirmedBarDays = publishedAt
+    ? days.filter((d) => !d.closed && (confirmedInit[d.date] ?? []).length > 0)
+    : [];
 
   // ─────────────────────────────────────────────
   // 一般スタッフ：月カレンダーにチェック → 提出
@@ -368,6 +389,32 @@ export default function ShiftBoard({
         >
           {pending ? "提出中" : mySubmittedAt ? "希望シフトを出し直す" : "希望シフトを提出する"}
         </button>
+
+        {/*
+          確定済みのシフトをタイムバーで（店主要望 2026-08-28）。
+          自分が何時から・誰と一緒か・薄い時間帯はどこかを帯で読める。
+          未確定の月では出さない（希望の提出画面を邪魔しない）。
+        */}
+        {confirmedBarDays.length > 0 ? (
+          <section className="card" style={{ padding: "0.7rem 0.9rem" }}>
+            <p className="micro" style={{ letterSpacing: "0.12em", margin: 0 }}>
+              確定シフト（{fmtStamp(publishedAt!)} 確定）
+            </p>
+            {confirmedBarDays.map((d) => (
+              <div key={d.date} style={{ marginTop: "0.7rem" }}>
+                <p className="micro" style={{ margin: "0 0 0.1rem", fontVariantNumeric: "tabular-nums" }}>
+                  <span className={d.dow === 0 || isHoliday(d.date) ? "mrow__dow--sun" : d.dow === 6 ? "mrow__dow--sat" : ""}>
+                    {d.day}日（{d.dowLabel}）
+                  </span>
+                </p>
+                <ShiftTimeBar entries={confirmedEntriesOf(d)} note={false} />
+              </div>
+            ))}
+            <p className="shiftbar__note" style={{ marginLeft: 0 }}>
+              数字＝その時間帯の人数。時間なしの人（店長）は通し扱い。
+            </p>
+          </section>
+        ) : null}
       </div>
     );
   }
@@ -395,7 +442,22 @@ export default function ShiftBoard({
       </p>
 
       <div className="shiftboard">
-        {days.map((d) => (
+        {days.map((d) => {
+          /*
+           * その日の下書きを 17〜25時の人数に直す（タップのたびに動く）。
+           * 名前の並びだけでは「21時台が1人」に気づけない——組みながら見えるのが肝。
+           * 時間を持たない人（店長・オーナー）は通し扱い。
+           */
+          const strip: ShiftBarEntry[] = d.closed
+            ? []
+            : (draft[d.date] ?? []).flatMap((id) => {
+                const p = staff.find((s) => s.id === id);
+                if (!p) return [];
+                const t = resolveShiftTime(times[`${d.date}|${id}`] ?? null, defaults[id] ?? null);
+                if (!t) return [{ name: p.name, colorIndex: p.colorIndex, start: 1020, end: 1500, wholeDay: true }];
+                return [{ name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? d.closeMin }];
+              });
+          return (
           <div key={d.date} className={`srow ${d.closed ? "srow--closed" : ""}`}>
             <div className="srow__date">
               <span className="mrow__day">{d.day}</span>
@@ -437,9 +499,11 @@ export default function ShiftBoard({
                   );
                 })
               )}
+              {strip.length > 0 ? <ShiftHourStrip entries={strip} /> : null}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {error ? <p className="err">{error}</p> : null}

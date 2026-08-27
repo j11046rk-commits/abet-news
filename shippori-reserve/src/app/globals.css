@@ -2379,3 +2379,10 @@ textarea.field:-webkit-autofill {
 .shiftbar__cell--3 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 22%, transparent); }
 .shiftbar__cell--4 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 32%, transparent); }
 .shiftbar__note { margin: 0.25rem 0 0; font-size: 0.62rem; color: var(--text-dim); margin-left: 4rem; }
+/* シフトを組む画面の各日に出す、人数だけの1行（タップのたびに動く） */
+.shiftbar__density--inline {
+  display: grid;
+  width: 100%;
+  margin: 0.15rem 0 0;
+  margin-left: 0;
+}

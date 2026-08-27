@@ -28,16 +28,48 @@ const SPAN = AXIS_END - AXIS_START;
 const pct = (min: number): string =>
   `${(((Math.min(Math.max(min, AXIS_START), AXIS_END) - AXIS_START) / SPAN) * 100).toFixed(2)}%`;
 
-export default function ShiftTimeBar({ entries }: { entries: ShiftBarEntry[] }) {
-  if (entries.length === 0) return null;
-
-  // 1時間刻みの人数（17-18, 18-19, … 24-25 の8コマ）
-  const hours = Array.from({ length: 8 }, (_, i) => {
+/** 1時間刻みの人数（17-18, 18-19, … 24-25 の8コマ） */
+export function shiftHourCounts(entries: ShiftBarEntry[]): { hour: number; count: number }[] {
+  return Array.from({ length: 8 }, (_, i) => {
     const from = AXIS_START + i * 60;
     const to = from + 60;
     const count = entries.filter((e) => e.start < to && e.end > from).length;
     return { hour: 17 + i, count };
   });
+}
+
+/**
+ * 時間帯ごとの人数だけの1行（シフトを組む画面の各日用）。
+ * タップで下書きが変わるたびに動く——「21時台が薄い」に組みながら気づける。
+ */
+export function ShiftHourStrip({ entries }: { entries: ShiftBarEntry[] }) {
+  if (entries.length === 0) return null;
+  return (
+    <span className="shiftbar__density shiftbar__density--inline" aria-label="時間帯ごとの人数（17〜25時）">
+      {shiftHourCounts(entries).map((h) => (
+        <span
+          key={h.hour}
+          className={`shiftbar__cell shiftbar__cell--${Math.min(h.count, 4)}`}
+          title={`${h.hour % 24 || 24}時台 ${h.count}人`}
+        >
+          {h.count}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export default function ShiftTimeBar({
+  entries,
+  note = true,
+}: {
+  entries: ShiftBarEntry[];
+  /** 下の説明文。ひと月ぶんを縦に並べる画面では1回で足りるので消せる */
+  note?: boolean;
+}) {
+  if (entries.length === 0) return null;
+
+  const hours = shiftHourCounts(entries);
 
   return (
     <div className="shiftbar" aria-label="この日のシフトの時間帯">
@@ -83,7 +115,9 @@ export default function ShiftTimeBar({ entries }: { entries: ShiftBarEntry[] }) 
           </span>
         ))}
       </div>
-      <p className="shiftbar__note">下の数字＝その時間帯の人数（時間なしの人は通し扱い）</p>
+      {note ? (
+        <p className="shiftbar__note">下の数字＝その時間帯の人数（時間なしの人は通し扱い）</p>
+      ) : null}
     </div>
   );
 }
