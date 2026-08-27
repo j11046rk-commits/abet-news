@@ -467,12 +467,14 @@ export default function SalesBoard({
         {days.map((d) => {
           const hit = hitOf(d);
           const dine = shownYen(d.dineIn);
+          // その日の客単価。分子は店内の売上（物販は入れない・店主指示 2026-08-18）
+          const pg = perGuest(d.dineIn, d.guests);
           return (
             <Link
               key={d.date}
               href={`/day/${d.date}`}
               className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""} ${hit ? "salescell--hit" : ""}`}
-              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 店内${dine != null ? fmtYen(dine) : "なし"}${d.retail > 0 ? ` 物販${fmtYen(d.retail)}` : ""}`}
+              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 店内${dine != null ? fmtYen(dine) : "なし"}${d.guests ? ` ${d.guests}名` : ""}${pg != null ? ` 客単価${fmtYen(pg)}` : ""}${d.retail > 0 ? ` 物販${fmtYen(d.retail)}` : ""}`}
             >
               <span
                 className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
@@ -487,6 +489,12 @@ export default function SalesBoard({
                     {dine != null ? dine.toLocaleString() : "ー"}
                   </span>
                   <span className="salescell__t">{d.target ? d.target.toLocaleString() : ""}</span>
+                  {/* 客数と客単価（店主要望 2026-08-27）。@＝1名あたり。客数が取れた日だけ */}
+                  {d.guests != null && d.guests > 0 ? (
+                    <span className="salescell__g">
+                      {d.guests}名{pg != null ? `＠${pg.toLocaleString()}` : ""}
+                    </span>
+                  ) : null}
                 </>
               )}
               {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}
@@ -497,7 +505,8 @@ export default function SalesBoard({
       </div>
 
       <p className="micro" style={{ textAlign: "center", margin: 0 }}>
-        上段＝店内の売上（<span className="salesnum--hit">金色に光る日＝目標達成</span>）・下段＝目標（円）。
+        上段＝店内の売上（<span className="salesnum--hit">金色に光る日＝目標達成</span>）・中段＝目標（円）・
+        下段＝客数と1名あたり（＠・物販を除く）。
         物販があった日は「＋物販」と出ます。タップでその日の詳細へ。
       </p>
 

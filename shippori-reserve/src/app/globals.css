@@ -942,6 +942,15 @@ textarea.field {
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
+/* 客数と客単価（例: 33名＠4,524）。7列のセルは狭いので目標よりさらに控えめに */
+.salescell__g {
+  font-size: 0.5rem;
+  color: var(--text-dim);
+  opacity: 0.85;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
 /* 物販があった日の小さな印。7列のセルは狭いので金額は出さない（別枠カードで出す） */
 .salescell__r {
   font-size: 0.5rem;
