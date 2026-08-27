@@ -18,7 +18,8 @@ import {
   getShiftPublication,
 } from "@/lib/queries";
 import { holidayName } from "@/lib/holidays";
-import { resolveShiftTime, shiftTimeLabel } from "@/lib/shift-time";
+import { closeMinOf, resolveShiftTime, shiftTimeLabel } from "@/lib/shift-time";
+import ShiftTimeBar, { type ShiftBarEntry } from "@/components/ShiftTimeBar";
 import { shiftDate, startLabel, todayBizDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,18 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const flagged = reservations
     .map((r) => ({ r, reason: attentionReason(r) }))
     .filter((x) => x.reason);
+
+  /*
+   * シフトの時間帯バー（17:00〜25:00・店主要望）。
+   * 「誰が居るか」の名前の並びだけでは、何時に何人いるかが読めない。
+   * 時間を持たない人（店長・オーナー）は通し扱いで帯に出す。
+   */
+  const dayCloseMin = closeMinOf(date, summary);
+  const shiftBarEntries: ShiftBarEntry[] = onShift.map((p) => {
+    const t = resolveShiftTime(dayShifts.times[p.id] ?? null, p.def);
+    if (!t) return { name: p.name, colorIndex: p.colorIndex, start: 17 * 60, end: 25 * 60, wholeDay: true };
+    return { name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? dayCloseMin };
+  });
   const active = reservations.filter((r) => ACTIVE_STATUSES.includes(r.status));
   // 「席」の埋まりは、いま席を持っている予約だけで数える。
   // 会計済は席を返した（その晩もう一度売れる）ので、ここに入れると
@@ -162,6 +175,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               シフト表へ ›
             </Link>
           </div>
+          {!summary.is_closed && <ShiftTimeBar entries={shiftBarEntries} />}
           {canEditShift ? (
             // 前後の日に移動したら編集状態を作り直す（key が無いと前の日の下書きが残る）
             <DayShiftEditor

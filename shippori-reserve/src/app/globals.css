@@ -2316,3 +2316,66 @@ textarea.field:-webkit-autofill {
 .net__privacy li { margin: 0.15rem 0; }
 .net__privacy p { margin: 0.3rem 0 0.6rem; }
 .net__privacy a { color: var(--gold-soft); }
+
+/* ── この日のシフトの時間帯バー（17:00〜25:00・店主要望 2026-08-28）───────
+   人の帯を重ねて、薄い時間帯（人が足りない）が一目で分かるようにする。 */
+.shiftbar { margin: 0.2rem 0 0.7rem; }
+.shiftbar__scale {
+  position: relative;
+  height: 1rem;
+  margin: 0 0 0.15rem;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+}
+.shiftbar__tick { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.shiftbar__rows { display: grid; gap: 3px; }
+.shiftbar__row { display: grid; grid-template-columns: 3.6rem 1fr; align-items: center; gap: 0.4rem; }
+.shiftbar__name {
+  font-size: 0.68rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shiftbar__track {
+  position: relative;
+  height: 0.85rem;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(to right,
+      color-mix(in srgb, var(--text-dim) 16%, transparent) 0,
+      color-mix(in srgb, var(--text-dim) 16%, transparent) 1px,
+      transparent 1px,
+      transparent 12.5%);
+}
+.shiftbar__bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+/* 時間の概念を持たない人（店長・オーナー）は通し扱い。断定しない見た目にする */
+.shiftbar__bar--whole { opacity: 0.45; }
+.shiftbar__density {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  margin: 0.35rem 0 0;
+  margin-left: 4rem;
+}
+.shiftbar__cell {
+  text-align: center;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  border-radius: 3px;
+  padding: 0.06rem 0;
+}
+.shiftbar__cell--0 { color: var(--seal); background: color-mix(in srgb, var(--seal) 14%, transparent); }
+.shiftbar__cell--1 { color: #a8802f; background: color-mix(in srgb, #d2a25c 18%, transparent); }
+.shiftbar__cell--2 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.shiftbar__cell--3 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.shiftbar__cell--4 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 32%, transparent); }
+.shiftbar__note { margin: 0.25rem 0 0; font-size: 0.62rem; color: var(--text-dim); margin-left: 4rem; }
