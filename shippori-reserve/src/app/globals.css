@@ -2324,12 +2324,25 @@ textarea.field:-webkit-autofill {
 .shiftbar { margin: 0.2rem 0 0.7rem; width: 100%; }
 .shiftbar__scale {
   position: relative;
-  height: 1rem;
+  height: 1.15rem;
   margin: 0 0 0.15rem;
+  /* 帯は名前の列（3.6rem＋隙間0.4rem）の右から始まる。目盛も同じだけ
+     右に寄せないと、数字と帯の縦線がズレて出勤時刻を読み違える */
+  margin-left: 4rem;
   font-size: 0.62rem;
   color: var(--text-dim);
 }
 .shiftbar__tick { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+/* 数字の真下に短い縦線。どの線が何時かをつなぐ */
+.shiftbar__tick::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 0.22rem;
+  background: color-mix(in srgb, var(--text-dim) 55%, transparent);
+}
 .shiftbar__rows { display: grid; gap: 3px; }
 .shiftbar__row { display: grid; grid-template-columns: 3.6rem 1fr; align-items: center; gap: 0.4rem; }
 .shiftbar__name {
