@@ -2319,7 +2319,9 @@ textarea.field:-webkit-autofill {
 
 /* ── この日のシフトの時間帯バー（17:00〜25:00・店主要望 2026-08-28）───────
    人の帯を重ねて、薄い時間帯（人が足りない）が一目で分かるようにする。 */
-.shiftbar { margin: 0.2rem 0 0.7rem; }
+/* width:100% はシフトタブ用。チップの並び（flex）の中では幅が潰れて
+   目盛と帯が重なって見えるため、必ず1行まるごと使って日別ページと同じ姿にする */
+.shiftbar { margin: 0.2rem 0 0.7rem; width: 100%; }
 .shiftbar__scale {
   position: relative;
   height: 1rem;
