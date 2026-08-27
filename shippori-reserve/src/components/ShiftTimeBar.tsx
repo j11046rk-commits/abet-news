@@ -8,7 +8,8 @@ import { chipColors } from "@/lib/staff";
  * ひと目で分かる——シフトを組み直す判断はそこから始まる。
  *
  * 軸は店主指定で 17:00〜25:00 に固定。営業は18時からだが、仕込みの17時台も
- * 見えるようにしておく。数字の行は1時間刻みの人数。
+ * 見えるようにしておく。人数の数字は出さない——帯が見えていれば数は読める
+ * （店主指示 2026-08-28）。
  */
 
 export type ShiftBarEntry = {
@@ -28,16 +29,6 @@ const SPAN = AXIS_END - AXIS_START;
 const pct = (min: number): string =>
   `${(((Math.min(Math.max(min, AXIS_START), AXIS_END) - AXIS_START) / SPAN) * 100).toFixed(2)}%`;
 
-/** 1時間刻みの人数（17-18, 18-19, … 24-25 の8コマ） */
-export function shiftHourCounts(entries: ShiftBarEntry[]): { hour: number; count: number }[] {
-  return Array.from({ length: 8 }, (_, i) => {
-    const from = AXIS_START + i * 60;
-    const to = from + 60;
-    const count = entries.filter((e) => e.start < to && e.end > from).length;
-    return { hour: 17 + i, count };
-  });
-}
-
 export default function ShiftTimeBar({
   entries,
   note = true,
@@ -47,8 +38,6 @@ export default function ShiftTimeBar({
   note?: boolean;
 }) {
   if (entries.length === 0) return null;
-
-  const hours = shiftHourCounts(entries);
 
   return (
     <div className="shiftbar" aria-label="この日のシフトの時間帯">
@@ -82,20 +71,8 @@ export default function ShiftTimeBar({
         ))}
       </div>
 
-      {/* 時間帯ごとの人数。薄い時間帯がひと目で分かるように濃さを変える */}
-      <div className="shiftbar__density" aria-label="時間帯ごとの人数">
-        {hours.map((h) => (
-          <span
-            key={h.hour}
-            className={`shiftbar__cell shiftbar__cell--${Math.min(h.count, 4)}`}
-            title={`${h.hour % 24 || 24}時台 ${h.count}人`}
-          >
-            {h.count}
-          </span>
-        ))}
-      </div>
       {note ? (
-        <p className="shiftbar__note">下の数字＝その時間帯の人数（時間なしの人は通し扱い）</p>
+        <p className="shiftbar__note">薄い帯＝時間を決めていない人（店長など・通し扱い）</p>
       ) : null}
     </div>
   );

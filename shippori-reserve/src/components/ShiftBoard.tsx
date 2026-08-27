@@ -454,7 +454,7 @@ export default function ShiftBoard({
               </div>
             ))}
             <p className="shiftbar__note" style={{ marginLeft: 0 }}>
-              数字＝その時間帯の人数。時間なしの人（店長）は通し扱い。
+              薄い帯＝時間を決めていない人（店長など・通し扱い）。
             </p>
             {/* 店主指定の注記（2026-08-28）。時間の帯を「確定した勤務時間」と読ませない */}
             <p className="shiftbar__note" style={{ marginLeft: 0 }}>

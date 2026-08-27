@@ -2361,25 +2361,6 @@ textarea.field:-webkit-autofill {
 }
 /* 時間の概念を持たない人（店長・オーナー）は通し扱い。断定しない見た目にする */
 .shiftbar__bar--whole { opacity: 0.45; }
-.shiftbar__density {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 1px;
-  margin: 0.35rem 0 0;
-  margin-left: 4rem;
-}
-.shiftbar__cell {
-  text-align: center;
-  font-size: 0.66rem;
-  font-variant-numeric: tabular-nums;
-  border-radius: 3px;
-  padding: 0.06rem 0;
-}
-.shiftbar__cell--0 { color: var(--seal); background: color-mix(in srgb, var(--seal) 14%, transparent); }
-.shiftbar__cell--1 { color: #a8802f; background: color-mix(in srgb, #d2a25c 18%, transparent); }
-.shiftbar__cell--2 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 12%, transparent); }
-.shiftbar__cell--3 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 22%, transparent); }
-.shiftbar__cell--4 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 32%, transparent); }
 .shiftbar__note { margin: 0.25rem 0 0; font-size: 0.62rem; color: var(--text-dim); margin-left: 4rem; }
 
 /* 人数の注意（繁忙日に2名以下・平日に5名以上）。「確認した」にチェックで消える */
