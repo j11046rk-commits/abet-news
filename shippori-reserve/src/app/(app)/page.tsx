@@ -20,7 +20,7 @@ import {
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
-import { fmtYen, hitOf, salesView, shownYen } from "@/lib/sales";
+import { fmtYen, hitOf, perGuest, salesView, shownYen } from "@/lib/sales";
 import {
   fmtMonthJa,
   fmtYm,
@@ -160,6 +160,9 @@ async function MonthList({
           const sale = salesView(salesMap.get(date));
           const saleHit = hitOf(sale);
           const saleDineIn = shownYen(sale.dineIn);
+          // 実績の客数と1名あたり（店主要望 2026-08-28）。分子は物販を除く店内売上
+          const saleGuests = salesMap.get(date)?.guest_count ?? null;
+          const salePerGuest = perGuest(sale.dineIn, saleGuests);
 
           const rowCls = [
             "mrow",
@@ -236,6 +239,11 @@ async function MonthList({
                       <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
                     ) : null}
                     {sale.target ? <span>目標 {fmtYen(sale.target)}</span> : null}
+                    {saleGuests != null && saleGuests > 0 ? (
+                      <span className="salesline__guests">
+                        {saleGuests}名{salePerGuest != null ? `＠${salePerGuest.toLocaleString()}` : ""}
+                      </span>
+                    ) : null}
                   </div>
                 ) : null}
 

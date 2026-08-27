@@ -2386,3 +2386,5 @@ textarea.field:-webkit-autofill {
   margin: 0.15rem 0 0;
   margin-left: 0;
 }
+/* ホーム暦の売上行に添える客数と1名あたり（例: 33名＠4,524） */
+.salesline__guests { color: var(--text-dim); font-size: 0.9em; }
