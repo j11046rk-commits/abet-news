@@ -38,27 +38,6 @@ export function shiftHourCounts(entries: ShiftBarEntry[]): { hour: number; count
   });
 }
 
-/**
- * 時間帯ごとの人数だけの1行（シフトを組む画面の各日用）。
- * タップで下書きが変わるたびに動く——「21時台が薄い」に組みながら気づける。
- */
-export function ShiftHourStrip({ entries }: { entries: ShiftBarEntry[] }) {
-  if (entries.length === 0) return null;
-  return (
-    <span className="shiftbar__density shiftbar__density--inline" aria-label="時間帯ごとの人数（17〜25時）">
-      {shiftHourCounts(entries).map((h) => (
-        <span
-          key={h.hour}
-          className={`shiftbar__cell shiftbar__cell--${Math.min(h.count, 4)}`}
-          title={`${h.hour % 24 || 24}時台 ${h.count}人`}
-        >
-          {h.count}
-        </span>
-      ))}
-    </span>
-  );
-}
-
 export default function ShiftTimeBar({
   entries,
   note = true,

@@ -206,6 +206,12 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
               まだ確定していません。
             </p>
           )}
+          {/* 店主指定の注記（2026-08-28）。バーの時間を「確定した勤務時間」と読ませない */}
+          {!summary.is_closed && onShift.length > 0 && !canEditShift ? (
+            <p className="micro" style={{ margin: "0.4rem 0 0" }}>
+              シフト表示は確定ではなく目安です。現場にて店長の判断に従ってください。
+            </p>
+          ) : null}
         </section>
 
         {flagged.length > 0 ? (

@@ -14,7 +14,7 @@ import {
   type ShiftDefault,
 } from "@/lib/shift-time";
 import type { ShiftTimeRow } from "@/lib/types";
-import ShiftTimeBar, { ShiftHourStrip, type ShiftBarEntry } from "@/components/ShiftTimeBar";
+import ShiftTimeBar, { type ShiftBarEntry } from "@/components/ShiftTimeBar";
 
 export type BoardStaff = { id: string; name: string; colorIndex: number };
 export type BoardDay = {
@@ -25,6 +25,10 @@ export type BoardDay = {
   closed: boolean;
   /** その日の閉店時刻（LAST の表示に使う） */
   closeMin: number;
+  /** 繁忙日（金土＋手動）。2名以下だとアラート */
+  busy: boolean;
+  /** イベント営業。人数の目安が別なのでアラートの判定から外す */
+  event: boolean;
 };
 
 /** 時間を選ぶ候補。18:00〜22:00 を30分刻み（それ以降から入る運用は無い） */
@@ -195,6 +199,45 @@ export default function ShiftBoard({
       return next;
     });
   }
+
+  /*
+   * 人数アラートの「確認した」記録（店主要望 2026-08-28）。
+   * 繁忙日に2名以下・平日に5名以上の日に注意を出し、チェックすると消える。
+   * 記録は端末ごと（localStorage）。人数が変わればまた出る（キーに人数を含める）。
+   */
+  const [acked, setAcked] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`shiftAlertAck:${ym}`);
+      if (raw) setAcked(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* 読めなければ全部出すだけ */
+    }
+  }, [ym]);
+  const ack = (key: string) =>
+    setAcked((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      try {
+        localStorage.setItem(`shiftAlertAck:${ym}`, JSON.stringify([...next]));
+      } catch {
+        /* 保存できなくても画面上は消える */
+      }
+      return next;
+    });
+
+  /** 人数の注意。繁忙日（金土＋手動）に2名以下／平日に5名以上（店主指定） */
+  const staffAlert = (
+    d: BoardDay,
+    n: number,
+  ): { key: string; kind: "low" | "high"; msg: string } | null => {
+    if (d.closed || d.event) return null;
+    if (d.busy && n <= 2)
+      return { key: `${d.date}:low:${n}`, kind: "low", msg: `繁忙日が${n}名です。足りますか？` };
+    if (!d.busy && n >= 5)
+      return { key: `${d.date}:high:${n}`, kind: "high", msg: `平日に${n}名入っています。多くないですか？` };
+    return null;
+  };
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>, doneMsg: string) =>
     startTransition(async () => {
@@ -413,6 +456,10 @@ export default function ShiftBoard({
             <p className="shiftbar__note" style={{ marginLeft: 0 }}>
               数字＝その時間帯の人数。時間なしの人（店長）は通し扱い。
             </p>
+            {/* 店主指定の注記（2026-08-28）。時間の帯を「確定した勤務時間」と読ませない */}
+            <p className="shiftbar__note" style={{ marginLeft: 0 }}>
+              シフト表示は確定ではなく目安です。現場にて店長の判断に従ってください。
+            </p>
           </section>
         ) : null}
       </div>
@@ -457,6 +504,7 @@ export default function ShiftBoard({
                 if (!t) return [{ name: p.name, colorIndex: p.colorIndex, start: 1020, end: 1500, wholeDay: true }];
                 return [{ name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? d.closeMin }];
               });
+          const alert = staffAlert(d, d.closed ? 0 : (draft[d.date] ?? []).length);
           return (
           <div key={d.date} className={`srow ${d.closed ? "srow--closed" : ""}`}>
             <div className="srow__date">
@@ -499,7 +547,18 @@ export default function ShiftBoard({
                   );
                 })
               )}
-              {strip.length > 0 ? <ShiftHourStrip entries={strip} /> : null}
+              {/* 日別ページと同じ帯のバー（店主指定：数字だけの行は分かりにくい）。
+                  タップで下書きが変わるたびにライブで動く */}
+              {strip.length > 0 ? <ShiftTimeBar entries={strip} note={false} /> : null}
+              {alert && !acked.has(alert.key) ? (
+                <span className={`shiftalert shiftalert--${alert.kind}`} role="alert">
+                  ⚠ {alert.msg}
+                  <label className="shiftalert__ack">
+                    <input type="checkbox" checked={false} onChange={() => ack(alert.key)} />
+                    確認した
+                  </label>
+                </span>
+              ) : null}
             </div>
           </div>
           );

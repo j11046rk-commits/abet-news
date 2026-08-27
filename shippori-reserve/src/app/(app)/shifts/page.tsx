@@ -95,6 +95,9 @@ export default async function ShiftsPage({
       closed: summary?.is_closed ?? derived.is_closed,
       // LAST の表示に使う。営業時間を変えた日はその値に従う。
       closeMin: summary?.close_min ?? derived.close_min,
+      // 人数アラート用。金土は既定で繁忙日。イベント日は人数の目安が別なので判定から外す
+      busy: summary?.is_busy ?? derived.is_busy,
+      event: (summary?.mode ?? "normal") === "event",
     });
   }
 

@@ -2379,12 +2379,34 @@ textarea.field:-webkit-autofill {
 .shiftbar__cell--3 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 22%, transparent); }
 .shiftbar__cell--4 { color: var(--text-dim); background: color-mix(in srgb, var(--ok) 32%, transparent); }
 .shiftbar__note { margin: 0.25rem 0 0; font-size: 0.62rem; color: var(--text-dim); margin-left: 4rem; }
-/* シフトを組む画面の各日に出す、人数だけの1行（タップのたびに動く） */
-.shiftbar__density--inline {
-  display: grid;
+
+/* 人数の注意（繁忙日に2名以下・平日に5名以上）。「確認した」にチェックで消える */
+.shiftalert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
-  margin: 0.15rem 0 0;
-  margin-left: 0;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--seal);
+  background: color-mix(in srgb, var(--seal) 10%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--seal) 40%, var(--line));
+}
+.shiftalert--high {
+  color: #a8802f;
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
+}
+.shiftalert__ack {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 0.76rem;
 }
 /* ホーム暦の売上行に添える客数と1名あたり（例: 33名＠4,524） */
 .salesline__guests { color: var(--text-dim); font-size: 0.9em; }
