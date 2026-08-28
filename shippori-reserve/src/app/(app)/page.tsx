@@ -12,6 +12,7 @@ import {
   deriveBusinessDay,
   getAllProfiles,
   getCourses,
+  getDayShiftRows,
   getMonthLineFollowers,
   getMonthReservations,
   getMonthSales,
@@ -34,7 +35,9 @@ import {
   weekdayOf,
   WEEKDAY_JA,
 } from "@/lib/time";
-import type { Reservation } from "@/lib/types";
+import type { Reservation, ShiftTimeRow } from "@/lib/types";
+import { resolveShiftTime } from "@/lib/shift-time";
+import ShiftTimeBar, { type ShiftBarEntry } from "@/components/ShiftTimeBar";
 import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
 
 export const dynamic = "force-dynamic";
@@ -133,6 +136,16 @@ async function MonthList({
       getMonthWeather(ym),
       getMonthLineFollowers(ym),
     ]);
+
+  // 今日のシフトの時間（タイムバー用・店主要望 2026-08-28）。今月を見ているときだけ引く
+  const todayShifts: { ids: string[]; times: Record<string, ShiftTimeRow> } =
+    ym === today.slice(0, 7) ? await getDayShiftRows(today) : { ids: [], times: {} };
+  const defMap = new Map(
+    profiles.map((p) => [
+      p.id,
+      { default_start_min: p.default_start_min ?? null, default_end_min: p.default_end_min ?? null },
+    ]),
+  );
 
   // シフトは店長が「確定」した月だけ暦に出す（組みかけの下書きを見せない）
   const shiftMap = shiftsPublishedAt ? shiftMapRaw : new Map<string, string[]>();
@@ -235,11 +248,14 @@ async function MonthList({
                     <span className="badge badge--event">{day.event_name || "イベント"}</span>
                   ) : null}
 
-                  {shiftIds.map((id) => (
-                    <span key={id} className="shiftchip" style={chipColors(colorIndex.get(id) ?? 0)}>
-                      {surname(names.get(id) ?? "?")}
-                    </span>
-                  ))}
+                  {/* 今日はチップの代わりに下のタイムバーで出す（名前も時間もバーにある） */}
+                  {date === today && shiftIds.length > 0
+                    ? null
+                    : shiftIds.map((id) => (
+                        <span key={id} className="shiftchip" style={chipColors(colorIndex.get(id) ?? 0)}>
+                          {surname(names.get(id) ?? "?")}
+                        </span>
+                      ))}
 
                   {/* LINE友だちが増えた日は緑の +◯。減った日（ブロック等）は薄く */}
                   {lineDelta != null && lineDelta !== 0 ? (
@@ -259,6 +275,20 @@ async function MonthList({
                     ＋
                   </Link>
                 </div>
+
+                {/* 今日のシフトは日別ページと同じ帯のタイムバーで（店主要望 2026-08-28） */}
+                {date === today && shiftIds.length > 0 ? (
+                  <ShiftTimeBar
+                    entries={shiftIds.map((id): ShiftBarEntry => {
+                      const t = resolveShiftTime(todayShifts.times[id] ?? null, defMap.get(id) ?? null);
+                      const nm = surname(names.get(id) ?? "?");
+                      const ci = colorIndex.get(id) ?? 0;
+                      if (!t) return { name: nm, colorIndex: ci, start: 1020, end: 1500, wholeDay: true };
+                      return { name: nm, colorIndex: ci, start: t.start, end: t.end ?? day.close_min };
+                    })}
+                    note={false}
+                  />
+                ) : null}
 
                 {/* 席の空き状況。予約の有無にかかわらず常に出す（店主指定）。 */}
                 {day.mode === "normal" ? (
