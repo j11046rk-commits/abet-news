@@ -645,10 +645,12 @@ textarea.field {
   scroll-margin-top: 3.6rem;
 }
 
+/* 今日は朱。達成日の金色と同系だと埋もれる（店主指摘 2026-08-28） */
 .mrow--today {
-  background: color-mix(in srgb, var(--gold) 8%, transparent);
+  background: color-mix(in srgb, var(--seal) 6%, transparent);
   border-radius: 8px;
-  border-bottom-color: color-mix(in srgb, var(--gold) 40%, transparent);
+  border-left: 3px solid var(--seal);
+  border-bottom-color: color-mix(in srgb, var(--seal) 40%, transparent);
 }
 
 .mrow--event {
@@ -918,10 +920,12 @@ textarea.field {
 .salescell--closed {
   opacity: 0.45;
 }
+/* 今日は朱のはっきりした枠。達成日の金の光と重なっても見分けられる */
 .salescell--today {
-  outline: 1px dashed var(--gold);
+  outline: 2px solid var(--seal);
   outline-offset: 1px;
 }
+.salescell--today .salescell__day { color: var(--seal); }
 .salescell__day {
   font-family: var(--font-serif);
   font-size: 0.85rem;
@@ -2413,3 +2417,16 @@ textarea.field:-webkit-autofill {
 /* 予報（この先1週間）は薄く＋「予」で実測と区別。毎日の取り込みで最新に置き換わる */
 .mrow__wx--fc, .salescell__wx--fc { opacity: 0.55; }
 .wx-fc { font-size: 0.55em; color: var(--text-dim); margin-left: 1px; vertical-align: super; }
+
+/* 売上タブの「今日」カード。当日ぶんの詳細をカレンダーの上に出す（店主要望 2026-08-28） */
+.todaycard {
+  border: 2px solid var(--seal);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  background: color-mix(in srgb, var(--seal) 6%, var(--bg-2));
+}
+.todaycard__head { margin: 0; font-size: 0.82rem; letter-spacing: 0.08em; color: var(--seal); }
+.todaycard__grid { display: flex; flex-wrap: wrap; gap: 0.25rem 1.3rem; margin-top: 0.4rem; }
+.todaycard__label { color: var(--text-dim); font-size: 0.72rem; margin-right: 0.4rem; }
+.todaycard__num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.todaycard__note { color: var(--text-dim); font-size: 0.72rem; }

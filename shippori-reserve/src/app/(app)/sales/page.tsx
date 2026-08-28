@@ -14,8 +14,8 @@ import {
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
-import { hitOf, salesView } from "@/lib/sales";
-import { WEATHER_ICON } from "@/lib/weather";
+import { fmtYen, hitOf, salesView } from "@/lib/sales";
+import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
 import { surname } from "@/lib/staff";
 import {
   fmtMonthJa,
@@ -129,6 +129,69 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
+        {/*
+          今日の詳細（店主要望 2026-08-28）。グリッドの小さなマスでは
+          目標・予約・天気が一度に読めないので、当日ぶんだけ上に開いて見せる。
+          会計の実績はエアレジから翌朝届くため、届くまでは予約と目標が主役。
+        */}
+        {ym === today.slice(0, 7)
+          ? (() => {
+              // 行が無い日（まだ誰も触っていない日）は曜日から導出。
+              // 予約の集計はビュー(DailySummary)にしか無いので、無ければ0件
+              const ts = summaries.get(today);
+              const closed = ts?.is_closed ?? deriveBusinessDay(today, settings).is_closed;
+              const trow = sales.get(today);
+              const tv = salesView(trow);
+              const twx = weather.get(today);
+              const remain =
+                tv.target != null && tv.dineIn != null ? tv.target - tv.dineIn : null;
+              return (
+                <section className="todaycard" aria-label="今日の詳細">
+                  <p className="todaycard__head">
+                    今日 {Number(today.slice(8))}日（{WEEKDAY_JA[weekdayOf(today)]}）
+                    {twx
+                      ? `　${WEATHER_ICON[twx.weather]}${WEATHER_JA[twx.weather]}${twx.is_forecast ? "(予報)" : ""}`
+                      : ""}
+                    {closed ? "　休業日" : ""}
+                  </p>
+                  {closed ? null : (
+                    <div className="todaycard__grid">
+                      <div>
+                        <span className="todaycard__label">目標</span>
+                        <span className="todaycard__num">
+                          {tv.target ? fmtYen(tv.target) : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="todaycard__label">予約</span>
+                        <span className="todaycard__num">
+                          {ts?.reservation_count ?? 0}件・{ts?.guest_count ?? 0}名
+                        </span>
+                      </div>
+                      {tv.dineIn != null ? (
+                        <>
+                          <div>
+                            <span className="todaycard__label">店内実績</span>
+                            <span className="todaycard__num">{fmtYen(tv.dineIn)}</span>
+                          </div>
+                          {remain != null ? (
+                            <div>
+                              <span className="todaycard__label">
+                                {remain > 0 ? "目標まで" : "目標超え"}
+                              </span>
+                              <span className="todaycard__num">{fmtYen(Math.abs(remain))}</span>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="todaycard__note">会計の実績は翌朝ここに入ります</span>
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            })()
+          : null}
         <SalesBoard
           key={ym}
           days={days}
