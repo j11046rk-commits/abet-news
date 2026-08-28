@@ -160,7 +160,7 @@ export async function getMonthWeather(ym: string): Promise<Map<string, WeatherRo
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("weather_daily")
-    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c")
+    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c, is_forecast")
     .gte("biz_date", from)
     .lte("biz_date", to);
   warnQuery("getMonthWeather", error);
@@ -172,7 +172,7 @@ export async function getDayWeather(date: string): Promise<WeatherRow | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("weather_daily")
-    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c")
+    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c, is_forecast")
     .eq("biz_date", date)
     .maybeSingle();
   warnQuery("getDayWeather", error);

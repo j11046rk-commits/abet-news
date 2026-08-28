@@ -15,6 +15,12 @@ export type WeatherRow = {
   precip_mm: number | null;
   temp_max_c: number | null;
   temp_min_c: number | null;
+  /**
+   * 予報の行（この先1週間・店主要望 2026-08-28）。毎日の取り込みのたびに
+   * 最新の予報へ置き換わるので、日が近いほど当たりやすい。
+   * 日が過ぎたら実測が上書きして false になる。
+   */
+  is_forecast: boolean;
 };
 
 export const WEATHER_KINDS: WeatherKind[] = ["sunny", "cloudy", "rainy"];

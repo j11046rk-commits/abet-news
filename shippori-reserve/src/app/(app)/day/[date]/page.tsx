@@ -118,11 +118,11 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             <DateJa date={date} /> {isEvent ? "イベント営業" : "通常営業"}
           </div>
           <div className="appbar__sub">
-            {/* その日の天気（実測・気象庁の新居浜アメダス）。過ぎた日にだけ付く */}
+            {/* その日の天気。過ぎた日は実測、この先1週間は予報（毎日最新に置き換わる） */}
             {wx
               ? `${WEATHER_ICON[wx.weather]}${WEATHER_JA[wx.weather]}${
-                  wx.temp_max_c != null ? ` ${wx.temp_max_c}°` : ""
-                }・`
+                  wx.is_forecast ? "(予報)" : ""
+                }${wx.temp_max_c != null ? ` ${wx.temp_max_c}°` : ""}・`
               : ""}
             {holiday ? `${holiday}・` : ""}
             {date === todayBizDate() ? "今日" : "この日の予約"}

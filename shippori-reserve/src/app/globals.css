@@ -2410,3 +2410,6 @@ textarea.field:-webkit-autofill {
 /* 天気マーク（晴☀️・曇☁️・雨☂️）。暦は日付の下、売上タブは日数字の隣に小さく */
 .mrow__wx { font-size: 0.7rem; line-height: 1.1; }
 .salescell__wx { font-size: 0.6rem; margin-left: 0.1rem; }
+/* 予報（この先1週間）は薄く＋「予」で実測と区別。毎日の取り込みで最新に置き換わる */
+.mrow__wx--fc, .salescell__wx--fc { opacity: 0.55; }
+.wx-fc { font-size: 0.55em; color: var(--text-dim); margin-left: 1px; vertical-align: super; }

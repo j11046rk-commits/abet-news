@@ -24,8 +24,10 @@ export type SalesBoardDay = {
   guests: number | null;
   /** 会計数＝伝票の枚数（おおよその組数）。取り込めていない日は null */
   checks: number | null;
-  /** 天気マーク（☀️☁️☂️）。まだ取れていない日・未来の日は null */
+  /** 天気マーク（☀️☁️☂️）。まだ取れていない日は null */
   wx: string | null;
+  /** 予報の日（この先1週間）。薄く＋「予」で実測と区別する */
+  wxForecast: boolean;
 };
 
 export type SalesContrib = {
@@ -482,8 +484,13 @@ export default function SalesBoard({
                 className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
               >
                 {d.day}
-                {/* 天気（晴☀️・曇☁️・雨☂️）。売上との相関を目で追う（店主要望 2026-08-28） */}
-                {d.wx ? <span className="salescell__wx">{d.wx}</span> : null}
+                {/* 天気（晴☀️・曇☁️・雨☂️）。予報は薄く＋「予」（店主要望 2026-08-28） */}
+                {d.wx ? (
+                  <span className={`salescell__wx${d.wxForecast ? " salescell__wx--fc" : ""}`}>
+                    {d.wx}
+                    {d.wxForecast ? <span className="wx-fc">予</span> : null}
+                  </span>
+                ) : null}
               </span>
               {d.closed ? (
                 <span className="salescell__t">休</span>

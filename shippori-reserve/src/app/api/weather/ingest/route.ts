@@ -16,6 +16,8 @@ type WeatherDay = {
   precip_mm?: number | null;
   temp_max_c?: number | null;
   temp_min_c?: number | null;
+  /** true なら予報。実測(省略またはfalse)は予報を上書きするが、逆は許さない */
+  is_forecast?: boolean;
 };
 
 /**
@@ -73,12 +75,36 @@ export async function POST(request: Request) {
       precip_mm: num(d.precip_mm, 0, 2000),
       temp_max_c: num(d.temp_max_c, -50, 60),
       temp_min_c: num(d.temp_min_c, -50, 60),
+      is_forecast: d.is_forecast === true,
       updated_at: new Date().toISOString(),
     });
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("weather_daily").upsert(rows, { onConflict: "biz_date" });
+
+  // 実測は予報を上書きしてよいが、予報が実測を上書きしてはいけない。
+  // (取り込みの順番がどうであれ、確定した観測値が最後に勝つように)
+  const fcDates = rows.filter((r) => r.is_forecast).map((r) => r.biz_date);
+  let toWrite = rows;
+  if (fcDates.length > 0) {
+    const { data: existing, error: exErr } = await admin
+      .from("weather_daily")
+      .select("biz_date, is_forecast")
+      .in("biz_date", fcDates);
+    if (exErr) {
+      console.error("weather_ingest_precheck_failed", exErr);
+      return NextResponse.json({ error: "保存に失敗しました。" }, { status: 500 });
+    }
+    const actualDates = new Set(
+      (existing ?? []).filter((r) => !r.is_forecast).map((r) => r.biz_date as string),
+    );
+    toWrite = rows.filter((r) => !(r.is_forecast && actualDates.has(r.biz_date)));
+  }
+  if (toWrite.length === 0) {
+    return NextResponse.json({ ok: true, count: 0 });
+  }
+
+  const { error } = await admin.from("weather_daily").upsert(toWrite, { onConflict: "biz_date" });
   if (error) {
     console.error("weather_ingest_failed", error);
     return NextResponse.json({ error: "保存に失敗しました。" }, { status: 500 });

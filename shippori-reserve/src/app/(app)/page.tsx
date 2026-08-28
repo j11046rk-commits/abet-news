@@ -189,8 +189,13 @@ async function MonthList({
                   {WEEKDAY_JA[dow]}
                 </span>
                 {wx ? (
-                  <span className="mrow__wx" aria-label={`天気 ${WEATHER_JA[wx.weather]}`}>
+                  <span
+                    className={`mrow__wx${wx.is_forecast ? " mrow__wx--fc" : ""}`}
+                    aria-label={`天気${wx.is_forecast ? "予報" : ""} ${WEATHER_JA[wx.weather]}`}
+                  >
                     {WEATHER_ICON[wx.weather]}
+                    {/* 予報は薄く＋「予」。実測とひと目で区別する（店主指定） */}
+                    {wx.is_forecast ? <span className="wx-fc">予</span> : null}
                   </span>
                 ) : null}
                 {guests > 0 ? <span className="mrow__guests">{guests}名</span> : null}

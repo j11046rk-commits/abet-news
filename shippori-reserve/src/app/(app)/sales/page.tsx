@@ -85,6 +85,7 @@ export default async function SalesPage({
       checks: row?.check_count ?? null,
       isToday: d === today,
       wx: wx ? WEATHER_ICON[wx.weather] : null,
+      wxForecast: wx?.is_forecast ?? false,
     });
   }
 
