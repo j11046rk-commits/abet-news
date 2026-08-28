@@ -6,6 +6,7 @@ import { isHoliday } from "@/lib/holidays";
 import {
   deriveBusinessDay,
   getAllProfiles,
+  getMonthLineFollowers,
   getMonthlySalesTarget,
   getMonthSales,
   getMonthShifts,
@@ -49,7 +50,7 @@ export default async function SalesPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles, weather] =
+  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles, weather, lineMap] =
     await Promise.all([
       getMonthSales(ym),
       getMonthlySalesTarget(ym),
@@ -59,7 +60,25 @@ export default async function SalesPage({
       getShiftPublication(ym),
       getAllProfiles(),
       getMonthWeather(ym),
+      getMonthLineFollowers(ym),
     ]);
+
+  /*
+   * LINE友だちの増減（店主要望 2026-08-28: 月の合計と日ごとの増加を売上タブでも）。
+   * lineMap は日次の総数スナップショット（月初の前日も1日ぶん入っている）。
+   * 前日との差がその日の増減、月間は「最後の総数 − 最初の総数」。
+   */
+  const lineDates = [...lineMap.keys()].sort();
+  const lineLatest = lineDates.length > 0 ? (lineMap.get(lineDates.at(-1)!) ?? null) : null;
+  const lineMonthGain =
+    lineDates.length >= 2
+      ? (lineMap.get(lineDates.at(-1)!) ?? 0) - (lineMap.get(lineDates[0]!) ?? 0)
+      : null;
+  const lineDeltaOf = (d: string): number | null => {
+    const now = lineMap.get(d);
+    const prev = lineMap.get(shiftDate(d, -1));
+    return now != null && prev != null ? now - prev : null;
+  };
 
   const { from, to } = monthRange(ym);
   const days: SalesBoardDay[] = [];
@@ -86,6 +105,7 @@ export default async function SalesPage({
       isToday: d === today,
       wx: wx ? WEATHER_ICON[wx.weather] : null,
       wxForecast: wx?.is_forecast ?? false,
+      lineGain: lineDeltaOf(d),
     });
   }
 
@@ -129,6 +149,15 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
+        {/* LINE友だち（店主要望 2026-08-28）。友だち集めの成果を売上と同じ画面で追う */}
+        {lineLatest != null ? (
+          <p className="linefollow" style={{ margin: 0 }}>
+            LINE友だち <strong>{lineLatest}人</strong>
+            {lineMonthGain != null && lineMonthGain !== 0
+              ? `（この月 ${lineMonthGain > 0 ? "+" : ""}${lineMonthGain}人）`
+              : "（この月 増減なし）"}
+          </p>
+        ) : null}
         {/*
           今日の詳細（店主要望 2026-08-28）。グリッドの小さなマスでは
           目標・予約・天気が一度に読めないので、当日ぶんだけ上に開いて見せる。

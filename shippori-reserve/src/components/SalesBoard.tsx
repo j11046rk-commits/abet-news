@@ -28,6 +28,8 @@ export type SalesBoardDay = {
   wx: string | null;
   /** 予報の日（この先1週間）。薄く＋「予」で実測と区別する */
   wxForecast: boolean;
+  /** LINE友だちのその日の増減。データが無い日は null */
+  lineGain: number | null;
 };
 
 export type SalesContrib = {
@@ -510,6 +512,12 @@ export default function SalesBoard({
               )}
               {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}
               {d.retail > 0 ? <span className="salescell__r">＋物販</span> : null}
+              {/* LINE友だちが増えた日（店主要望 2026-08-28）。施策と売上を1画面で突き合わせる */}
+              {d.lineGain != null && d.lineGain !== 0 ? (
+                <span className={`salescell__line${d.lineGain < 0 ? " salescell__line--down" : ""}`}>
+                  LINE{d.lineGain > 0 ? `+${d.lineGain}` : d.lineGain}
+                </span>
+              ) : null}
             </Link>
           );
         })}
