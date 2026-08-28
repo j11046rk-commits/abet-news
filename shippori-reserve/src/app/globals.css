@@ -2418,6 +2418,22 @@ textarea.field:-webkit-autofill {
 .mrow__wx--fc, .salescell__wx--fc { opacity: 0.55; }
 .wx-fc { font-size: 0.55em; color: var(--text-dim); margin-left: 1px; vertical-align: super; }
 
+/* LINE友だち数（店主要望 2026-08-28）。暦の上に総数、増えた日に緑のチップ */
+.linefollow { margin: 0 0 0.35rem; font-size: 0.76rem; color: var(--text-dim); }
+.linefollow strong { color: var(--text); font-size: 0.92rem; }
+.linegain {
+  font-size: 0.64rem;
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  border-radius: 999px;
+  padding: 0 0.32rem;
+  white-space: nowrap;
+}
+.linegain--down {
+  color: var(--text-dim);
+  border-color: color-mix(in srgb, var(--text-dim) 35%, transparent);
+}
+
 /* 売上タブの「今日」カード。当日ぶんの詳細をカレンダーの上に出す（店主要望 2026-08-28） */
 .todaycard {
   border: 2px solid var(--seal);

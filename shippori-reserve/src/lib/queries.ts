@@ -11,7 +11,7 @@ import {
 } from "@/lib/constants";
 import { boardUsage, computeSeatUsage, type BoardRow } from "@/lib/seats";
 import type { SalesDay } from "@/lib/sales";
-import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
+import { monthGrid, monthRange, shiftDate, weekdayOf } from "@/lib/time";
 import type { WeatherRow } from "@/lib/weather";
 import type {
   BusinessDay,
@@ -177,6 +177,22 @@ export async function getDayWeather(date: string): Promise<WeatherRow | null> {
     .maybeSingle();
   warnQuery("getDayWeather", error);
   return (data as WeatherRow | null) ?? null;
+}
+
+/**
+ * 月ぶんのLINE友だち数（日次スナップショット）。暦が使う。
+ * 前日との差を出すため、月初の前日も1日ぶん余分に取る。
+ */
+export async function getMonthLineFollowers(ym: string): Promise<Map<string, number>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("line_followers_daily")
+    .select("biz_date, followers")
+    .gte("biz_date", shiftDate(from, -1))
+    .lte("biz_date", to);
+  warnQuery("getMonthLineFollowers", error);
+  return new Map((data ?? []).map((d) => [d.biz_date as string, d.followers as number]));
 }
 
 /** 月ぶんの予約を日付ごとにまとめて返す。暦（月ビュー）が使う。 */

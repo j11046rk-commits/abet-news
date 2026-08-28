@@ -12,6 +12,7 @@ import {
   deriveBusinessDay,
   getAllProfiles,
   getCourses,
+  getMonthLineFollowers,
   getMonthReservations,
   getMonthSales,
   getMonthShifts,
@@ -118,7 +119,7 @@ async function MonthList({
   focus: string | null;
   today: string;
 }) {
-  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap] =
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap] =
     await Promise.all([
       getMonthSummaries(ym),
       getMonthReservations(ym),
@@ -130,6 +131,7 @@ async function MonthList({
       getSettings(),
       getMonthSales(ym),
       getMonthWeather(ym),
+      getMonthLineFollowers(ym),
     ]);
 
   // シフトは店長が「確定」した月だけ暦に出す（組みかけの下書きを見せない）
@@ -143,6 +145,19 @@ async function MonthList({
   const dates: string[] = [];
   for (let d = from; d <= to; d = shiftDate(d, 1)) dates.push(d);
 
+  /*
+   * LINE友だち数（店主要望 2026-08-28: 友だちを増やしたい。今何人で、
+   * いつ何人増えたかを暦で見たい）。値は日次の総数スナップショットで、
+   * 前日との差がその日の増減。lineMap には月初の前日も1日ぶん入っている。
+   */
+  const lineDates = [...lineMap.keys()].sort();
+  const lineLatestDate = lineDates.filter((d) => d <= today).at(-1) ?? lineDates.at(-1) ?? null;
+  const lineLatest = lineLatestDate != null ? (lineMap.get(lineLatestDate) ?? null) : null;
+  const lineMonthGain =
+    lineDates.length >= 2
+      ? (lineMap.get(lineDates.at(-1)!) ?? 0) - (lineMap.get(lineDates[0]!) ?? 0)
+      : null;
+
   /** 行の右端に出す「受付した人」。HPからの自動受付は流入元の略称で埋める。 */
   const registrar = (r: Reservation): string =>
     (r.created_by && names.get(r.created_by)?.split(/[\s　]/)[0]) || SOURCE_SHORT[r.source];
@@ -150,6 +165,14 @@ async function MonthList({
   return (
     <>
       <div className="wrap" style={{ paddingTop: "0.4rem" }}>
+        {lineLatest != null ? (
+          <p className="linefollow">
+            LINE友だち <strong>{lineLatest}人</strong>
+            {lineMonthGain != null && lineMonthGain !== 0
+              ? `（この月 ${lineMonthGain > 0 ? "+" : ""}${lineMonthGain}人）`
+              : ""}
+          </p>
+        ) : null}
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);
           const rows = resvMap.get(date) ?? [];
@@ -168,6 +191,10 @@ async function MonthList({
           const salePerGuest = perGuest(sale.dineIn, saleGuests);
           // 天気マーク（晴☀️・曇☁️・雨☂️）。実測だけなので過ぎた日にだけ付く
           const wx = weatherMap.get(date);
+          // LINE友だちの増減（前日の総数が無い日は出さない）
+          const lineNow = lineMap.get(date);
+          const linePrev = lineMap.get(shiftDate(date, -1));
+          const lineDelta = lineNow != null && linePrev != null ? lineNow - linePrev : null;
 
           const rowCls = [
             "mrow",
@@ -213,6 +240,16 @@ async function MonthList({
                       {surname(names.get(id) ?? "?")}
                     </span>
                   ))}
+
+                  {/* LINE友だちが増えた日は緑の +◯。減った日（ブロック等）は薄く */}
+                  {lineDelta != null && lineDelta !== 0 ? (
+                    <span
+                      className={`linegain${lineDelta < 0 ? " linegain--down" : ""}`}
+                      aria-label={`LINE友だち ${lineDelta > 0 ? "増" : "減"} ${Math.abs(lineDelta)}人`}
+                    >
+                      LINE{lineDelta > 0 ? `+${lineDelta}` : lineDelta}
+                    </span>
+                  ) : null}
 
                   <Link
                     className="mrow__add"
