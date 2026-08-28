@@ -16,6 +16,7 @@ import {
   getMonthSales,
   getMonthShifts,
   getMonthSummaries,
+  getMonthWeather,
   getSeatUnits,
   getSettings,
   getShiftPublication,
@@ -33,6 +34,7 @@ import {
   WEEKDAY_JA,
 } from "@/lib/time";
 import type { Reservation } from "@/lib/types";
+import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
 
 export const dynamic = "force-dynamic";
 
@@ -116,7 +118,7 @@ async function MonthList({
   focus: string | null;
   today: string;
 }) {
-  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap] =
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap] =
     await Promise.all([
       getMonthSummaries(ym),
       getMonthReservations(ym),
@@ -127,6 +129,7 @@ async function MonthList({
       getCourses(),
       getSettings(),
       getMonthSales(ym),
+      getMonthWeather(ym),
     ]);
 
   // シフトは店長が「確定」した月だけ暦に出す（組みかけの下書きを見せない）
@@ -163,6 +166,8 @@ async function MonthList({
           // 実績の客数と1名あたり（店主要望 2026-08-28）。分子は物販を除く店内売上
           const saleGuests = salesMap.get(date)?.guest_count ?? null;
           const salePerGuest = perGuest(sale.dineIn, saleGuests);
+          // 天気マーク（晴☀️・曇☁️・雨☂️）。実測だけなので過ぎた日にだけ付く
+          const wx = weatherMap.get(date);
 
           const rowCls = [
             "mrow",
@@ -183,6 +188,11 @@ async function MonthList({
                 >
                   {WEEKDAY_JA[dow]}
                 </span>
+                {wx ? (
+                  <span className="mrow__wx" aria-label={`天気 ${WEATHER_JA[wx.weather]}`}>
+                    {WEATHER_ICON[wx.weather]}
+                  </span>
+                ) : null}
                 {guests > 0 ? <span className="mrow__guests">{guests}名</span> : null}
               </Link>
 

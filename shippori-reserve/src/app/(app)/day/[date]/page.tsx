@@ -13,10 +13,12 @@ import {
   getAllProfiles,
   getCourses,
   getDailySummary,
+  getDayWeather,
   getReservationsByDate,
   getDayShiftRows,
   getShiftPublication,
 } from "@/lib/queries";
+import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
 import { holidayName } from "@/lib/holidays";
 import { closeMinOf, resolveShiftTime, shiftTimeLabel } from "@/lib/shift-time";
 import ShiftTimeBar, { type ShiftBarEntry } from "@/components/ShiftTimeBar";
@@ -35,7 +37,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const { date } = await params;
   if (!DATE_RE.test(date)) notFound();
 
-  const [summary, reservations, dayShifts, shiftsPublishedAt, profiles, courses] =
+  const [summary, reservations, dayShifts, shiftsPublishedAt, profiles, courses, wx] =
     await Promise.all([
       getDailySummary(date),
       getReservationsByDate(date),
@@ -43,6 +45,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
       getShiftPublication(date.slice(0, 7)),
       getAllProfiles(),
       getCourses(),
+      getDayWeather(date),
     ]);
   const shiftIdsRaw = dayShifts.ids;
 
@@ -115,6 +118,12 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
             <DateJa date={date} /> {isEvent ? "イベント営業" : "通常営業"}
           </div>
           <div className="appbar__sub">
+            {/* その日の天気（実測・気象庁の新居浜アメダス）。過ぎた日にだけ付く */}
+            {wx
+              ? `${WEATHER_ICON[wx.weather]}${WEATHER_JA[wx.weather]}${
+                  wx.temp_max_c != null ? ` ${wx.temp_max_c}°` : ""
+                }・`
+              : ""}
             {holiday ? `${holiday}・` : ""}
             {date === todayBizDate() ? "今日" : "この日の予約"}
           </div>

@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/api/auth/login",
   "/api/sales/ingest",
+  "/api/weather/ingest", // 天気の取り込み。売上と同じ x-api-key で守る
   "/api/insights",
   "/api/cron",
   "/api/line",   // LINEからのwebhook。署名で本物か確かめる（ログインは通らない）

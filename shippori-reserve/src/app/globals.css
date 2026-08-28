@@ -2406,3 +2406,7 @@ textarea.field:-webkit-autofill {
 }
 /* ホーム暦の売上行に添える客数と1名あたり（例: 33名＠4,524） */
 .salesline__guests { color: var(--text-dim); font-size: 0.9em; }
+
+/* 天気マーク（晴☀️・曇☁️・雨☂️）。暦は日付の下、売上タブは日数字の隣に小さく */
+.mrow__wx { font-size: 0.7rem; line-height: 1.1; }
+.salescell__wx { font-size: 0.6rem; margin-left: 0.1rem; }

@@ -12,6 +12,7 @@ import {
 import { boardUsage, computeSeatUsage, type BoardRow } from "@/lib/seats";
 import type { SalesDay } from "@/lib/sales";
 import { monthGrid, monthRange, weekdayOf } from "@/lib/time";
+import type { WeatherRow } from "@/lib/weather";
 import type {
   BusinessDay,
   Course,
@@ -151,6 +152,31 @@ export async function getMonthSummaries(ym: string): Promise<Map<string, DailySu
   warnQuery("getMonthSummaries", error);
 
   return new Map((data ?? []).map((d) => [d.biz_date, d]));
+}
+
+/** 月ぶんの天気（晴・曇・雨）。暦と売上タブのマークが使う。 */
+export async function getMonthWeather(ym: string): Promise<Map<string, WeatherRow>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("weather_daily")
+    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+  warnQuery("getMonthWeather", error);
+  return new Map((data ?? []).map((d) => [d.biz_date as string, d as WeatherRow]));
+}
+
+/** その日の天気。日別画面の見出しが使う。 */
+export async function getDayWeather(date: string): Promise<WeatherRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("weather_daily")
+    .select("biz_date, weather, precip_mm, temp_max_c, temp_min_c")
+    .eq("biz_date", date)
+    .maybeSingle();
+  warnQuery("getDayWeather", error);
+  return (data as WeatherRow | null) ?? null;
 }
 
 /** 月ぶんの予約を日付ごとにまとめて返す。暦（月ビュー）が使う。 */

@@ -10,10 +10,12 @@ import {
   getMonthSales,
   getMonthShifts,
   getMonthSummaries,
+  getMonthWeather,
   getSettings,
   getShiftPublication,
 } from "@/lib/queries";
 import { hitOf, salesView } from "@/lib/sales";
+import { WEATHER_ICON } from "@/lib/weather";
 import { surname } from "@/lib/staff";
 import {
   fmtMonthJa,
@@ -47,7 +49,7 @@ export default async function SalesPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles] =
+  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles, weather] =
     await Promise.all([
       getMonthSales(ym),
       getMonthlySalesTarget(ym),
@@ -56,6 +58,7 @@ export default async function SalesPage({
       getMonthShifts(ym),
       getShiftPublication(ym),
       getAllProfiles(),
+      getMonthWeather(ym),
     ]);
 
   const { from, to } = monthRange(ym);
@@ -65,6 +68,8 @@ export default async function SalesPage({
     // 店内・物販・合計への読み替えは lib/sales.ts の1か所だけで行う
     const row = sales.get(d);
     const v = salesView(row);
+    // 天気マーク（晴☀️・曇☁️・雨☂️）。売上との相関を目で追うため（店主要望 2026-08-28）
+    const wx = weather.get(d);
     days.push({
       date: d,
       day: Number(d.slice(8)),
@@ -79,6 +84,7 @@ export default async function SalesPage({
       guests: row?.guest_count ?? null,
       checks: row?.check_count ?? null,
       isToday: d === today,
+      wx: wx ? WEATHER_ICON[wx.weather] : null,
     });
   }
 
