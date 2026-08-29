@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LineFollowersKpi from "@/components/LineFollowersKpi";
 import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
@@ -149,15 +150,13 @@ export default async function SalesPage({
       </header>
 
       <div className="wrap stack">
-        {/* LINE友だち（店主要望 2026-08-28）。友だち集めの成果を売上と同じ画面で追う */}
-        {lineLatest != null ? (
-          <p className="linefollow" style={{ margin: 0 }}>
-            LINE友だち <strong>{lineLatest}人</strong>
-            {lineMonthGain != null && lineMonthGain !== 0
-              ? `（この月 ${lineMonthGain > 0 ? "+" : ""}${lineMonthGain}人）`
-              : "（この月 増減なし）"}
-          </p>
-        ) : null}
+        {/* LINE友だち（店主要望 2026-08-28）。友だち集めの成果を売上と同じ画面で追う。
+            目標（KPI・2026-08-29）までの残りと進捗バーも出す */}
+        <LineFollowersKpi
+          latest={lineLatest}
+          monthGain={lineMonthGain}
+          target={Number(settings.line_followers_target) || 0}
+        />
         {/*
           今日の詳細（店主要望 2026-08-28）。グリッドの小さなマスでは
           目標・予約・天気が一度に読めないので、当日ぶんだけ上に開いて見せる。

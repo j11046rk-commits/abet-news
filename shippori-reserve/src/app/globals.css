@@ -2418,9 +2418,25 @@ textarea.field:-webkit-autofill {
 .mrow__wx--fc, .salescell__wx--fc { opacity: 0.55; }
 .wx-fc { font-size: 0.55em; color: var(--text-dim); margin-left: 1px; vertical-align: super; }
 
-/* LINE友だち数（店主要望 2026-08-28）。暦の上に総数、増えた日に緑のチップ */
-.linefollow { margin: 0 0 0.35rem; font-size: 0.76rem; color: var(--text-dim); }
-.linefollow strong { color: var(--text); font-size: 0.92rem; }
+/* LINE友だち数（店主要望 2026-08-28）。暦の上に総数、増えた日に緑のチップ。
+   目標（KPI）までの残りと細い進捗バー（2026-08-29） */
+.linefollow { margin: 0 0 0.35rem; }
+.linefollow__text { margin: 0; font-size: 0.76rem; color: var(--text-dim); }
+.linefollow__text strong { color: var(--text); font-size: 0.92rem; }
+.linefollow__done { color: var(--gold); }
+.linefollow__track {
+  height: 4px;
+  margin-top: 0.25rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-dim) 18%, transparent);
+  overflow: hidden;
+}
+.linefollow__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+}
+.linefollow__fill--done { background: var(--gold); }
 .linegain {
   font-size: 0.64rem;
   color: var(--ok);

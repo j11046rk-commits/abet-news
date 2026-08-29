@@ -1,4 +1,5 @@
 import AutoRefresh from "@/components/AutoRefresh";
+import LineFollowersKpi from "@/components/LineFollowersKpi";
 import { Suspense } from "react";
 import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
@@ -178,14 +179,11 @@ async function MonthList({
   return (
     <>
       <div className="wrap" style={{ paddingTop: "0.4rem" }}>
-        {lineLatest != null ? (
-          <p className="linefollow">
-            LINE友だち <strong>{lineLatest}人</strong>
-            {lineMonthGain != null && lineMonthGain !== 0
-              ? `（この月 ${lineMonthGain > 0 ? "+" : ""}${lineMonthGain}人）`
-              : ""}
-          </p>
-        ) : null}
+        <LineFollowersKpi
+          latest={lineLatest}
+          monthGain={lineMonthGain}
+          target={Number(settings.line_followers_target) || 0}
+        />
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);
           const rows = resvMap.get(date) ?? [];
