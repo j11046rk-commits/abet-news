@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lineTargetFor } from "./line-kpi";
+import { lineTargetFor } from "./line-kpi.ts";
 
 const MAP = { "2026-08": 44, "2026-09": 102, "2026-12": 286 };
 
