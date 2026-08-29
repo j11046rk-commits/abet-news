@@ -17,27 +17,10 @@ if (!TOKEN) {
   process.exit(1);
 }
 const H = { Authorization: `Bearer ${TOKEN}` };
-const FALLBACK_URL = "https://yoyaku.shipporitei.jp/yoyaku";
-
-// LIFFはLINEログインチャネル側にあることが多く、このトークンでは一覧が
-// 見えないことがある。そのときは通常URL(ページ内にLINEログインボタンあり)。
-let url = FALLBACK_URL;
-try {
-  const r = await fetch("https://api.line.me/liff/v1/apps", { headers: H });
-  if (r.ok) {
-    const j = await r.json();
-    const apps = j.apps ?? [];
-    const app = apps.find((a) => (a.view?.url ?? "").includes("yoyaku")) ?? apps[0];
-    if (app?.liffId) {
-      url = `https://liff.line.me/${app.liffId}`;
-      console.log("LIFFを使用:", url);
-    }
-  } else {
-    console.log(`LIFF一覧は取得できず(HTTP ${r.status}・別チャネルの可能性)。通常URLを使用`);
-  }
-} catch {
-  console.log("LIFF確認に失敗。通常URLを使用");
-}
+// LIFF(LINE内でログイン済みのまま開ける入口・店主提供 2026-08-29)。
+// LINEの中ではSMS認証なしでそのまま予約でき、外のブラウザで開かれた場合は
+// LIFF側が通常の予約ページへ流す。
+const url = "https://liff.line.me/2011165284-tCUpXCUg";
 console.log("リンク先:", url);
 
 // 既存のリッチメニューを消してから作る(作り直しでゴミが残らないように)
