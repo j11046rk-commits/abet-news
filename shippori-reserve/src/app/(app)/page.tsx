@@ -338,7 +338,9 @@ async function MonthList({
                       <span className={`salesline__fact${saleHit ? " salesline__fact--hit" : ""}`}>
                         {saleDineIn != null ? (
                           <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
-                            店内 {fmtYen(saleDineIn)}
+                            店内
+                            <br />
+                            {fmtYen(saleDineIn)}
                           </span>
                         ) : null}
                         {saleGuests != null && saleGuests > 0 ? (
@@ -354,9 +356,19 @@ async function MonthList({
                       </span>
                     ) : null}
                     {sale.retail > 0 ? (
-                      <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
+                      <span className="salesline__retail">
+                        物販
+                        <br />
+                        {fmtYen(sale.retail)}
+                      </span>
                     ) : null}
-                    {sale.target ? <span>目標 {fmtYen(sale.target)}</span> : null}
+                    {sale.target ? (
+                      <span className="salesline__target">
+                        目標
+                        <br />
+                        {fmtYen(sale.target)}
+                      </span>
+                    ) : null}
                     {/* 目標を客数に読み替えた目安（÷直近3か月の平均客単価・小数1位切り上げ）。
                         「19.9」と「人」の間で折り返さないよう、見出しと数字の2行で固定 */}
                     {sale.target && perGuestAvg ? (

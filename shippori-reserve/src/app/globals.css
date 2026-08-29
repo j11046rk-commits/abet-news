@@ -708,6 +708,12 @@ textarea.field {
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
+/* 全項目「見出しの上・数字の下」の2行に統一（達成日と未達成日で崩れない・店主指定） */
+.salesline__actual,
+.salesline__retail,
+.salesline__target {
+  white-space: nowrap;
+}
 .salesline__actual {
   color: var(--text);
 }
