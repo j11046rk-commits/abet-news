@@ -30,6 +30,8 @@ export type SalesBoardDay = {
   wxForecast: boolean;
   /** LINE友だちのその日の増減。データが無い日は null */
   lineGain: number | null;
+  /** その日の追加目標（平日2・金土3・休業0）。実績/目標の形で見せる */
+  lineGoal: number;
 };
 
 export type SalesContrib = {
@@ -512,10 +514,20 @@ export default function SalesBoard({
               )}
               {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}
               {d.retail > 0 ? <span className="salescell__r">＋物販</span> : null}
-              {/* LINE友だちが増えた日（店主要望 2026-08-28）。施策と売上を1画面で突き合わせる */}
-              {d.lineGain != null && d.lineGain !== 0 ? (
-                <span className={`salescell__line${d.lineGain < 0 ? " salescell__line--down" : ""}`}>
-                  LINE{d.lineGain > 0 ? `+${d.lineGain}` : d.lineGain}
+              {/* LINE友だちの実績/日別目標（店主指定: 平日+2・金土+3）。
+                  達成=緑・届かず=琥珀・0や減=薄く */}
+              {d.lineGain != null && (d.lineGain !== 0 || d.lineGoal > 0) ? (
+                <span
+                  className={`salescell__line${
+                    d.lineGain > 0 && (d.lineGoal === 0 || d.lineGain >= d.lineGoal)
+                      ? ""
+                      : d.lineGain > 0
+                        ? " salescell__line--part"
+                        : " salescell__line--down"
+                  }`}
+                >
+                  LINE{d.lineGain >= 0 ? `+${d.lineGain}` : d.lineGain}
+                  {d.lineGoal > 0 ? `/${d.lineGoal}` : ""}
                 </span>
               ) : null}
             </Link>

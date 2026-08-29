@@ -1,6 +1,6 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
-import { lineTargetFor } from "@/lib/line-kpi";
+import { lineDailyGoal, lineTargetFor } from "@/lib/line-kpi";
 import { Suspense } from "react";
 import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
@@ -257,15 +257,32 @@ async function MonthList({
                         </span>
                       ))}
 
-                  {/* LINE友だちが増えた日は緑の +◯。減った日（ブロック等）は薄く */}
-                  {lineDelta != null && lineDelta !== 0 ? (
-                    <span
-                      className={`linegain${lineDelta < 0 ? " linegain--down" : ""}`}
-                      aria-label={`LINE友だち ${lineDelta > 0 ? "増" : "減"} ${Math.abs(lineDelta)}人`}
-                    >
-                      LINE{lineDelta > 0 ? `+${lineDelta}` : lineDelta}
-                    </span>
-                  ) : null}
+                  {/* LINE友だちの実績/日別目標（店主指定: 平日+2・金土+3）。
+                      達成=緑・届かず=琥珀・0や減=薄く。今日はまだ集計前なので目標だけ */}
+                  {(() => {
+                    const goal = lineDailyGoal(dow, day.is_closed);
+                    if (lineDelta != null && (lineDelta !== 0 || goal > 0)) {
+                      const cls =
+                        lineDelta > 0 && (goal === 0 || lineDelta >= goal)
+                          ? ""
+                          : lineDelta > 0
+                            ? " linegain--part"
+                            : " linegain--down";
+                      return (
+                        <span
+                          className={`linegain${cls}`}
+                          aria-label={`LINE友だち ${lineDelta}人／目標${goal}人`}
+                        >
+                          LINE{lineDelta >= 0 ? `+${lineDelta}` : lineDelta}
+                          {goal > 0 ? `/${goal}` : ""}
+                        </span>
+                      );
+                    }
+                    if (lineDelta == null && date === today && goal > 0) {
+                      return <span className="linegain linegain--goal">LINE 目標+{goal}</span>;
+                    }
+                    return null;
+                  })()}
 
                   <Link
                     className="mrow__add"

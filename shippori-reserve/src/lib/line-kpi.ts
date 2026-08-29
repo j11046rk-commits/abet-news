@@ -8,6 +8,16 @@
  * 表示中の月に定義が無ければ、それ以前で一番近い月の値を使う
  * （来年1月をまだ決めていなくても、12月の目標がそのまま続いて見える）。
  */
+/**
+ * その日のLINE友だち追加の目標人数（店頭声かけの目安・店主指定 2026-08-29）。
+ * 平日+2人・金土+3人。休業日（火曜など）は0。
+ * 月末目標（lineTargetFor）はこの積み上げと一致するように作ってある。
+ */
+export function lineDailyGoal(dow: number, isClosed: boolean): number {
+  if (isClosed) return 0;
+  return dow === 5 || dow === 6 ? 3 : 2;
+}
+
 export function lineTargetFor(raw: unknown, ym: string): number {
   // 旧形式（単一の数値）もそのまま通す
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;

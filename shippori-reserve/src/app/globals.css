@@ -2449,9 +2449,17 @@ textarea.field:-webkit-autofill {
   color: var(--text-dim);
   border-color: color-mix(in srgb, var(--text-dim) 35%, transparent);
 }
-/* 売上グリッドの各マスに出す、その日のLINE友だちの増減 */
+/* 目標に届いた日は緑・増えたが届かず=琥珀・今日の目標だけの表示=点線 */
+.linegain--part { color: #a8802f; border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.linegain--goal {
+  color: var(--text-dim);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+/* 売上グリッドの各マスに出す、その日のLINE友だちの実績/目標 */
 .salescell__line { font-size: 0.58rem; color: var(--ok); line-height: 1.2; }
 .salescell__line--down { color: var(--text-dim); }
+.salescell__line--part { color: #a8802f; }
 
 /* 売上タブの「今日」カード。当日ぶんの詳細をカレンダーの上に出す（店主要望 2026-08-28） */
 .todaycard {

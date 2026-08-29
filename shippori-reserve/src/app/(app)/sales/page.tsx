@@ -1,6 +1,6 @@
 import Link from "next/link";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
-import { lineTargetFor } from "@/lib/line-kpi";
+import { lineDailyGoal, lineTargetFor } from "@/lib/line-kpi";
 import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
@@ -108,6 +108,7 @@ export default async function SalesPage({
       wx: wx ? WEATHER_ICON[wx.weather] : null,
       wxForecast: wx?.is_forecast ?? false,
       lineGain: lineDeltaOf(d),
+      lineGoal: lineDailyGoal(dow, summaries.get(d)?.is_closed ?? deriveBusinessDay(d, settings).is_closed),
     });
   }
 
@@ -196,6 +197,12 @@ export default async function SalesPage({
                         <span className="todaycard__label">予約</span>
                         <span className="todaycard__num">
                           {ts?.reservation_count ?? 0}件・{ts?.guest_count ?? 0}名
+                        </span>
+                      </div>
+                      <div>
+                        <span className="todaycard__label">LINE友だち 今日の目標</span>
+                        <span className="todaycard__num">
+                          +{lineDailyGoal(weekdayOf(today), closed)}人
                         </span>
                       </div>
                       {tv.dineIn != null ? (
