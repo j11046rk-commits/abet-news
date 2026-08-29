@@ -2429,10 +2429,11 @@ textarea.field:-webkit-autofill {
   color: var(--text);
   font-size: 0.76rem;
 }
-/* ホーム暦の売上行に添える実績の客数と1名あたり。「33名」の下に「@4,524円」の2行 */
-.salesline__guests { color: var(--text-dim); font-size: 0.9em; white-space: nowrap; }
-/* 目標日商を客数に読み替えた目安。見出しの下に「22.3人」の2行で固定 */
-.salesline__est { color: var(--text-dim); font-size: 0.9em; white-space: nowrap; }
+/* ホーム暦の売上行に添える実績の客数と1名あたり。「33名」の下に「@4,524円」の2行。
+   文字の大きさは店内・目標と同じに揃える（店主指定） */
+.salesline__guests { color: var(--text-dim); white-space: nowrap; }
+/* 目標日商を客数に読み替えた目安。見出しの下に「22.3人」の2行で固定。大きさも他と同じ */
+.salesline__est { color: var(--text-dim); white-space: nowrap; }
 
 /* 天気マーク（晴☀️・曇☁️・雨☂️）。暦は日付の下、売上タブは日数字の隣に小さく */
 .mrow__wx { font-size: 0.7rem; line-height: 1.1; }
