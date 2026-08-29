@@ -341,10 +341,13 @@ async function MonthList({
                       <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
                     ) : null}
                     {sale.target ? <span>目標 {fmtYen(sale.target)}</span> : null}
-                    {/* 目標を客数に読み替えた目安（÷直近3か月の平均客単価・小数1位切り上げ） */}
+                    {/* 目標を客数に読み替えた目安（÷直近3か月の平均客単価・小数1位切り上げ）。
+                        「19.9」と「人」の間で折り返さないよう、見出しと数字の2行で固定 */}
                     {sale.target && perGuestAvg ? (
                       <span className="salesline__est">
-                        目安客数:{(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
+                        目安客数
+                        <br />
+                        {(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
                       </span>
                     ) : null}
                     {saleGuests != null && saleGuests > 0 ? (

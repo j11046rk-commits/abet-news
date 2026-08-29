@@ -2410,8 +2410,8 @@ textarea.field:-webkit-autofill {
 }
 /* ホーム暦の売上行に添える客数と1名あたり（例: 33名＠4,524） */
 .salesline__guests { color: var(--text-dim); font-size: 0.9em; }
-/* 目標日商を客数に読み替えた目安（例: 目安客数:22.3人） */
-.salesline__est { color: var(--text-dim); font-size: 0.9em; }
+/* 目標日商を客数に読み替えた目安。見出しの下に「22.3人」の2行で固定 */
+.salesline__est { color: var(--text-dim); font-size: 0.9em; white-space: nowrap; }
 
 /* 天気マーク（晴☀️・曇☁️・雨☂️）。暦は日付の下、売上タブは日数字の隣に小さく */
 .mrow__wx { font-size: 0.7rem; line-height: 1.1; }
