@@ -2408,8 +2408,8 @@ textarea.field:-webkit-autofill {
   color: var(--text);
   font-size: 0.76rem;
 }
-/* ホーム暦の売上行に添える客数と1名あたり（例: 33名＠4,524） */
-.salesline__guests { color: var(--text-dim); font-size: 0.9em; }
+/* ホーム暦の売上行に添える実績の客数と1名あたり。「33名」の下に「@4,524円」の2行 */
+.salesline__guests { color: var(--text-dim); font-size: 0.9em; white-space: nowrap; }
 /* 目標日商を客数に読み替えた目安。見出しの下に「22.3人」の2行で固定 */
 .salesline__est { color: var(--text-dim); font-size: 0.9em; white-space: nowrap; }
 

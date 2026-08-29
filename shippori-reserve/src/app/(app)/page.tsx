@@ -337,6 +337,17 @@ async function MonthList({
                         店内 {fmtYen(saleDineIn)}
                       </span>
                     ) : null}
+                    {/* 実績の客数と客単価。実績どうしが並ぶよう店内売上の直後（店主指定） */}
+                    {saleGuests != null && saleGuests > 0 ? (
+                      <span className="salesline__guests">
+                        {saleGuests}名
+                        {salePerGuest != null ? (
+                          <>
+                            <br />@{salePerGuest.toLocaleString()}円
+                          </>
+                        ) : null}
+                      </span>
+                    ) : null}
                     {sale.retail > 0 ? (
                       <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
                     ) : null}
@@ -348,11 +359,6 @@ async function MonthList({
                         目安客数
                         <br />
                         {(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
-                      </span>
-                    ) : null}
-                    {saleGuests != null && saleGuests > 0 ? (
-                      <span className="salesline__guests">
-                        {saleGuests}名{salePerGuest != null ? `＠${salePerGuest.toLocaleString()}` : ""}
                       </span>
                     ) : null}
                   </div>
