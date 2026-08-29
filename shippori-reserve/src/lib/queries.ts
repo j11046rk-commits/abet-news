@@ -11,7 +11,7 @@ import {
 } from "@/lib/constants";
 import { boardUsage, computeSeatUsage, type BoardRow } from "@/lib/seats";
 import type { SalesDay } from "@/lib/sales";
-import { monthGrid, monthRange, shiftDate, weekdayOf } from "@/lib/time";
+import { monthGrid, monthRange, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 import type { WeatherRow } from "@/lib/weather";
 import type {
   BusinessDay,
@@ -177,6 +177,29 @@ export async function getDayWeather(date: string): Promise<WeatherRow | null> {
     .maybeSingle();
   warnQuery("getDayWeather", error);
   return (data as WeatherRow | null) ?? null;
+}
+
+/**
+ * 直近3か月（92日）の平均客単価。分子は店内売上（物販除く・店主指示）。
+ * 暦の「目安客数」＝目標日商÷この値（店主要望 2026-08-29）が使う。
+ */
+export async function getRecentPerGuest(): Promise<number | null> {
+  const supabase = await createClient();
+  const from = shiftDate(todayBizDate(), -92);
+  const { data, error } = await supabase
+    .from("sales_daily")
+    .select("actual_yen, tax8_yen, guest_count")
+    .gte("biz_date", from)
+    .not("actual_yen", "is", null)
+    .gt("guest_count", 0);
+  warnQuery("getRecentPerGuest", error);
+  let yen = 0;
+  let guests = 0;
+  for (const r of data ?? []) {
+    yen += (r.actual_yen ?? 0) - (r.tax8_yen ?? 0);
+    guests += r.guest_count ?? 0;
+  }
+  return guests > 0 ? yen / guests : null;
 }
 
 /**

@@ -21,6 +21,7 @@ import {
   getMonthShifts,
   getMonthSummaries,
   getMonthWeather,
+  getRecentPerGuest,
   getSeatUnits,
   getSettings,
   getShiftPublication,
@@ -138,6 +139,8 @@ async function MonthList({
       getMonthWeather(ym),
       getMonthLineFollowers(ym),
     ]);
+  // 目安客数（目標日商÷直近3か月の平均客単価・店主要望 2026-08-29）
+  const perGuestAvg = await getRecentPerGuest();
 
   // 今日のシフトの時間（タイムバー用・店主要望 2026-08-28）。今月を見ているときだけ引く
   const todayShifts: { ids: string[]; times: Record<string, ShiftTimeRow> } =
@@ -338,6 +341,12 @@ async function MonthList({
                       <span className="salesline__retail">物販 {fmtYen(sale.retail)}</span>
                     ) : null}
                     {sale.target ? <span>目標 {fmtYen(sale.target)}</span> : null}
+                    {/* 目標を客数に読み替えた目安（÷直近3か月の平均客単価・小数1位切り上げ） */}
+                    {sale.target && perGuestAvg ? (
+                      <span className="salesline__est">
+                        目安客数:{(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
+                      </span>
+                    ) : null}
                     {saleGuests != null && saleGuests > 0 ? (
                       <span className="salesline__guests">
                         {saleGuests}名{salePerGuest != null ? `＠${salePerGuest.toLocaleString()}` : ""}
