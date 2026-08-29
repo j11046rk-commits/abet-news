@@ -1,0 +1,22 @@
+# LINE公式アカウントに「ネット予約」リッチメニューを設定する(単発実行用)。
+# 開発環境からは api.line.me に届かないため、GitHub Actionsから流し込む。
+# トークンは実行時の入力で渡す——リポジトリには保存しない。
+name: line-richmenu
+on:
+  workflow_dispatch:
+    inputs:
+      line_token:
+        description: "LINE公式アカウントのチャネルアクセストークン"
+        required: true
+        type: string
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/line-richmenu.mjs
+        env:
+          LINE_TOKEN: ${{ inputs.line_token }}
