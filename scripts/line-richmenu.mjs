@@ -40,6 +40,15 @@ try {
 }
 console.log("リンク先:", url);
 
+// 既存のリッチメニューを消してから作る(作り直しでゴミが残らないように)
+const list = await fetch("https://api.line.me/v2/bot/richmenu/list", { headers: H });
+if (list.ok) {
+  for (const m of (await list.json()).richmenus ?? []) {
+    await fetch(`https://api.line.me/v2/bot/richmenu/${m.richMenuId}`, { method: "DELETE", headers: H });
+    console.log("旧メニューを削除:", m.richMenuId);
+  }
+}
+
 // 1) リッチメニュー作成
 const create = await fetch("https://api.line.me/v2/bot/richmenu", {
   method: "POST",
