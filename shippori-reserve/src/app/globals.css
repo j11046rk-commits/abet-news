@@ -711,6 +711,21 @@ textarea.field {
 .salesline__actual {
   color: var(--text);
 }
+/* 実績（店内売上・客数・客単価）のひと括りの枠。目標系（目標・目安客数）と見分ける */
+.salesline__fact {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--text-dim) 35%, transparent);
+  border-radius: 8px;
+}
+/* 目標達成した日は枠ごと金色に光らせる（客数・客単価も含めて） */
+.salesline__fact--hit {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 35%, transparent);
+}
 .salesline__actual--hit {
   color: var(--gold);
   font-weight: 600;

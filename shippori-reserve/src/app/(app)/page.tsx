@@ -332,19 +332,24 @@ async function MonthList({
                 {/* 中身が1つも無いときは行ごと出さない（火曜定休は目標0なので空の行になる） */}
                 {(sale.target ?? 0) > 0 || saleDineIn != null || sale.retail > 0 ? (
                   <div className="salesline" aria-label="売上の目標と実績">
-                    {saleDineIn != null ? (
-                      <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
-                        店内 {fmtYen(saleDineIn)}
-                      </span>
-                    ) : null}
-                    {/* 実績の客数と客単価。実績どうしが並ぶよう店内売上の直後（店主指定） */}
-                    {saleGuests != null && saleGuests > 0 ? (
-                      <span className="salesline__guests">
-                        {saleGuests}名
-                        {salePerGuest != null ? (
-                          <>
-                            <br />@{salePerGuest.toLocaleString()}円
-                          </>
+                    {/* 実績（店内売上・客数・客単価）はひと括りの枠で。目標系と見分ける。
+                        達成した日は枠ごと金色に（店主指定 2026-08-29） */}
+                    {saleDineIn != null || (saleGuests != null && saleGuests > 0) ? (
+                      <span className={`salesline__fact${saleHit ? " salesline__fact--hit" : ""}`}>
+                        {saleDineIn != null ? (
+                          <span className={`salesline__actual ${saleHit ? "salesline__actual--hit" : ""}`}>
+                            店内 {fmtYen(saleDineIn)}
+                          </span>
+                        ) : null}
+                        {saleGuests != null && saleGuests > 0 ? (
+                          <span className="salesline__guests">
+                            {saleGuests}名
+                            {salePerGuest != null ? (
+                              <>
+                                <br />@{salePerGuest.toLocaleString()}円
+                              </>
+                            ) : null}
+                          </span>
                         ) : null}
                       </span>
                     ) : null}
