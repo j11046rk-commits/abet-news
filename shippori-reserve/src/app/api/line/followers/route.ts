@@ -31,6 +31,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "認証できません。" }, { status: 401 });
   }
 
+  /*
+   * 【一時停止 2026-08-29】Mac側で通知用ボットのトークンが公式アカウントの
+   * トークンに化ける取り違えがあり、「友だち1人」を14日ぶん書き込んだ。
+   * 正しい値は手で復元済み。Mac側の修正(LINE_OA_TOKENへの分離)が適用される
+   * まで書き込みを受けず、復元した値を守る。適用を確認したら false に戻す。
+   */
+  const PAUSED = true;
+  if (PAUSED) {
+    return NextResponse.json({ ok: true, count: 0, paused: true });
+  }
+
   let body: { days?: FollowerDay[] };
   try {
     body = await request.json();
