@@ -1,5 +1,6 @@
 import Link from "next/link";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
+import { lineTargetFor } from "@/lib/line-kpi";
 import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
@@ -155,7 +156,8 @@ export default async function SalesPage({
         <LineFollowersKpi
           latest={lineLatest}
           monthGain={lineMonthGain}
-          target={Number(settings.line_followers_target) || 0}
+          target={lineTargetFor(settings.line_followers_targets, ym)}
+          targetLabel={`${Number(ym.slice(5))}月末`}
         />
         {/*
           今日の詳細（店主要望 2026-08-28）。グリッドの小さなマスでは

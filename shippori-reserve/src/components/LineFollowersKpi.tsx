@@ -10,6 +10,7 @@ export default function LineFollowersKpi({
   latest,
   monthGain,
   target,
+  targetLabel,
 }: {
   /** いまの友だち総数。データが無ければ null（何も出さない） */
   latest: number | null;
@@ -17,6 +18,8 @@ export default function LineFollowersKpi({
   monthGain: number | null;
   /** 目標人数。0以下なら目標表示なし */
   target: number;
+  /** 目標の呼び名（例: 「9月末」）。月ごとの階段目標だと分かるように */
+  targetLabel?: string;
 }) {
   if (latest == null) return null;
   const hasTarget = target > 0;
@@ -32,9 +35,9 @@ export default function LineFollowersKpi({
           : ""}
         {hasTarget ? (
           done ? (
-            <span className="linefollow__done">　目標{target}人 達成！🎉</span>
+            <span className="linefollow__done">　{targetLabel ?? "目標"}の{target}人 達成！🎉</span>
           ) : (
-            `　目標${target}人まであと${target - latest}人`
+            `　${targetLabel ?? "目標"}の目標${target}人まであと${target - latest}人`
           )
         ) : null}
       </p>

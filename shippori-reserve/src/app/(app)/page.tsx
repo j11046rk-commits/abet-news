@@ -1,5 +1,6 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
+import { lineTargetFor } from "@/lib/line-kpi";
 import { Suspense } from "react";
 import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
@@ -182,7 +183,8 @@ async function MonthList({
         <LineFollowersKpi
           latest={lineLatest}
           monthGain={lineMonthGain}
-          target={Number(settings.line_followers_target) || 0}
+          target={lineTargetFor(settings.line_followers_targets, ym)}
+          targetLabel={`${Number(ym.slice(5))}月末`}
         />
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);
