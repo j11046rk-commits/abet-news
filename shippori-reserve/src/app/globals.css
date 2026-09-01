@@ -2497,3 +2497,20 @@ textarea.field:-webkit-autofill {
 .todaycard__label { color: var(--text-dim); font-size: 0.72rem; margin-right: 0.4rem; }
 .todaycard__num { font-variant-numeric: tabular-nums; font-weight: 600; }
 .todaycard__note { color: var(--text-dim); font-size: 0.72rem; }
+
+/* 静かな日のクーポンを配信した日の目印。レジで「当日限定」を画面から判定する */
+.badge--coupon {
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+.fb__coupon {
+  margin: 0;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--gold);
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  white-space: nowrap;
+}

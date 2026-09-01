@@ -16,6 +16,7 @@ import {
   getCourses,
   getDayShiftRows,
   getMonthLineFollowers,
+  getMonthQuietCoupons,
   getMonthReservations,
   getMonthSales,
   getMonthShifts,
@@ -125,7 +126,7 @@ async function MonthList({
   focus: string | null;
   today: string;
 }) {
-  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap] =
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap, couponDates] =
     await Promise.all([
       getMonthSummaries(ym),
       getMonthReservations(ym),
@@ -138,6 +139,7 @@ async function MonthList({
       getMonthSales(ym),
       getMonthWeather(ym),
       getMonthLineFollowers(ym),
+      getMonthQuietCoupons(ym),
     ]);
   // 目安客数（目標日商÷直近3か月の平均客単価・店主要望 2026-08-29）
   const perGuestAvg = await getRecentPerGuest();
@@ -247,6 +249,10 @@ async function MonthList({
               <div className="mrow__body">
                 <div className="mrow__top">
                   {day.is_closed ? <span className="badge badge--closed">休</span> : null}
+                  {/* 静かな日のクーポンを配信した日。当日限定の受付可否をレジで画面から判定できるように */}
+                  {couponDates.has(date) ? (
+                    <span className="badge badge--coupon">🎫 クーポン配信日</span>
+                  ) : null}
                   {day.mode === "event" ? (
                     <span className="badge badge--event">{day.event_name || "イベント"}</span>
                   ) : null}

@@ -87,6 +87,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
   const [lineMsgs, setLineMsgs] = useState<BoardSnapshot["line_msgs"]>(initial.line_msgs);
   const [saving, setSaving] = useState(false);
   const [pause, setPause] = useState(initial.pause);
+  const [couponToday, setCouponToday] = useState(initial.coupon_today);
   const [askPause, setAskPause] = useState(false);
   const [openNow, setOpenNow] = useState(initial.open_now);
 
@@ -204,6 +205,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
         setPlanned(snap.planned);
         setUnplanned(snap.unplanned);
         setPause(snap.pause);
+    setCouponToday(snap.coupon_today);
         setOpenNow(snap.open_now);
       } catch {
         /* 次の周回で取り直す */
@@ -241,6 +243,7 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
     if (!res.ok) return;
     const snap = await getBoardSnapshot();
     setPause(snap.pause);
+    setCouponToday(snap.coupon_today);
   }
 
   /** 分を「◯時間◯分」に。0分のときは「0分」 */
@@ -356,6 +359,13 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           <p className="fb__cap" aria-label="いま受け入れできる人数">
             受入可 <b>{freeSeats}</b> 名
           </p>
+          {/* 静かな日のクーポンを配信した日だけ点灯。当日限定の受付可否はこの表示で判定する
+              （出ていない日に「昨日のクーポン」を出されたらお断り・店主指定 2026-09-01） */}
+          {couponToday && (
+            <p className="fb__coupon" role="status">
+              🎫 本日クーポン配信日
+            </p>
+          )}
           {pause.on ? (
             <button className="fb__pausebtn fb__pausebtn--on" onClick={() => switchPause(false)}>
               受付を再開する

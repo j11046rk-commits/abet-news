@@ -218,6 +218,23 @@ export async function getMonthLineFollowers(ym: string): Promise<Map<string, num
   return new Map((data ?? []).map((d) => [d.biz_date as string, d.followers as number]));
 }
 
+/**
+ * 「静かな日のクーポン」を配信した日の一覧（記録の note は日付で始まる）。
+ * 暦の「クーポン配信日」バッジが使う——当日限定の受付可否を
+ * スタッフの記憶ではなく画面で判定するため（店主要望 2026-09-01）。
+ * 成否不明の記録も含める（届いている可能性がある日は受け付ける側に倒す）。
+ */
+export async function getMonthQuietCoupons(ym: string): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("line_broadcasts")
+    .select("note")
+    .eq("kind", "quiet_day")
+    .like("note", `${ym}-%`);
+  warnQuery("getMonthQuietCoupons", error);
+  return new Set((data ?? []).map((d) => String(d.note).slice(0, 10)));
+}
+
 /** 月ぶんの予約を日付ごとにまとめて返す。暦（月ビュー）が使う。 */
 export async function getMonthReservations(ym: string): Promise<Map<string, Reservation[]>> {
   const { from, to } = monthRange(ym);

@@ -48,6 +48,8 @@ export type BoardSnapshot = {
    * 営業中、店のLINEグループの転送は誰も見ない——レジ横の音なら気づける（店主要望 2026-08-24）。
    */
   line_msgs: { id: number; label: string; text: string; at: string }[];
+  /** 今日「静かな日のクーポン」を配信したか。当日限定の受付判定バッジに使う */
+  coupon_today: boolean;
 };
 
 export type PauseState = {
@@ -95,7 +97,7 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
   const FIELDS =
     "id, reference, biz_date, starts_at, party_size, customer_name, seat_note, source, status";
   const monthFrom = `${date.slice(0, 7)}-01`;
-  const [boardQ, resvQ, netQ, pauseQ, msgQ] = await Promise.all([
+  const [boardQ, resvQ, netQ, pauseQ, msgQ, couponQ] = await Promise.all([
     supabase.from("seat_board").select("key, occupied").eq("biz_date", date),
     supabase
       .from("reservations")
@@ -124,6 +126,13 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60_000).toISOString())
       .order("created_at", { ascending: false })
       .limit(20),
+    // 今日クーポンを配信したか（記録の note は日付で始まる）
+    supabase
+      .from("line_broadcasts")
+      .select("id")
+      .eq("kind", "quiet_day")
+      .like("note", `${date}%`)
+      .limit(1),
   ]);
 
   const board: Record<string, number> = {};
@@ -213,6 +222,7 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
     unplanned: plan.unplanned.map((r) => ({ label: r.label, party: r.party_size })),
     pause,
     open_now: !day.is_closed && isOpenNow(day.open_min, day.close_min),
+    coupon_today: (couponQ.data ?? []).length > 0,
     line_msgs: msgs.map((m) => ({
       id: m.id,
       label: nameOf.get(m.line_user_id) ?? "お客様",
