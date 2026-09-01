@@ -1,0 +1,17 @@
+# HPダッシュボードの数字を取るための単発実行ツール。
+# 開発環境からは shipporitei.jp に届かないため、Actionsから読んでログに出す。
+name: dashboard-snapshot
+on: workflow_dispatch
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s https://shipporitei.jp/dashboard/ | python3 -c '
+          import sys, re
+          h = sys.stdin.read()
+          h = re.sub(r"<(script|style).*?</\1>", "", h, flags=re.S)
+          h = re.sub(r"<[^>]+>", "\n", h)
+          lines = [l.strip() for l in h.split("\n") if l.strip()]
+          print(" | ".join(lines))
+          '
