@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ROLE_LABEL } from "@/lib/constants";
 import type { Profile, UserRole } from "@/lib/types";
 
-const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
+const ROLES: UserRole[] = ["owner", "manager", "staff", "jimu", "viewer"];
 
 /**
  * 初期パスワードは発行時に1度だけ画面に出す。DBにも平文では残らない。

@@ -71,8 +71,16 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   owner: "オーナー",
   manager: "店長",
   staff: "スタッフ",
+  jimu: "事務",
   viewer: "閲覧のみ",
 };
+
+/**
+ * シフトに入る人か（シフト表・希望提出・達成の星の対象）。
+ * 事務(jimu)は予約対応と数字は見るが、シフトには一切出ない（店主指定 2026-09-01）。
+ */
+export const worksShifts = (role: UserRole): boolean =>
+  role === "manager" || role === "staff";
 
 /**
  * ロールごとの初期権限。DB の role_permissions と同じ内容を持つ。
@@ -106,6 +114,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
     "reservation.override",
     "stats.read",
     "shiftrequest.write",
+  ],
+  // 事務＝予約対応と数字の閲覧はスタッフと同じ。シフト関連だけ持たない
+  jimu: [
+    "reservation.read",
+    "reservation.write",
+    "reservation.override",
+    "stats.read",
   ],
   viewer: ["reservation.read"],
 };

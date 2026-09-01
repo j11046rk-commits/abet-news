@@ -1,6 +1,6 @@
 /** DB の型。docs/03-database.md と1対1に対応させる。 */
 
-export type UserRole = "owner" | "manager" | "staff" | "viewer";
+export type UserRole = "owner" | "manager" | "staff" | "jimu" | "viewer";
 export type BusinessMode = "normal" | "event";
 export type SeatArea = "counter" | "table" | "private";
 

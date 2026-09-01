@@ -7,7 +7,7 @@ import DayShiftEditor from "@/components/DayShiftEditor";
 import ReservationCard from "@/components/ReservationCard";
 import { attentionReason } from "@/lib/attention";
 import { requireProfile } from "@/lib/auth";
-import { ACTIVE_STATUSES, TOTAL_SEATS, can } from "@/lib/constants";
+import { ACTIVE_STATUSES, TOTAL_SEATS, can, worksShifts } from "@/lib/constants";
 import { chipColors, surname } from "@/lib/staff";
 import {
   getAllProfiles,
@@ -73,7 +73,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
   const canEditShift = can(me.role, "shift.write") && !!shiftsPublishedAt && !summary.is_closed;
   const shiftStaff = profiles
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer")
+    .filter(({ p }) => p.is_active && worksShifts(p.role))
     .map(({ p, i }) => ({
       id: p.id,
       name: surname(p.display_name),

@@ -3,7 +3,7 @@ import LineFollowersKpi from "@/components/LineFollowersKpi";
 import { lineDailyGoal, lineTargetFor } from "@/lib/line-kpi";
 import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
-import { can } from "@/lib/constants";
+import { can, worksShifts } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
 import {
   deriveBusinessDay,
@@ -116,7 +116,7 @@ export default async function SalesPage({
   // 達成の定義はグリッドの金色セル・連続達成と同じ hitOf（＝店内の売上だけで見る）。
   const shiftEligible = profiles
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer");
+    .filter(({ p }) => p.is_active && worksShifts(p.role));
   const stars = new Map<string, number>(shiftEligible.map(({ p }) => [p.id, 0]));
   if (shiftsPublishedAt) {
     for (const d of days) {

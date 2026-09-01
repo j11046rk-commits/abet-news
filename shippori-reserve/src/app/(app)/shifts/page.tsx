@@ -1,7 +1,7 @@
 import Link from "next/link";
 import ShiftBoard, { type BoardDay, type BoardStaff } from "@/components/ShiftBoard";
 import { requireProfile } from "@/lib/auth";
-import { can } from "@/lib/constants";
+import { can, worksShifts } from "@/lib/constants";
 import { surname } from "@/lib/staff";
 import {
   deriveBusinessDay,
@@ -71,7 +71,7 @@ export default async function ShiftsPage({
   // オーナーはシフトに入らない（店主指定）。色は全員リストの並びで安定させる。
   const staff: BoardStaff[] = profiles
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.is_active && p.role !== "owner" && p.role !== "viewer")
+    .filter(({ p }) => p.is_active && worksShifts(p.role))
     .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
 
   const manager = profiles.find((p) => p.role === "manager" && p.is_active);
