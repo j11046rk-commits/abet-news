@@ -1,0 +1,25 @@
+# 8月の月次分析用にGA4を月指定で取得し、ログに出す単発実行ツール。
+name: ga4-august
+on: workflow_dispatch
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Fetch GA4 for August
+        env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
+        run: |
+          sed -i 's/{ start: "28daysAgo", end: "yesterday" }/{ start: "2026-08-01", end: "2026-08-31" }/' scripts/fetch-ga4.mjs
+          sed -i 's/{ start: "56daysAgo", end: "29daysAgo" }/{ start: "2026-07-01", end: "2026-07-31" }/' scripts/fetch-ga4.mjs
+          node scripts/fetch-ga4.mjs
+          echo "=====GA4 AUGUST====="
+          cat data/ga4.json
