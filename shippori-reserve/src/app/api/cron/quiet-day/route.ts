@@ -14,8 +14,8 @@ import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
  * 「今夜行かん？」の往復がその場で完結する。夕方の配信では、
  * 誘い合わせが間に合わず一人では出てこない。
  *
- * 12:30の時点でその日の予約が1件も無ければ、公式LINEの友だち全員に
- * 「本日限定 生ビール or ハイボール 1杯無料」を配信して空席を埋めにいく（店主要望 2026-08）。
+ * 12:30の時点でその日の予約が合計4名以下なら、公式LINEの友だち全員に
+ * 「本日限定 500円引き」を配信して空席を埋めにいく（店主要望 2026-08）。
  *
  * ★これは攻めの機能で、守りの機能ではない。だから「迷ったら送らない」に倒す。
  *   予約の控えやリマインドは「送れないと困る」ものだが、クーポンは
@@ -205,7 +205,7 @@ export async function GET(request: Request) {
   const { error: recErr } = await admin.from("line_broadcasts").insert({
     kind: "quiet_day",
     reach,
-    note: `${today} 予約0件のため自動配信`,
+    note: `${today} 予約${bookedHeads}名のため自動配信`,
   });
   if (recErr) {
     // 記録が入らないと7日間隔・月4回の歯止めが外れる。次の配信が近すぎたら人が止められるよう知らせる
