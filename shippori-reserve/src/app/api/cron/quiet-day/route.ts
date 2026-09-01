@@ -27,7 +27,9 @@ import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
  *   ③ 金・土・祝日の前日 … 予約ゼロでも送らない（店主指定 2026-08-20）。
  *      もともと人が入る夜にクーポンを撒くと、どのみち来た人を値引きするだけになり、
  *      粗利が減る方向にしか働かない。静かな日を埋める道具は、静かな日にだけ使う
- *   ④ 予約が1件でもある … 店主指定の条件そのまま
+ *   ④ 予約の人数が合計5名以上 … 「1組ぶん（4名以下）ならまだ静かな夜」
+ *      （店主指定 2026-09-01）。件数で見ると2名の予約1本で配信が止まり、
+ *      月最悪の夜（8/23・最終6名）を見逃した——8月の実データで確認済み
  *   ⑤ 前回の配信から7日たっていない … 静かな日が続く週に毎日届くと、
  *      案内ではなく安売りの連発に見えて、ブロックが増える
  *   ⑥ 今月すでに4回配信している … ⑤だけだと月初から刻んだ月に5回入る
@@ -39,6 +41,8 @@ import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
  * （⑤⑥は「決めたとおりに間を空けているだけ」なので、毎回知らせない）
  */
 
+/** この人数までの予約なら「静かな夜」として配信する（店主指定 2026-09-01） */
+const QUIET_MAX_HEADS = 4;
 /** 前回の配信からこれだけ空ける（日）。変えたいときはここを直す（店主指定 2026-08） */
 const GAP_DAYS = 7;
 /** ひと月の配信の上限（店主指定 2026-08）。7日間隔だけだと月初から刻んだ月に5回入る */
@@ -81,18 +85,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "busy-day", dow });
   }
 
-  // ④ 予約が1件でもあれば送らない（店主指定の条件）
-  const { count, error } = await admin
+  // ④ 予約の人数が合計5名以上なら送らない（4名以下＝1組ぶんなら「静かな夜」・店主指定 2026-09-01）
+  const { data: resvRows, error } = await admin
     .from("reservations")
-    .select("id", { count: "exact", head: true })
+    .select("party_size")
     .eq("biz_date", today)
     .in("status", ["tentative", "confirmed", "seated"]);
   if (error) {
     console.error("quiet_day_count_failed", error.message);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
-  if ((count ?? 0) > 0) {
-    return NextResponse.json({ ok: true, skipped: "has-reservations", count });
+  const bookedHeads = (resvRows ?? []).reduce((a, r) => a + (r.party_size ?? 0), 0);
+  if (bookedHeads > QUIET_MAX_HEADS) {
+    return NextResponse.json({ ok: true, skipped: "has-reservations", heads: bookedHeads });
   }
 
   // ⑤ 前回から7日空ける
