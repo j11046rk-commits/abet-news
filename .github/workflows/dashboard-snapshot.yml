@@ -1,6 +1,6 @@
 # 指定ページの文面を取ってログに出す単発実行ツール。
 # 開発環境からは外部サイトに届かないため、Actionsから読む。
-# url を省略すると自店のダッシュボードを読む。
+# url を省略すると自店のダッシュボードを読む。文字コードは自動判定。
 name: dashboard-snapshot
 on:
   workflow_dispatch:
@@ -19,8 +19,18 @@ jobs:
         run: |
           curl -sL "$URL" | python3 -c '
           import sys, re
-          h = sys.stdin.read()
-          h = re.sub(r"<(script|style).*?</\1>", "", h, flags=re.S)
+          raw = sys.stdin.buffer.read()
+          best = ""
+          for enc in ("utf-8", "euc_jp", "shift_jis", "cp932"):
+              try:
+                  t = raw.decode(enc)
+              except Exception:
+                  continue
+              # 日本語がいちばん多く読めた復号を採用する
+              score = len(re.findall(r"[ぁ-んァ-ン一-龥]", t))
+              if score > len(re.findall(r"[ぁ-んァ-ン一-龥]", best)):
+                  best = t
+          h = re.sub(r"<(script|style).*?</\1>", "", best, flags=re.S)
           h = re.sub(r"<[^>]+>", "\n", h)
           lines = [l.strip() for l in h.split("\n") if l.strip()]
           print("\n".join(lines))
