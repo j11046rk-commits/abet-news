@@ -17,19 +17,26 @@ jobs:
       - env:
           URL: ${{ inputs.url }}
         run: |
-          curl -sL "$URL" | python3 -c '
-          import sys, re
-          raw = sys.stdin.buffer.read()
-          best = ""
+          # ボット扱いで空応答を返すサイトがあるため、ブラウザ相当の名乗りで取る。
+          # 状態と大きさを先に出す——空だったときに「取れていない」と「読めていない」を見分ける。
+          code=$(curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" -o /tmp/page.bin -w "%{http_code}" "$URL")
+          echo "HTTP $code / $(wc -c < /tmp/page.bin) bytes"
+          python3 -c '
+          import re
+          raw = open("/tmp/page.bin", "rb").read()
+          best = None
+          best_score = -1
           for enc in ("utf-8", "euc_jp", "shift_jis", "cp932"):
               try:
                   t = raw.decode(enc)
               except Exception:
                   continue
-              # 日本語がいちばん多く読めた復号を採用する
+              # 日本語がいちばん多く読めた復号を採用する（全滅なら最初に読めたもの）
               score = len(re.findall(r"[ぁ-んァ-ン一-龥]", t))
-              if score > len(re.findall(r"[ぁ-んァ-ン一-龥]", best)):
-                  best = t
+              if score > best_score:
+                  best, best_score = t, score
+          if best is None:
+              best = raw.decode("utf-8", errors="replace")
           h = re.sub(r"<(script|style).*?</\1>", "", best, flags=re.S)
           h = re.sub(r"<[^>]+>", "\n", h)
           lines = [l.strip() for l in h.split("\n") if l.strip()]
