@@ -18,25 +18,20 @@ jobs:
           URL: ${{ inputs.url }}
         run: |
           # ボット扱いで空応答を返すサイトがあるため、ブラウザ相当の名乗りで取る。
-          # 状態と大きさを先に出す——空だったときに「取れていない」と「読めていない」を見分ける。
           code=$(curl -sL -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" -o /tmp/page.bin -w "%{http_code}" "$URL")
           echo "HTTP $code / $(wc -c < /tmp/page.bin) bytes"
           python3 -c '
           import re
           raw = open("/tmp/page.bin", "rb").read()
-          best = None
-          best_score = -1
+          best = ""
+          best_score = None
+          # 不正バイトが1つ混ざるだけで厳密復号は全滅するので、
+          # 置換ありで復号して「日本語が多く・化けが少ない」結果を採用する。
           for enc in ("utf-8", "euc_jp", "shift_jis", "cp932"):
-              try:
-                  t = raw.decode(enc)
-              except Exception:
-                  continue
-              # 日本語がいちばん多く読めた復号を採用する（全滅なら最初に読めたもの）
-              score = len(re.findall(r"[ぁ-んァ-ン一-龥]", t))
-              if score > best_score:
+              t = raw.decode(enc, errors="replace")
+              score = len(re.findall(r"[ぁ-んァ-ン一-龥]", t)) - 2 * t.count("�")
+              if best_score is None or score > best_score:
                   best, best_score = t, score
-          if best is None:
-              best = raw.decode("utf-8", errors="replace")
           h = re.sub(r"<(script|style).*?</\1>", "", best, flags=re.S)
           h = re.sub(r"<[^>]+>", "\n", h)
           lines = [l.strip() for l in h.split("\n") if l.strip()]
