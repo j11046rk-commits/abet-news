@@ -32,6 +32,8 @@ export type SalesBoardDay = {
   lineGain: number | null;
   /** その日の追加目標（平日2・金土3・休業0）。実績/目標の形で見せる */
   lineGoal: number;
+  /** クーポンがレジを通った回数。0や未集計は出さない */
+  couponUsed: number;
 };
 
 export type SalesContrib = {
@@ -530,6 +532,8 @@ export default function SalesBoard({
                   {d.lineGoal > 0 ? `/${d.lineGoal}` : ""}
                 </span>
               ) : null}
+              {/* クーポンがレジを通った回数（配信の効果測定・店主要望 2026-09-05） */}
+              {d.couponUsed > 0 ? <span className="salescell__coupon">🎫{d.couponUsed}回</span> : null}
             </Link>
           );
         })}

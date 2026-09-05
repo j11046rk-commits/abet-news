@@ -11,6 +11,11 @@ export type SalesDay = {
   guest_count?: number | null;
   /** 会計数＝伝票の枚数（おおよその組数）。未取得の日は null */
   check_count?: number | null;
+  /**
+   * クーポンの使用回数（エアレジの商品別売上で「クーポン」を含む商品の販売数）。
+   * null＝まだ数えていない日、0＝数えたが使用なし。LINE配信の効果測定が使う。
+   */
+  coupon_count?: number | null;
 };
 
 /** 3桁区切りの円表記。金額は省略せず1円単位で出す（店主指定）。 */

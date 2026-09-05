@@ -109,6 +109,7 @@ export default async function SalesPage({
       wxForecast: wx?.is_forecast ?? false,
       lineGain: lineDeltaOf(d),
       lineGoal: lineDailyGoal(dow, summaries.get(d)?.is_closed ?? deriveBusinessDay(d, settings).is_closed),
+      couponUsed: row?.coupon_count ?? 0,
     });
   }
 

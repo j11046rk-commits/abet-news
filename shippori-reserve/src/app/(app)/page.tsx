@@ -207,6 +207,8 @@ async function MonthList({
           // 実績の客数と1名あたり（店主要望 2026-08-28）。分子は物販を除く店内売上
           const saleGuests = salesMap.get(date)?.guest_count ?? null;
           const salePerGuest = perGuest(sale.dineIn, saleGuests);
+          // クーポンがレジを通った回数（0や未集計の日は出さない・店主要望 2026-09-05）
+          const saleCoupon = salesMap.get(date)?.coupon_count ?? 0;
           // 天気マーク（晴☀️・曇☁️・雨☂️）。実測だけなので過ぎた日にだけ付く
           const wx = weatherMap.get(date);
           // LINE友だちの増減（前日の総数が無い日は出さない）
@@ -382,6 +384,13 @@ async function MonthList({
                         目安客数
                         <br />
                         {(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
+                      </span>
+                    ) : null}
+                    {saleCoupon > 0 ? (
+                      <span className="salesline__coupon">
+                        🎫使用
+                        <br />
+                        {saleCoupon}回
                       </span>
                     ) : null}
                   </div>

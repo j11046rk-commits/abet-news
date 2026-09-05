@@ -21,6 +21,8 @@ type IngestDay = {
   guest_count?: number;
   /** 会計数＝伝票の枚数（おおよその組数） */
   check_count?: number;
+  /** クーポンの使用回数（エアレジの商品別売上で「クーポン」を含む商品の販売数） */
+  coupon_count?: number;
 };
 
 /**
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
       }
     }
     // 人数は桁が違う。金額と同じ上限で見ると、1万人を超える取り違えを素通しする
-    for (const v of [d.guest_count, d.check_count]) {
+    for (const v of [d.guest_count, d.check_count, d.coupon_count]) {
       if (v !== undefined && (!Number.isInteger(v) || v < 0 || v > 10_000)) {
         return NextResponse.json({ error: `人数が不正です: ${d.date}` }, { status: 400 });
       }
@@ -118,7 +120,7 @@ export async function POST(request: Request) {
   const dates = days.map((d) => d.date);
   const { data: existing, error: readError } = await admin
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax10_yen, tax8_yen, guest_count, check_count")
+    .select("biz_date, target_yen, actual_yen, tax10_yen, tax8_yen, guest_count, check_count, coupon_count")
     .in("biz_date", dates);
   if (readError) {
     return NextResponse.json({ error: "読み込みに失敗しました。" }, { status: 500 });
@@ -131,6 +133,7 @@ export async function POST(request: Request) {
     tax8_yen: number | null;
     guest_count: number | null;
     check_count: number | null;
+    coupon_count: number | null;
   };
   const current = new Map((existing ?? []).map((r) => [r.biz_date as string, r as Row]));
   const rows = days.map((d) => {
@@ -150,6 +153,7 @@ export async function POST(request: Request) {
       tax8_yen: tax8,
       guest_count: d.guest_count ?? prev?.guest_count ?? null,
       check_count: d.check_count ?? prev?.check_count ?? null,
+      coupon_count: d.coupon_count ?? prev?.coupon_count ?? null,
     };
   });
 

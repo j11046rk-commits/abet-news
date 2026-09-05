@@ -321,7 +321,7 @@ export async function getMonthSales(ym: string): Promise<Map<string, SalesDay>> 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count")
+    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count, coupon_count")
     .gte("biz_date", from)
     .lte("biz_date", to);
   warnQuery("getMonthSales", error);
@@ -346,7 +346,7 @@ export async function getSalesDay(date: string): Promise<SalesDay | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sales_daily")
-    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count")
+    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen, guest_count, check_count, coupon_count")
     .eq("biz_date", date)
     .maybeSingle<SalesDay>();
   warnQuery("getSalesDay", error);

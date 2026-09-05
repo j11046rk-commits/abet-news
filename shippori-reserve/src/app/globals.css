@@ -2434,6 +2434,10 @@ textarea.field:-webkit-autofill {
 .salesline__guests { color: var(--text-dim); white-space: nowrap; }
 /* 目標日商を客数に読み替えた目安。見出しの下に「22.3人」の2行で固定。大きさも他と同じ */
 .salesline__est { color: var(--text-dim); white-space: nowrap; }
+/* クーポンがレジを通った回数。配信の効果がその日の実績の隣で読める */
+.salesline__coupon { color: var(--gold); white-space: nowrap; }
+/* 売上タブの同じ数字（LINE増減の隣に置く小さな1行） */
+.salescell__coupon { color: var(--gold); font-size: 0.62rem; white-space: nowrap; }
 
 /* 天気マーク（晴☀️・曇☁️・雨☂️）。暦は日付の下、売上タブは日数字の隣に小さく */
 .mrow__wx { font-size: 0.7rem; line-height: 1.1; }
