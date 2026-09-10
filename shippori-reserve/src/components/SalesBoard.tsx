@@ -14,8 +14,10 @@ export type SalesBoardDay = {
   closed: boolean;
   target: number | null;
   isToday: boolean;
-  /** 店内の売上。日毎の表示と達成判定はこれだけを見る */
+  /** 店内の売上。日毎の表示はこれ */
   dineIn: number | null;
+  /** 達成判定用: 店内＋クーポン割引を戻した額（hitOf が見る・店主指示 2026-09-10） */
+  dineInGoal: number | null;
   /** 物販の売上。0 なら物販なし */
   retail: number;
   /** その日の合計（店内＋物販）。月間に積むのはこれ */

@@ -100,6 +100,7 @@ export default async function SalesPage({
       closed: summaries.get(d)?.is_closed ?? deriveBusinessDay(d, settings).is_closed,
       target: v.target,
       dineIn: v.dineIn,
+      dineInGoal: v.dineInGoal,
       retail: v.retail,
       total: v.total,
       guests: row?.guest_count ?? null,

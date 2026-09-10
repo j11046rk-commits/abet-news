@@ -16,6 +16,11 @@ export type SalesDay = {
    * null＝まだ数えていない日、0＝数えたが使用なし。LINE配信の効果測定が使う。
    */
   coupon_count?: number | null;
+  /**
+   * クーポンで割引いた額（正の数）。null＝未集計、0＝割引なし。
+   * 達成判定で「割引前の店内売上」に戻すのに使う（下の hitOf 参照）。
+   */
+  coupon_yen?: number | null;
 };
 
 /** 3桁区切りの円表記。金額は省略せず1円単位で出す（店主指定）。 */
@@ -47,10 +52,12 @@ export type SalesView = {
   retail: number;
   /** その日の合計（店内＋物販）。月間に積むのはこれ */
   total: number | null;
+  /** 達成判定用: 店内＋クーポン割引を戻した額。表示には使わない */
+  dineInGoal: number | null;
 };
 
 export const salesView = (s: SalesDay | null | undefined): SalesView => {
-  if (!s) return { target: null, dineIn: null, retail: 0, total: null };
+  if (!s) return { target: null, dineIn: null, retail: 0, total: null, dineInGoal: null };
 
   const retail = s.tax8_yen ?? 0;
   // 合計はレジの総額が正。税率別しか無い日だけ、その足し算で代用する。
@@ -58,8 +65,9 @@ export const salesView = (s: SalesDay | null | undefined): SalesView => {
     s.actual_yen ??
     (s.tax10_yen != null || s.tax8_yen != null ? (s.tax10_yen ?? 0) + (s.tax8_yen ?? 0) : null);
   const dineIn = s.actual_yen != null ? s.actual_yen - retail : (s.tax10_yen ?? null);
+  const dineInGoal = dineIn != null ? dineIn + (s.coupon_yen ?? 0) : null;
 
-  return { target: s.target_yen ?? null, dineIn, retail, total };
+  return { target: s.target_yen ?? null, dineIn, retail, total, dineInGoal };
 };
 
 /**
@@ -70,9 +78,16 @@ export const salesView = (s: SalesDay | null | undefined): SalesView => {
  *
  * target が 0 の日（火曜定休に0を入れてある）は判定しない。
  * 0円以上なら必ず達成になってしまい、休業日に物販が乗った日が金色に光る。
+ *
+ * ★クーポンの割引は判定の前に戻す（dineInGoal・店主指示 2026-09-10）。
+ *   値引きは売上の減少ではなく広告費。割引が目標の足を引っ張ると、
+ *   スタッフがクーポンやLINE登録の声かけをためらうようになる。
+ *   画面に出す金額は実額のまま——お金の事実は曲げず、物差しだけ変える。
  */
-export const hitOf = (d: { target: number | null; dineIn: number | null }): boolean =>
-  d.target != null && d.target > 0 && d.dineIn != null && d.dineIn >= d.target;
+export const hitOf = (d: { target: number | null; dineIn: number | null; dineInGoal?: number | null }): boolean => {
+  const judged = d.dineInGoal ?? d.dineIn;
+  return d.target != null && d.target > 0 && judged != null && judged >= d.target;
+};
 
 /** 表示してよい金額か。実績を後から物販より小さく直すと店内が負になる。 */
 export const shownYen = (yen: number | null): number | null => (yen != null && yen >= 0 ? yen : null);
