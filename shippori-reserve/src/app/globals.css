@@ -703,7 +703,9 @@ textarea.field {
 /* カレンダー行の目標・実績（席の空き状況の並びに出す小さな文字） */
 .salesline {
   display: flex;
-  gap: 0.5rem;
+  /* 項目が増えて幅に収まらない日は2段目へ流す（仕込み食数の追加で右端が切れた） */
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
