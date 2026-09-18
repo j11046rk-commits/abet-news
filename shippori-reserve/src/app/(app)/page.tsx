@@ -394,7 +394,7 @@ async function MonthList({
                         暦の数字へ——作る量の根拠が誰にでも同じに見える */}
                     {sale.target && perGuestAvg ? (
                       <span className="salesline__prep">
-                        おすすめ仕込み
+                        仕込み
                         <br />
                         {Math.ceil((sale.target / perGuestAvg) * (osusumeRate / 100))}食
                       </span>
