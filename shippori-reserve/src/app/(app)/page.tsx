@@ -143,6 +143,9 @@ async function MonthList({
     ]);
   // 目安客数（目標日商÷直近3か月の平均客単価・店主要望 2026-08-29）
   const perGuestAvg = await getRecentPerGuest();
+  // 本日のおすすめの仕込み率（%）。読めない値なら既定の33%（3人に1人）
+  const osusumeRateRaw = Number(settings.osusume_prep_rate);
+  const osusumeRate = Number.isFinite(osusumeRateRaw) && osusumeRateRaw > 0 && osusumeRateRaw <= 100 ? osusumeRateRaw : 33;
 
   // 今日のシフトの時間（タイムバー用・店主要望 2026-08-28）。今月を見ているときだけ引く
   const todayShifts: { ids: string[]; times: Record<string, ShiftTimeRow> } =
@@ -384,6 +387,16 @@ async function MonthList({
                         目安客数
                         <br />
                         {(Math.ceil((sale.target / perGuestAvg) * 10) / 10).toFixed(1)}人
+                      </span>
+                    ) : null}
+                    {/* 本日のおすすめを何食仕込むか（店主指示 2026-09-18・ロス削減）。
+                        目安客数×仕込み率(設定・既定33%)の切り上げ。判断を人の勘から
+                        暦の数字へ——作る量の根拠が誰にでも同じに見える */}
+                    {sale.target && perGuestAvg ? (
+                      <span className="salesline__prep">
+                        おすすめ仕込み
+                        <br />
+                        {Math.ceil((sale.target / perGuestAvg) * (osusumeRate / 100))}食
                       </span>
                     ) : null}
                     {saleCoupon > 0 ? (

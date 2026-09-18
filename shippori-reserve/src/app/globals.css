@@ -2436,6 +2436,8 @@ textarea.field:-webkit-autofill {
 .salesline__est { color: var(--text-dim); white-space: nowrap; }
 /* クーポンがレジを通った回数。配信の効果がその日の実績の隣で読める */
 .salesline__coupon { color: var(--gold); white-space: nowrap; }
+/* 本日のおすすめの仕込み目安。行動の指示なので目安客数より少し立たせる */
+.salesline__prep { color: var(--text); white-space: nowrap; }
 /* 売上タブの同じ数字（LINE増減の隣に置く小さな1行） */
 .salescell__coupon { color: var(--gold); font-size: 0.62rem; white-space: nowrap; }
 
