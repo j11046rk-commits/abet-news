@@ -143,9 +143,15 @@ async function MonthList({
     ]);
   // 目安客数（目標日商÷直近3か月の平均客単価・店主要望 2026-08-29）
   const perGuestAvg = await getRecentPerGuest();
-  // 本日のおすすめの仕込み率（%）。読めない値なら既定の33%（3人に1人）
-  const osusumeRateRaw = Number(settings.osusume_prep_rate);
-  const osusumeRate = Number.isFinite(osusumeRateRaw) && osusumeRateRaw > 0 && osusumeRateRaw <= 100 ? osusumeRateRaw : 33;
+  // 本日のおすすめの仕込み（店主指示 2026-09-23: 平日3種・金土5種の合計食数）
+  // 仕込み食数 = 目安客数 × 率(1種あたり・既定25%) × 品数
+  const readNum = (v: unknown, fallback: number, max: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 && n <= max ? n : fallback;
+  };
+  const osusumeRate = readNum(settings.osusume_prep_rate, 25, 100);
+  const osusumeMenuWeekday = readNum(settings.osusume_menu_weekday, 3, 20);
+  const osusumeMenuFriSat = readNum(settings.osusume_menu_frisat, 5, 20);
 
   // 今日のシフトの時間（タイムバー用・店主要望 2026-08-28）。今月を見ているときだけ引く
   const todayShifts: { ids: string[]; times: Record<string, ShiftTimeRow> } =
@@ -396,7 +402,11 @@ async function MonthList({
                       <span className="salesline__prep">
                         仕込み
                         <br />
-                        {Math.ceil((sale.target / perGuestAvg) * (osusumeRate / 100))}食
+                        {Math.ceil(
+                          (sale.target / perGuestAvg) *
+                            (osusumeRate / 100) *
+                            (dow === 5 || dow === 6 ? osusumeMenuFriSat : osusumeMenuWeekday),
+                        )}食
                       </span>
                     ) : null}
                     {saleCoupon > 0 ? (
