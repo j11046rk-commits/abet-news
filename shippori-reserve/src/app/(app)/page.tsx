@@ -149,7 +149,10 @@ async function MonthList({
     const n = Number(v);
     return Number.isFinite(n) && n > 0 && n <= max ? n : fallback;
   };
+  // 率は平日と金土で分ける。おすすめの注文は組数に比例し、金土は宴会の
+  // 大組で人数だけ膨らむ＋コースの組はおすすめを頼まないため、低めが現実に合う
   const osusumeRate = readNum(settings.osusume_prep_rate, 25, 100);
+  const osusumeRateFriSat = readNum(settings.osusume_rate_frisat, 15, 100);
   const osusumeMenuWeekday = readNum(settings.osusume_menu_weekday, 3, 20);
   const osusumeMenuFriSat = readNum(settings.osusume_menu_frisat, 5, 20);
 
@@ -404,7 +407,7 @@ async function MonthList({
                         <br />
                         {Math.ceil(
                           (sale.target / perGuestAvg) *
-                            (osusumeRate / 100) *
+                            ((dow === 5 || dow === 6 ? osusumeRateFriSat : osusumeRate) / 100) *
                             (dow === 5 || dow === 6 ? osusumeMenuFriSat : osusumeMenuWeekday),
                         )}食
                       </span>
