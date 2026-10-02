@@ -1,6 +1,6 @@
 import Link from "next/link";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
-import { lineDailyGoal, lineTargetFor } from "@/lib/line-kpi";
+import { lineDailyGoal, lineMonthPlan } from "@/lib/line-kpi";
 import SalesBoard, { type SalesBoardDay } from "@/components/SalesBoard";
 import { requireProfile } from "@/lib/auth";
 import { can, worksShifts } from "@/lib/constants";
@@ -114,6 +114,12 @@ export default async function SalesPage({
     });
   }
 
+  // LINE友だちの月の目標＝月初を0として日々の目標を積んだ数（店主指示 2026-10-02）
+  const linePlan = lineMonthPlan(
+    days.map((d) => ({ date: d.date, dow: d.dow, isClosed: d.closed })),
+    today,
+  );
+
   // 達成貢献⭐：達成した日に出勤していた人に星（確定シフト×達成日・店主承認の案C）
   // 達成の定義はグリッドの金色セル・連続達成と同じ hitOf（＝店内の売上だけで見る）。
   const shiftEligible = profiles
@@ -159,8 +165,9 @@ export default async function SalesPage({
         <LineFollowersKpi
           latest={lineLatest}
           monthGain={lineMonthGain}
-          target={lineTargetFor(settings.line_followers_targets, ym)}
-          targetLabel={`${Number(ym.slice(5))}月末`}
+          monthGoal={linePlan.monthGoal}
+          goalToDate={linePlan.goalToDate}
+          monthLabel={`${Number(ym.slice(5))}月`}
         />
         {/*
           今日の詳細（店主要望 2026-08-28）。グリッドの小さなマスでは

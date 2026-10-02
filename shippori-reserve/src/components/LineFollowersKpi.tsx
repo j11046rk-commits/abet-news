@@ -1,48 +1,58 @@
 /**
- * LINE友だち数のKPI表示（店主要望 2026-08-29）。
- * 総数・この月の増減に加えて、目標（settings.line_followers_target）までの
- * 残りと進捗バーを出す。暦（ホーム）と売上タブの2か所で同じ見た目にする。
+ * LINE友だち数のKPI表示（店主要望 2026-08-29、月初リセット方式へ 2026-10-02）。
  *
- * 店頭の声かけ（友だち追加で500円クーポン）の成果が毎日ここに出る——
- * 数字が動くのが見えることが、続ける一番の燃料になる。
+ * 目標は「月初の人数を0として、日々の目標（平日+2・金土+3）を積み上げた数」。
+ * 月末目標の人数と、今日までに積み上がっているべきペースの両方を出す——
+ * 「あと何人」だけだと月末まで安心してしまうので、今日の時点で
+ * 遅れているか進んでいるかが見えるようにする。
+ * 暦（ホーム）と売上タブの2か所で同じ見た目にする。
  */
 export default function LineFollowersKpi({
   latest,
   monthGain,
-  target,
-  targetLabel,
+  monthGoal,
+  goalToDate,
+  monthLabel,
 }: {
   /** いまの友だち総数。データが無ければ null（何も出さない） */
   latest: number | null;
-  /** この月の増減。基準が無い月は null */
+  /** この月の増減（月初の前日比）。基準が無い月は null */
   monthGain: number | null;
-  /** 目標人数。0以下なら目標表示なし */
-  target: number;
-  /** 目標の呼び名（例: 「9月末」）。月ごとの階段目標だと分かるように */
-  targetLabel?: string;
+  /** この月の増加目標（日々の目標の合計）。0以下なら目標表示なし */
+  monthGoal: number;
+  /** 今日までに積み上がっているべき目標（ペース） */
+  goalToDate: number;
+  /** 月の呼び名（例: 「10月」） */
+  monthLabel: string;
 }) {
   if (latest == null) return null;
-  const hasTarget = target > 0;
-  const done = hasTarget && latest >= target;
-  const pct = hasTarget ? Math.min(100, (latest / target) * 100) : 0;
+  const hasTarget = monthGoal > 0 && monthGain != null;
+  const gain = monthGain ?? 0;
+  const done = hasTarget && gain >= monthGoal;
+  const pct = hasTarget ? Math.max(0, Math.min(100, (gain / monthGoal) * 100)) : 0;
+  const paceDiff = gain - goalToDate;
 
   return (
     <div className="linefollow">
       <p className="linefollow__text">
         LINE友だち <strong>{latest}人</strong>
-        {monthGain != null && monthGain !== 0
-          ? `（この月 ${monthGain > 0 ? "+" : ""}${monthGain}人）`
-          : ""}
+        {monthGain != null ? `（${monthLabel} ${monthGain >= 0 ? "+" : ""}${monthGain}人）` : ""}
         {hasTarget ? (
           done ? (
-            <span className="linefollow__done">　{targetLabel ?? "目標"}の{target}人 達成！🎉</span>
+            <span className="linefollow__done">　{monthLabel}の目標+{monthGoal}人 達成！🎉</span>
           ) : (
-            `　${targetLabel ?? "目標"}の目標${target}人まであと${target - latest}人`
+            `　${monthLabel}の目標+${monthGoal}人まであと${monthGoal - gain}人`
           )
         ) : null}
       </p>
+      {hasTarget && !done ? (
+        <p className={`linefollow__pace${paceDiff >= 0 ? " linefollow__pace--ok" : ""}`}>
+          今日までのペース目標 +{goalToDate}人
+          {paceDiff >= 0 ? `（${paceDiff}人先行 ✓）` : `（${-paceDiff}人遅れ）`}
+        </p>
+      ) : null}
       {hasTarget ? (
-        <div className="linefollow__track" aria-label={`目標${target}人への進捗 ${Math.round(pct)}%`}>
+        <div className="linefollow__track" aria-label={`今月の目標+${monthGoal}人への進捗 ${Math.round(pct)}%`}>
           <div
             className={`linefollow__fill${done ? " linefollow__fill--done" : ""}`}
             style={{ width: `${pct.toFixed(1)}%` }}

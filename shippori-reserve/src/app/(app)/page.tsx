@@ -1,6 +1,6 @@
 import AutoRefresh from "@/components/AutoRefresh";
 import LineFollowersKpi from "@/components/LineFollowersKpi";
-import { lineDailyGoal, lineTargetFor } from "@/lib/line-kpi";
+import { lineDailyGoal, lineMonthPlan } from "@/lib/line-kpi";
 import { Suspense } from "react";
 import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
@@ -189,6 +189,16 @@ async function MonthList({
     lineDates.length >= 2
       ? (lineMap.get(lineDates.at(-1)!) ?? 0) - (lineMap.get(lineDates[0]!) ?? 0)
       : null;
+  // 月の目標＝月初を0として日々の目標を積んだ数（店主指示 2026-10-02）。
+  // 休業日（定休・臨時）は0なので、営業日の設定をそのまま使う
+  const linePlan = lineMonthPlan(
+    dates.map((d) => ({
+      date: d,
+      dow: weekdayOf(d),
+      isClosed: (summaries.get(d) ?? deriveBusinessDay(d, settings)).is_closed,
+    })),
+    today,
+  );
 
   /** 行の右端に出す「受付した人」。HPからの自動受付は流入元の略称で埋める。 */
   const registrar = (r: Reservation): string =>
@@ -200,8 +210,9 @@ async function MonthList({
         <LineFollowersKpi
           latest={lineLatest}
           monthGain={lineMonthGain}
-          target={lineTargetFor(settings.line_followers_targets, ym)}
-          targetLabel={`${Number(ym.slice(5))}月末`}
+          monthGoal={linePlan.monthGoal}
+          goalToDate={linePlan.goalToDate}
+          monthLabel={`${Number(ym.slice(5))}月`}
         />
         {dates.map((date) => {
           const day = summaries.get(date) ?? deriveBusinessDay(date, settings);

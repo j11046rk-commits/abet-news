@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lineDailyGoal, lineTargetFor } from "./line-kpi.ts";
+import { lineDailyGoal, lineMonthPlan } from "./line-kpi.ts";
 
 test("lineDailyGoal: 平日+2・金土+3・休業日0", () => {
   assert.equal(lineDailyGoal(1, false), 2); // 月
@@ -11,24 +11,30 @@ test("lineDailyGoal: 平日+2・金土+3・休業日0", () => {
   assert.equal(lineDailyGoal(5, true), 0);  // 臨時休業の金曜
 });
 
-const MAP = { "2026-08": 44, "2026-09": 102, "2026-12": 286 };
+// 2026-10-01(木)〜10-07(水)。火曜は定休
+const WEEK = [
+  { date: "2026-10-01", dow: 4, isClosed: false },
+  { date: "2026-10-02", dow: 5, isClosed: false },
+  { date: "2026-10-03", dow: 6, isClosed: false },
+  { date: "2026-10-04", dow: 0, isClosed: false },
+  { date: "2026-10-05", dow: 1, isClosed: false },
+  { date: "2026-10-06", dow: 2, isClosed: true },
+  { date: "2026-10-07", dow: 3, isClosed: false },
+];
 
-test("lineTargetFor: 表示中の月の目標を返す", () => {
-  assert.equal(lineTargetFor(MAP, "2026-08"), 44);
-  assert.equal(lineTargetFor(MAP, "2026-09"), 102);
+test("lineMonthPlan: 月の目標は日々の目標の合計（休業日は0）", () => {
+  const p = lineMonthPlan(WEEK, "2026-10-07");
+  assert.equal(p.monthGoal, 2 + 3 + 3 + 2 + 2 + 0 + 2);
+  assert.equal(p.goalToDate, p.monthGoal);
 });
 
-test("lineTargetFor: 定義が無い月は直近の過去の月の値", () => {
-  assert.equal(lineTargetFor(MAP, "2026-10"), 102); // 10月未定義→9月の値
-  assert.equal(lineTargetFor(MAP, "2027-03"), 286); // 未来→最後の値が続く
+test("lineMonthPlan: 今日までのペース目標は今日を含めて積む", () => {
+  const p = lineMonthPlan(WEEK, "2026-10-03");
+  assert.equal(p.goalToDate, 2 + 3 + 3);
+  assert.equal(p.monthGoal, 14);
 });
 
-test("lineTargetFor: 最初の定義より前の月は最初の値", () => {
-  assert.equal(lineTargetFor(MAP, "2026-07"), 44);
-});
-
-test("lineTargetFor: 旧形式(単一の数値)と空はそれなりに", () => {
-  assert.equal(lineTargetFor(50, "2026-08"), 50);
-  assert.equal(lineTargetFor(undefined, "2026-08"), 0);
-  assert.equal(lineTargetFor({}, "2026-08"), 0);
+test("lineMonthPlan: 過去の月は全日、未来の月は0がペース目標", () => {
+  assert.equal(lineMonthPlan(WEEK, "2026-11-15").goalToDate, 14);
+  assert.equal(lineMonthPlan(WEEK, "2026-09-20").goalToDate, 0);
 });

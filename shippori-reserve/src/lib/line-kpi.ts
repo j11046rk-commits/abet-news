@@ -1,39 +1,42 @@
 /**
- * LINE友だちの月別目標（店主要望 2026-08-29）。
+ * LINE友だちの目標（店主要望 2026-08-29、月初リセット方式へ 2026-10-02）。
  *
- * settings.line_followers_targets に {"2026-09": 102, ...} の形で
- * 「各月末時点の目標人数」が入っている。声かけの目安
- * 「平日+2人・金土+3人（火曜定休は0）」を積み上げた右肩上がりの階段。
- *
- * 表示中の月に定義が無ければ、それ以前で一番近い月の値を使う
- * （来年1月をまだ決めていなくても、12月の目標がそのまま続いて見える）。
+ * 目標は「毎月、月初の人数を0と置いて、日々の目標を積み上げた数」。
+ * 固定の階段（9月末102人…）は友だちが想定より速く増えて1か月で
+ * 追い越してしまい、目標として機能しなくなった。月初の実数を基準に
+ * 毎月組み直せば、何人になっても「今月あと何人」が常に生きた数字になる。
  */
+
 /**
  * その日のLINE友だち追加の目標人数（店頭声かけの目安・店主指定 2026-08-29）。
  * 平日+2人・金土+3人。休業日（火曜など）は0。
- * 月末目標（lineTargetFor）はこの積み上げと一致するように作ってある。
  */
 export function lineDailyGoal(dow: number, isClosed: boolean): number {
   if (isClosed) return 0;
   return dow === 5 || dow === 6 ? 3 : 2;
 }
 
-export function lineTargetFor(raw: unknown, ym: string): number {
-  // 旧形式（単一の数値）もそのまま通す
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (!raw || typeof raw !== "object") return 0;
+export type LineMonthPlan = {
+  /** 月の増加目標（＝その月の日々の目標の合計） */
+  monthGoal: number;
+  /** 今日までに積み上がっているべき目標（ペースの物差し）。月外を見ているときは全日 or 0 */
+  goalToDate: number;
+};
 
-  const map = raw as Record<string, unknown>;
-  const keys = Object.keys(map)
-    .filter((k) => /^\d{4}-\d{2}$/.test(k))
-    .sort();
-  if (keys.length === 0) return 0;
-
-  let val = 0;
-  for (const k of keys) {
-    if (k > ym) break;
-    val = Number(map[k]) || val;
+/**
+ * 月の増加目標と、今日時点のペース目標。
+ * days は表示中の月の全日（休業日は isClosed）。today は暦の今日。
+ */
+export function lineMonthPlan(
+  days: { date: string; dow: number; isClosed: boolean }[],
+  today: string,
+): LineMonthPlan {
+  let monthGoal = 0;
+  let goalToDate = 0;
+  for (const d of days) {
+    const g = lineDailyGoal(d.dow, d.isClosed);
+    monthGoal += g;
+    if (d.date <= today) goalToDate += g;
   }
-  // 最初の定義より前の月を見ているときは、最初の月の値
-  return val || Number(map[keys[0]]) || 0;
+  return { monthGoal, goalToDate };
 }

@@ -2460,6 +2460,9 @@ textarea.field:-webkit-autofill {
 .linefollow__text { margin: 0; font-size: 0.76rem; color: var(--text-dim); }
 .linefollow__text strong { color: var(--text); font-size: 0.92rem; }
 .linefollow__done { color: var(--gold); }
+/* 今日までのペース目標。遅れは朱、先行は緑で一言 */
+.linefollow__pace { margin: 0.1rem 0 0; font-size: 0.7rem; color: var(--seal); }
+.linefollow__pace--ok { color: #5aa87a; }
 .linefollow__track {
   height: 4px;
   margin-top: 0.25rem;
