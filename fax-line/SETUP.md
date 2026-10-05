@@ -21,9 +21,11 @@ BUCKET=${PROJECT}-fax-images
 gcloud config set project "$PROJECT"
 gcloud storage buckets create "gs://$BUCKET" --location=asia-northeast1 --uniform-bucket-level-access
 
-# LINE のサーバーが画像を取りに来るため、公開読み取りが要る
+# LINE のサーバーが画像を取りに来るため、認証なしで読める必要がある。
+# objectViewer ではなく legacyObjectReader を使う。前者は objects.list を
+# 含むため、バケット名さえ分かれば中身を一覧できてしまう。
 gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
-  --member=allUsers --role=roles/storage.objectViewer
+  --member=allUsers --role=roles/storage.legacyObjectReader
 
 # 7 日で自動削除
 cat > /tmp/lifecycle.json <<'JSON'
@@ -34,11 +36,18 @@ gcloud storage buckets update "gs://$BUCKET" --lifecycle-file=/tmp/lifecycle.jso
 
 ### 保存先について
 
-バケットは公開読み取りになる。LINE がサーバー側から画像を取得する以上これは避けられない。
-保護は 2 つで、**ファイル名に推測できない ID を使うこと**と、**7 日で消すこと**。
-FAX の内容を考えるとこれで足りないなら、署名付き URL (有効期限つき) に変える余地がある。
-その場合は `main.py` の `_upload` を `generate_signed_url` に差し替え、関数のサービス
-アカウントに `roles/iam.serviceAccountTokenCreator` を付ける。
+オブジェクトは認証なしで読める状態になる。LINE がサーバー側から画像を取得する以上
+これは避けられない。保護は 3 つ。
+
+- **一覧できないこと** — `legacyObjectReader` は `objects.get` だけを許す。
+  `objectViewer` は `objects.list` も含むので使ってはいけない。バケット名は
+  推測できるため、一覧を許すとランダムなファイル名の意味が無くなる。
+- **ファイル名が推測できないこと** — パスに UUID (128 bit) を挟んでいる。
+- **7 日で消えること** — ライフサイクルで自動削除。
+
+これでも足りない場合は署名付き URL (有効期限つき) にする。`main.py` の `_upload` を
+`generate_signed_url` (V4、期限は最長 7 日) に差し替え、関数のサービスアカウントに
+`roles/iam.serviceAccountTokenCreator` を自分自身に対して付ける。
 
 ## 2. 変換関数のデプロイ
 
