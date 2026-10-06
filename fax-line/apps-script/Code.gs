@@ -242,12 +242,32 @@ function handlePrint_(fileId, replyToken) {
 
   try {
     var file = DriveApp.getFileById(fileId);
-    GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX print', '', { attachments: [file.getBlob()] });
+    // 複合機のインターネット FAX 受信は PDF を処理できない (エラー紙が出る)。
+    // TIFF-F にしてから送る。
+    var tiff = convertToFaxTiff_(file.getBlob());
+    GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX print', '', { attachments: [tiff] });
     replyToLine_(replyToken, '印刷ジョブを送信しました');
   } catch (err) {
     console.error('印刷に失敗: ' + err);
+    store.deleteProperty(guard);  // 失敗したので押し直せるようにする
     replyToLine_(replyToken, '印刷に失敗しました: ' + err);
   }
+}
+
+function convertToFaxTiff_(pdfBlob) {
+  var response = UrlFetchApp.fetch(prop_('CONVERTER_URL'), {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'X-API-Key': prop_('CONVERTER_API_KEY') },
+    payload: JSON.stringify({ pdf_base64: Utilities.base64Encode(pdfBlob.getBytes()), format: 'tiff' }),
+    muteHttpExceptions: true,
+  });
+  if (response.getResponseCode() !== 200) {
+    throw new Error('TIFF 変換が ' + response.getResponseCode() + ' を返しました: ' + response.getContentText());
+  }
+  var data = JSON.parse(response.getContentText());
+  var name = pdfBlob.getName().replace(/\.pdf$/i, '') + '.tif';
+  return Utilities.newBlob(Utilities.base64Decode(data.tiff_base64), 'image/tiff', name);
 }
 
 function parseQuery_(data) {
