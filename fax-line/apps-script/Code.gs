@@ -156,7 +156,12 @@ function faxFlex_(fax, fileId) {
         type: 'box', layout: 'vertical',
         contents: [{
           type: 'button', style: 'primary', color: '#1E6FEB',
-          action: { type: 'postback', label: '印刷する', data: 'action=print&id=' + fileId },
+          // displayText があると、押した瞬間に LINE が「印刷する」を自分の発言として
+          // 表示する。サーバーの応答を待たずに手応えが出るので連打を防げる。
+          action: {
+            type: 'postback', label: '印刷する', displayText: '印刷する',
+            data: 'action=print&id=' + fileId,
+          },
         }],
       },
     },
@@ -220,7 +225,21 @@ function doPost(e) {
   return ContentService.createTextOutput('');
 }
 
+var PRINT_GUARD_PREFIX = 'print:';
+var PRINT_GUARD_WINDOW_MS = 60 * 1000;
+
 function handlePrint_(fileId, replyToken) {
+  // 返信が届くまでの数秒で連打されても 1 回しか印刷しない。
+  // 60 秒を過ぎれば同じ FAX をもう一度印刷できる。
+  var store = PropertiesService.getScriptProperties();
+  var guard = PRINT_GUARD_PREFIX + fileId;
+  var last = Number(store.getProperty(guard) || 0);
+  if (Date.now() - last < PRINT_GUARD_WINDOW_MS) {
+    replyToLine_(replyToken, 'すでに印刷ジョブを送信しています');
+    return;
+  }
+  store.setProperty(guard, String(Date.now()));
+
   try {
     var file = DriveApp.getFileById(fileId);
     GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX print', '', { attachments: [file.getBlob()] });
@@ -252,7 +271,8 @@ function sweepGuards_() {
   var all = store.getProperties();
   var limit = Date.now() - GUARD_TTL_MS;
   Object.keys(all).forEach(function (key) {
-    if (key.indexOf(GUARD_PREFIX) === 0 && Number(all[key]) < limit) store.deleteProperty(key);
+    var isGuard = key.indexOf(GUARD_PREFIX) === 0 || key.indexOf(PRINT_GUARD_PREFIX) === 0;
+    if (isGuard && Number(all[key]) < limit) store.deleteProperty(key);
   });
 }
 
