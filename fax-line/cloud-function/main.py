@@ -89,10 +89,18 @@ def _render_fax_tiff(pdf_bytes):
             images.append(sheet)
     if not images:
         return None, 0
+    # 複合機の TIFF 解析は「1 ページ = 1 ストリップ」しか扱えない (TIFF-F の前提)。
+    # Pillow は既定で 64KB ごとに帯 (ストリップ) を切るので、strip_size を十分大きく
+    # して 1 本にまとめる。実機では 8 本に分かれた TIFF が「TIFF解析エラー」で弾かれた。
+    tags = {262: FAX_PHOTOMETRIC, 266: 1}  # FillOrder=1 (MSB first) を明示
+    if FAX_COMPRESSION == "group4":
+        tags[293] = 0  # T6Options
+    elif FAX_COMPRESSION == "group3":
+        tags[292] = 0  # T4Options: 1 次元 MH
     buf = io.BytesIO()
     images[0].save(
         buf, format="TIFF", compression=FAX_COMPRESSION, dpi=(FAX_DPI_X, FAX_DPI_Y),
-        tiffinfo={262: FAX_PHOTOMETRIC},
+        tiffinfo=tags, strip_size=2 ** 30,
         save_all=True, append_images=images[1:],
     )
     return buf.getvalue(), len(images)
