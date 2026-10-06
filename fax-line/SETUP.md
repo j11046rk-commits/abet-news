@@ -9,8 +9,14 @@
 | LINE チャネルアクセストークン | [LINE Developers](https://developers.line.biz/console/) → 対象チャネル → Messaging API 設定 |
 | LINE 送信先 ID (グループ ID) | 旧 Make シナリオ `Integration Gmail` の LINE 送信モジュール (#6) の Body にある `to` の値 |
 | プリンタのメールアドレス | 旧 Make シナリオ `FAX印刷判定` の Gmail「Send an email」モジュールの宛先 |
+| 旧構成が印刷メールを送っていたアカウント | 同じモジュールの Connection 名に出ているメールアドレス |
 
 旧シナリオを開くだけでよい。実行 (Run once) はしないこと。
+
+最後の 1 つは、メール対応プリンタが送信元アドレスを制限している場合に効いてくる。
+新構成では Apps Script を動かすアカウント (FAX を受信している Gmail) から印刷メールを
+送るため、旧構成の送信元と違っていると印刷だけ弾かれることがある。
+違っていた場合は、プリンタ側の許可送信者に新しいアドレスを追加する。
 
 ## 1. 画像の保存先 (Cloud Storage)
 
