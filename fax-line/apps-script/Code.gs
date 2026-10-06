@@ -209,6 +209,9 @@ function doPost(e) {
   for (var i = 0; i < events.length; i++) {
     var event = events[i];
     if (event.type !== 'postback') continue;
+    // Apps Script は 302 を返すため、LINE 側で「Webhook の再送」が ON だと
+    // 同じイベントが届き直す。再送分は捨てて印刷の二重実行を防ぐ。
+    if (event.deliveryContext && event.deliveryContext.isRedelivery) continue;
     var params = parseQuery_(event.postback.data);
     if (params.action === 'print' && params.id) {
       handlePrint_(params.id, event.replyToken);

@@ -120,7 +120,14 @@ Drive に `FAX受信` フォルダを作り、URL の `folders/` 以降の ID �
 https://script.google.com/macros/s/XXXXXXXX/exec?token=（WEBHOOK_TOKENの値）
 ```
 
-3. 「Webhook の利用」を ON にする。「検証」は Apps Script が常に 200 を返すため成功する。
+3. 「Webhook の利用」を ON にする。「Webhook の再送」は **OFF** のままにする。
+4. 「検証」ボタンは **302 Found で失敗と表示される。これで正常。**
+   Apps Script のウェブアプリは本文を返すとき必ず `script.googleusercontent.com` へ
+   302 を返す仕様で、LINE の検証はそれを失敗扱いにする。実際の処理は `doPost` が
+   起動した時点で済んでおり、返信は Reply API で別に送るため実運用には影響しない。
+   Apps Script の「実行数」に `doPost` の完了が記録されていれば届いている。
+   「再送」を ON にすると 302 のたびに同じイベントが届き直して印刷が二重になるため、
+   OFF を守ること (コード側でも再送分は捨てている)。
 
 ### webhook の保護
 
