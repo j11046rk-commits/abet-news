@@ -244,8 +244,10 @@ function handlePrint_(fileId, replyToken) {
     var file = DriveApp.getFileById(fileId);
     // 複合機のインターネット FAX 受信は PDF を処理できない (エラー紙が出る)。
     // TIFF-F にしてから送る。
+    // 件名とファイル名は旧構成で通っていたものに揃える。複合機が件名で
+    // 振り分けている可能性があり、揃えておいて損は無い。
     var tiff = convertToFaxTiff_(file.getBlob());
-    GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX print', '', { attachments: [tiff] });
+    GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX印刷ジョブ', '', { attachments: [tiff] });
     replyToLine_(replyToken, '印刷ジョブを送信しました');
   } catch (err) {
     console.error('印刷に失敗: ' + err);
@@ -266,8 +268,7 @@ function convertToFaxTiff_(pdfBlob) {
     throw new Error('TIFF 変換が ' + response.getResponseCode() + ' を返しました: ' + response.getContentText());
   }
   var data = JSON.parse(response.getContentText());
-  var name = pdfBlob.getName().replace(/\.pdf$/i, '') + '.tif';
-  return Utilities.newBlob(Utilities.base64Decode(data.tiff_base64), 'image/tiff', name);
+  return Utilities.newBlob(Utilities.base64Decode(data.tiff_base64), 'image/tiff', 'FAX_received.tif');
 }
 
 function parseQuery_(data) {
