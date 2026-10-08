@@ -7,7 +7,7 @@ import site from '../../data/site.json';
 import Icon from './Icon.astro';
 import { withBase } from '../lib/text.js';
 
-interface Props { page?: 'home' | 'recruit'; }
+interface Props { page?: 'home' | 'recruit' | 'enkai'; }
 const { page = 'home' } = Astro.props;
 const home = page === 'home' ? '' : withBase('/');
 const recruitOpen = site.求人?.公開 === true;
@@ -15,10 +15,10 @@ const recruitOpen = site.求人?.公開 === true;
 const netURL = (site.予約問い合わせ?.ネット予約URL || '').trim();
 
 const tabs = [
-  { href: `${home}#banquet`, icon: 'group', label: '宴会' },
+  { href: page === 'enkai' ? '#contact' : withBase('/enkai'), icon: 'group', label: '宴会' },
   { href: `${home}#menu`, icon: 'utensils', label: 'メニュー' },
   { href: `${home}#access`, icon: 'pin', label: 'アクセス' },
-  { href: netURL || `${home}#reserve`, icon: 'calendar', label: 'ご予約', strong: page === 'home' },
+  { href: netURL || `${home}#reserve`, icon: 'calendar', label: 'ご予約', strong: page !== 'recruit' },
 ];
 if (recruitOpen) {
   tabs.push(

@@ -1,5 +1,6 @@
 ---
 import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
 import { isTBC, tbcHint } from '../lib/text.js';
 import Icon from './Icon.astro';
 const b = site.宴会コース;
@@ -72,6 +73,7 @@ const facts = [
         <span class="btn__phone-num">{telDisp}</span>
       </a>
       <p class="banquet__cta-note">インボイス対応の領収書・請求書のご相談もお気軽にどうぞ。</p>
+      <a class="btn btn--ghost" href={withBase('/enkai')}>{site.宴会ページ?.季節見出し ?? '宴会'}・宴会の詳しいご案内（よくあるご質問）</a>
     </div>
   </div>
 </section>
@@ -125,6 +127,7 @@ const facts = [
   .course__spec dd { margin: 0.2rem 0 0; font-size: 0.95rem; color: var(--text); }
   .course__detail { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
 
+  .banquet__cta .btn--ghost { margin-top: 1rem; }
   .banquet__cta {
     text-align: center;
     background: var(--bg-3);

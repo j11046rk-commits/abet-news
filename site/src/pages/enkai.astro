@@ -1,0 +1,233 @@
+---
+// 宴会・忘年会ページ（shipporitei.jp/enkai）。検索流入の受け皿。
+// トップは1ページ構成で「新居浜 忘年会」「新居浜 宴会 個室」などの検索に
+// 当たる入口が無かった（GA4: 2026-09-10〜10-07 は見られたページがトップのみ）。
+// 数字・内容は site.json の「宴会コース」をそのまま使う（ここで書き直さない）。
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import BottomNav from '../components/BottomNav.astro';
+import Icon from '../components/Icon.astro';
+import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
+
+const p = site.宴会ページ;
+const b = site.宴会コース;
+const s = site.店舗情報;
+const a = site.アクセス;
+const r = site.予約問い合わせ;
+const tel = s.電話番号.replace(/-/g, '');
+const lineURL = (r.lineURL || '').trim();
+const netURL = (r.ネット予約URL || '').trim();
+const season = p.季節見出し;
+
+const checks: [string, string, string][] = [
+  ['group', '人数', b.宴会最大人数],
+  ['room', '個室・お席', b.個室],
+  ['lock', '貸切', b.貸切],
+  ['yen', 'ご予算の目安', b.予算目安],
+  ['receipt', '領収書', b.領収書対応],
+  ['invoice', '請求書', b.請求書対応],
+  ['pin', 'アクセス', `${a.最寄り}。${a.ホテルから}`],
+  ['seats', '駐車場', a.駐車場],
+];
+
+const faqs: [string, string][] = [
+  ['何名まで入れますか？', `${b.宴会最大人数}。少人数の場合は、掘りごたつの個室（8名様）や半個室のテーブル席（6名様）をご用意します。`],
+  ['お店を貸切にできますか？', b.貸切],
+  ['予算はいくらくらいですか？', `${b.予算目安}が目安です。コースは${b.コース一覧[0].価格}（${b.コース一覧[0].飲み放題}）。人数やご予算に合わせてご相談ください。`],
+  ['会社の経費で落とせる領収書・請求書は出せますか？', `${b.領収書対応}${b.請求書対応}`],
+  ['二次会でも使えますか？', `二次会セット（${b.コース一覧[1].価格}・${b.コース一覧[1].飲み放題}・${b.コース一覧[1].品数}）があります。${b.コース一覧[1].内容}`],
+  ['駐車場はありますか？', a.駐車場],
+  ['予約はどうすればいいですか？', `${b.予約方法}8名様までならネット予約（24時間受付・空席がその場で分かります）も使えます。`],
+];
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(([q, ans]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: ans } })),
+};
+---
+<Base
+  title={`新居浜で${season}・宴会なら｜個室・貸切・飲み放題｜${s.店名}`}
+  description={`新居浜の${season}・宴会は「${s.店名}」へ。${b.宴会最大人数}、掘りごたつ個室、25名様〜貸切、飲み放題付きコース${b.コース一覧[0].価格}。インボイス対応の領収書・請求書OK。`}
+>
+  <Header onSubPage />
+  <main>
+    <script type="application/ld+json" set:html={JSON.stringify(faqLd).replace(/</g, '\\u003c')} />
+
+    <section class="ek-hero" style={`--img:url(${withBase('/images/gallery-platter.jpg')})`}>
+      <div class="container ek-hero__inner">
+        <p class="ek-hero__kicker">BANQUET</p>
+        <h1 class="ek-hero__title">{season}・宴会</h1>
+        <p class="ek-hero__catch">{p.キャッチ}</p>
+        <p class="ek-hero__lead">{p.リード}</p>
+        <ul class="ek-hero__badges">
+          <li>最大36名</li>
+          <li>掘りごたつ個室</li>
+          <li>25名様〜貸切</li>
+          <li>飲み放題付きコース</li>
+          <li>インボイス対応</li>
+        </ul>
+        <div class="ek-hero__cta">
+          <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+            <Icon name="phone" size={20} /> <span>電話で宴会を相談</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+          </a>
+          {lineURL && (
+            <a class="btn btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
+              <Icon name="line" size={20} /> <span>LINEで相談</span>
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">COURSE</p>
+          <h2 class="section__title">コース・プラン</h2>
+        </div>
+        <div class="ek-courses">
+          {b.コース一覧.map((c: any) => (
+            <article class="ek-course">
+              <h3 class="ek-course__name">{c.名称}</h3>
+              <p class="ek-course__price">{c.価格}</p>
+              <p class="ek-course__tags"><span>{c.飲み放題}</span><span>{c.品数}</span></p>
+              <p class="ek-course__body">{c.内容}</p>
+              {c.価格補足 && <p class="ek-course__note">{c.価格補足}</p>}
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">CHECK</p>
+          <h2 class="section__title">幹事さんのチェックポイント</h2>
+          <p class="section__lead">稟議や社内の確認に必要なことを、ひと目で。</p>
+        </div>
+        <dl class="ek-checks">
+          {checks.map(([icon, k, v]) => (
+            <div class="ek-checks__row">
+              <dt><Icon name={icon} size={18} /> {k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">SEATS</p>
+          <h2 class="section__title">お席</h2>
+        </div>
+        <div class="ek-photos">
+          <figure><img src={withBase('/images/gallery-private-room.jpg')} alt="掘りごたつの個室（8名様）" loading="lazy" /><figcaption>掘りごたつの個室（8名様）</figcaption></figure>
+          <figure><img src={withBase('/images/gallery-table.jpg')} alt="半個室のテーブル席（6名様）" loading="lazy" /><figcaption>半個室のテーブル席（6名様×3）</figcaption></figure>
+          <figure><img src={withBase('/images/gallery-counter.jpg')} alt="カウンター席" loading="lazy" /><figcaption>カウンター10席</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">FAQ</p>
+          <h2 class="section__title">よくあるご質問</h2>
+        </div>
+        <div class="ek-faq">
+          {faqs.map(([q, ans]) => (
+            <details>
+              <summary>{q}</summary>
+              <p>{ans}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="contact">
+      <div class="container ek-contact">
+        <div class="section__head">
+          <p class="section__kicker">RESERVE</p>
+          <h2 class="section__title">ご予約・ご相談</h2>
+          <p class="section__lead">{b.予約方法}</p>
+        </div>
+        <div class="ek-contact__btns">
+          <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+            <Icon name="phone" size={20} /> <span>電話で相談</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+          </a>
+          {lineURL && (
+            <a class="btn btn--line btn--lg" href={lineURL} target="_blank" rel="noopener noreferrer">
+              <Icon name="line" size={20} /> <span>公式LINEで相談</span>
+            </a>
+          )}
+          {netURL && (
+            <a class="btn btn--ghost" href={netURL}>
+              <Icon name="calendar" size={18} /> <span>8名様までならネット予約</span>
+            </a>
+          )}
+        </div>
+        <p class="ek-note">{r.電話受付}</p>
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <BottomNav page="enkai" />
+</Base>
+
+<style>
+  .ek-hero {
+    padding: clamp(4rem, 14vw, 7rem) var(--pad) clamp(3rem, 10vw, 4.5rem);
+    background: linear-gradient(180deg, rgba(10, 14, 24, 0.78), rgba(10, 14, 24, 0.9)), var(--img) center / cover no-repeat;
+    border-bottom: 1px solid var(--line);
+    text-align: center;
+  }
+  .ek-hero__kicker { margin: 0; letter-spacing: 0.4em; font-size: 0.78rem; color: var(--gold); }
+  .ek-hero__title { margin: 0.4rem 0 0.8rem; font-family: var(--font-serif); font-size: clamp(2.1rem, 8vw, 3.4rem); letter-spacing: 0.1em; color: var(--gold-soft); }
+  .ek-hero__catch { margin: 0; font-family: var(--font-serif); font-size: clamp(1.05rem, 3.6vw, 1.35rem); }
+  .ek-hero__lead { margin: 0.8rem auto 0; max-width: 38rem; color: var(--text-dim); line-height: 1.9; }
+  .ek-hero__badges { list-style: none; padding: 0; margin: 1.3rem 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  .ek-hero__badges li { padding: 0.35em 0.9em; border-radius: 999px; font-size: 0.84rem; font-weight: 700; border: 1px solid var(--gold); color: var(--gold-soft); background: rgba(210, 162, 92, 0.08); }
+  .ek-hero__cta { margin-top: 1.6rem; display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; }
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+
+  .ek-courses { display: grid; gap: 1rem; }
+  @media (min-width: 760px) { .ek-courses { grid-template-columns: 1fr 1fr; } }
+  .ek-course { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.4rem 1.5rem; }
+  .ek-course__name { margin: 0; font-family: var(--font-serif); font-size: 1.25rem; }
+  .ek-course__price { margin: 0.4rem 0 0; font-size: 1.5rem; font-weight: 800; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+  .ek-course__tags { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .ek-course__tags span { padding: 0.2em 0.7em; border-radius: 999px; background: rgba(210, 162, 92, 0.12); color: var(--gold-soft); font-size: 0.8rem; font-weight: 700; }
+  .ek-course__body { margin: 0.8rem 0 0; line-height: 1.8; color: var(--text); }
+  .ek-course__note { margin: 0.6rem 0 0; font-size: 0.8rem; color: var(--text-dim); }
+
+  .ek-checks { margin: 0; border-top: 1px solid var(--line); }
+  .ek-checks__row { display: grid; gap: 0.2rem; padding: 0.9rem 0.2rem; border-bottom: 1px solid var(--line); }
+  @media (min-width: 640px) { .ek-checks__row { grid-template-columns: 10rem 1fr; gap: 1rem; } }
+  .ek-checks dt { display: flex; align-items: center; gap: 0.4rem; color: var(--gold); font-weight: 700; font-size: 0.92rem; }
+  .ek-checks dd { margin: 0; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
+
+  .ek-photos { display: grid; gap: 0.8rem; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .ek-photos { grid-template-columns: repeat(3, 1fr); } }
+  .ek-photos figure { margin: 0; }
+  .ek-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
+  .ek-photos figcaption { margin-top: 0.4rem; font-size: 0.86rem; color: var(--text-dim); text-align: center; }
+
+  .ek-faq { max-width: 44rem; margin-inline: auto; display: grid; gap: 0.6rem; }
+  .ek-faq details { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1.1rem; }
+  .ek-faq summary { cursor: pointer; font-weight: 700; list-style: none; position: relative; padding-right: 1.6rem; }
+  .ek-faq summary::-webkit-details-marker { display: none; }
+  .ek-faq summary::after { content: '+'; position: absolute; right: 0; top: -0.05em; color: var(--gold); font-size: 1.2rem; }
+  .ek-faq details[open] summary::after { content: '−'; }
+  .ek-faq p { margin: 0.7rem 0 0; line-height: 1.85; color: var(--text-dim); }
+
+  .ek-contact__btns { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+  .ek-note { margin: 1rem auto 0; max-width: 34rem; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+</style>
