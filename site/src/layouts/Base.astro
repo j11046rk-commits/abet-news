@@ -18,17 +18,34 @@ const openingHoursSpec = site.営業時間.openingHours.map((h) => ({
   closes: h.closes.replace(/^24:/, '00:').replace(/^25:/, '01:'),
 }));
 
+// AI（ChatGPT等）や検索が「新居浜で31人の宴会ができる店」のような質問に答えるとき、
+// 拾ってもらえるよう、人数・個室・貸切などの事実を構造化データにも載せる（2026-10-08）。
+const b = site.宴会コース;
+const capacity = Number(String(b.最大収容人数 || '').replace(/[^0-9]/g, '')) || undefined;
+const netURL = (site.予約問い合わせ?.ネット予約URL || '').trim();
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Restaurant',
   '@id': Astro.site + '#restaurant',
   name: s.店名,
   url: Astro.site.href,
+  description: seo.description,
   image: ogImage,
   telephone: s.電話番号,
   servesCuisine: ['居酒屋', '家庭料理', 'おばんざい', '海鮮'],
   priceRange: '¥¥',
-  acceptsReservations: 'True',
+  acceptsReservations: netURL || 'True',
+  maximumAttendeeCapacity: capacity,
+  amenityFeature: [
+    `団体宴会：${b.宴会最大人数}`,
+    `貸切：${b.貸切}`,
+    `お席：${b.個室}`,
+    `宴会コース：${b.コース一覧?.[0]?.価格}（${b.コース一覧?.[0]?.飲み放題}）`,
+    `領収書・請求書：${b.領収書対応}`,
+    `喫煙：${s.喫煙}`,
+    `駐車場：${site.アクセス.駐車場}`,
+  ].map((name) => ({ '@type': 'LocationFeatureSpecification', name, value: true })),
   address: {
     '@type': 'PostalAddress',
     streetAddress: s.住所.replace(/^愛媛県新居浜市/, ''),
@@ -44,7 +61,7 @@ const jsonLd = {
   },
   openingHoursSpecification: openingHoursSpec,
   sameAs: [site.instagram.プロフィールURL],
-  hasMenu: canonical + '#menu',
+  hasMenu: new URL('/#menu', Astro.site).href,
 };
 
 interface Props { title?: string; description?: string; noindex?: boolean; }

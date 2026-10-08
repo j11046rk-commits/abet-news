@@ -69,3 +69,13 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      # 公開したページの更新を Bing などへ即時に知らせる（IndexNow）。
+      # ChatGPT の検索は Bing の索引を使うので、AIに店を答えてもらう近道になる。
+      # 鍵は公開してよい種類のもの（site/public/<鍵>.txt に同じ値を置いてある）。
+      # 毎時の定期ビルドでは送らない（中身が変わったときだけ＝push のときだけ）。
+      - name: IndexNow
+        if: github.event_name == 'push'
+        run: |
+          curl -s -o /dev/null -w "IndexNow HTTP %{http_code}\n" -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -d '{"host":"shipporitei.jp","key":"30c147764750fc0f673241cb01c33aa2","keyLocation":"https://shipporitei.jp/30c147764750fc0f673241cb01c33aa2.txt","urlList":["https://shipporitei.jp/","https://shipporitei.jp/enkai/","https://shipporitei.jp/recruit/","https://shipporitei.jp/llms.txt"]}' || true
