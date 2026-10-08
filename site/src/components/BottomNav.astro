@@ -1,0 +1,73 @@
+---
+// スマホ用の下部固定タブ（店主要望 2026-10-08）。
+// ヘッダーのメニューは狭い画面で隠れるため、採用ページなどへの入口が
+// フッターにしか無かった。主要なページ内リンクを画面下に常に出す。
+// PC（ヘッダーのメニューが見える幅）では表示しない。
+import site from '../../data/site.json';
+import Icon from './Icon.astro';
+import { withBase } from '../lib/text.js';
+
+interface Props { page?: 'home' | 'recruit'; }
+const { page = 'home' } = Astro.props;
+const home = page === 'home' ? '' : withBase('/');
+const recruitOpen = site.求人?.公開 === true;
+
+const tabs = [
+  { href: `${home}#banquet`, icon: 'group', label: '宴会' },
+  { href: `${home}#menu`, icon: 'utensils', label: 'メニュー' },
+  { href: `${home}#access`, icon: 'pin', label: 'アクセス' },
+  { href: `${home}#reserve`, icon: 'calendar', label: 'ご予約', strong: page === 'home' },
+];
+if (recruitOpen) {
+  tabs.push(
+    page === 'recruit'
+      ? { href: '#apply', icon: 'line', label: '応募する', strong: true }
+      : { href: withBase('/recruit'), icon: 'user', label: '求人' },
+  );
+}
+---
+<nav class="tabbar" aria-label="ページ内メニュー">
+  {tabs.map((t) => (
+    <a class={`tabbar__item${t.strong ? ' tabbar__item--strong' : ''}`} href={t.href}>
+      <Icon name={t.icon} size={20} />
+      <span>{t.label}</span>
+    </a>
+  ))}
+</nav>
+
+<style>
+  .tabbar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 60;
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.35rem 0.4rem calc(0.35rem + env(safe-area-inset-bottom));
+    background: rgba(13, 18, 30, 0.95);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+  }
+  .tabbar__item {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.4rem 0.1rem;
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .tabbar__item :global(svg) { color: var(--gold-soft); }
+  .tabbar__item:active { background: rgba(255, 255, 255, 0.06); }
+  .tabbar__item--strong {
+    background: linear-gradient(135deg, var(--gold), var(--ember));
+    color: #1a130b;
+  }
+  .tabbar__item--strong :global(svg) { color: #1a130b; }
+  @media (min-width: 860px) { .tabbar { display: none; } }
+</style>
