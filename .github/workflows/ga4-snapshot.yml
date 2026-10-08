@@ -1,0 +1,31 @@
+# GA4の直近28日の要約をログに出す単発実行ツール（アクセス改善の下調べ用）。
+# 開発環境からはGA4に直接届かないため、Actions（シークレットあり）で取得する。
+# 出すのは集計値だけ（鍵やIDはログに出さない）。
+name: ga4-snapshot
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
+        run: node scripts/fetch-ga4.mjs
+      - run: |
+          node -e '
+          const d = require("./data/ga4.json");
+          const out = { generatedAt: d.generatedAt, totals: d.totals, prev: d.prev, extra: d.extra,
+            channels: d.channels, devices: d.devices, topPages: (d.topPages || []).slice(0, 15),
+            actions: d.actions, daily: (d.daily || []).map(x => [x.date, x.sessions]) };
+          console.log(JSON.stringify(out, null, 1));
+          '
