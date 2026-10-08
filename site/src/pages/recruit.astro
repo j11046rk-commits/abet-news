@@ -14,6 +14,7 @@ const j = site.求人;
 const s = site.店舗情報;
 const r = site.予約問い合わせ;
 const ig = site.instagram;
+const a = site.アクセス;
 const open = j.公開 === true;
 const tel = s.電話番号.replace(/-/g, '');
 const yen = (n: number) => n.toLocaleString('ja-JP');
@@ -30,6 +31,7 @@ const rows: [string, string][] = [
   ['応募資格', j.応募資格],
   ['待遇', j.歓迎ポイント.filter((p: string) => !['未経験歓迎', 'Wワーク可', '週2日〜OK'].includes(p)).join('／')],
   ['勤務地', `${s.住所}（${s.店名}）`],
+  ['アクセス', `${a.最寄り}／${a.バス}`],
   ['受動喫煙対策', j.受動喫煙対策],
   ['募集人数', j.募集人数],
   ['募集者', j.募集者],
@@ -174,7 +176,35 @@ const jobLd = {
           </div>
         </section>
 
-        <section class="section section--alt" id="apply">
+        <section class="section section--alt" id="access">
+          <div class="container">
+            <div class="section__head">
+              <p class="section__kicker">ACCESS</p>
+              <h2 class="section__title">勤務地・アクセス</h2>
+            </div>
+            <div class="rec-access">
+              <div class="rec-access__map">
+                <iframe
+                  title={`${s.店名}の地図`}
+                  src={s.googleマップ埋め込みURL}
+                  width="600" height="340" style="border:0;" loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  allowfullscreen></iframe>
+              </div>
+              <dl class="rec-access__list">
+                <div><dt>住所</dt><dd>〒{s.郵便番号} {s.住所}</dd></div>
+                <div><dt>駅から</dt><dd>{a.最寄り}</dd></div>
+                <div><dt>バス</dt><dd>{a.バス}</dd></div>
+                <div><dt>通勤</dt><dd>{j.通勤}</dd></div>
+              </dl>
+              <a class="btn btn--ghost" href={s.googleマップURL} target="_blank" rel="noopener noreferrer">
+                <Icon name="pin" size={18} /> <span>Googleマップで見る</span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="apply">
           <div class="container">
             <div class="section__head">
               <p class="section__kicker">ENTRY</p>
@@ -286,6 +316,14 @@ const jobLd = {
   .rec-table dt { color: var(--gold); font-weight: 700; font-size: 0.92rem; }
   .rec-table dd { margin: 0; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
   .rec-note { margin: 1rem 0 0; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+
+  .rec-access { display: grid; gap: 1.2rem; justify-items: center; }
+  @media (min-width: 860px) { .rec-access { grid-template-columns: 1.3fr 1fr; align-items: center; justify-items: start; } .rec-access .btn { grid-column: 2; } }
+  .rec-access__map { width: 100%; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+  .rec-access__map iframe { display: block; width: 100%; height: clamp(240px, 45vw, 340px); }
+  .rec-access__list { margin: 0; width: 100%; display: grid; gap: 0.8rem; }
+  .rec-access__list dt { display: flex; align-items: center; gap: 0.4rem; color: var(--gold); font-weight: 700; font-size: 0.9rem; }
+  .rec-access__list dd { margin: 0.15rem 0 0; line-height: 1.7; }
 
   .rec-steps { list-style: none; padding: 0; margin: 0 auto 1.6rem; max-width: 36rem; display: grid; gap: 0.6rem; }
   .rec-steps li { display: flex; align-items: center; gap: 0.8rem; background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem 1rem; }
