@@ -178,6 +178,14 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - サイトマップから転送専用の /reserve を除外。
 - 調査用に `.github/workflows/ga4-snapshot.yml`（手動実行でGA4の28日要約をログに出す）。
 
+## AI検索対策（LLMO・2026-10-08）
+- きっかけ：団体予約（一宮運輸・31名規模）が「ChatGPTに新居浜で31人の宴会ができる店を聞いたら挙がった」経由だった。AIに店の事実を正しく拾わせる対策を常設。
+- **`/llms.txt`**（`src/pages/llms.txt.ts`）：AI向けの店舗要約。site.json からビルド時に生成（人数・個室・貸切・予算・コース・予約方法・FAQ・求人）。数字は手で書かないこと。
+- **Restaurant構造化データを強化**（`Base.astro`）：description／maximumAttendeeCapacity（最大収容人数から数値化）／amenityFeature（団体・貸切・席・コース・領収書・喫煙・駐車場）／acceptsReservations=ネット予約URL。hasMenu はサブページでも `/#menu` を指すよう修正。
+- **IndexNow**：`pages-preview.yml` の deploy 後、push 時だけ Bing 等へ主要URLを通知（ChatGPT検索はBingの索引を使う）。鍵 `30c147764750fc0f673241cb01c33aa2`（`public/<鍵>.txt` と一致必須。公開して問題ない種類の鍵）。
+- /enkai のFAQ先頭に「30名以上の大人数でも宴会できますか？」を追加（事実のみ）。
+- 店主作業（コード外）：Bing Webmaster Tools 登録（Search Consoleからインポート）、Googleビジネスプロフィール／食べログ等の掲載情報に「最大36名・貸切25名〜・個室」を揃える。
+
 ## TODO（本人作業／次セッション候補）
 - [x] **宴会人数の矛盾を解消**（2026-06-25・店主確定＝36名で統一。貸切/宴会最大人数/最大収容人数/ヒーローバッジ一致確認済み）
 - [x] **アクセスのホテル導線・喫煙表示・地図ピンを店主確定**（2026-06-25：ホテル導線は地図実測へ／喫煙は「全席喫煙可」のみ・20歳未満不可は非表示／ピン座標OK）
