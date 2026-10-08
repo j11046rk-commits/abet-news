@@ -47,8 +47,8 @@ const jsonLd = {
   hasMenu: canonical + '#menu',
 };
 
-interface Props { title?: string; description?: string; }
-const { title = seo.title, description = seo.description } = Astro.props;
+interface Props { title?: string; description?: string; noindex?: boolean; }
+const { title = seo.title, description = seo.description, noindex = false } = Astro.props;
 
 // Googleアナリティクス(GA4)。site.json の 解析.gaMeasurementId が設定されている時だけ計測タグを入れる。
 // 念のためGA4測定IDの許容文字(英数字とハイフン)以外を除去（インラインscriptへの混入を防ぐ多層防御）。
@@ -69,6 +69,7 @@ const gscVerify = (seo.googleSiteVerification || '').trim().replace(/[^A-Za-z0-9
     <meta name="keywords" content={seo.keywords} />
     {gscVerify && <meta name="google-site-verification" content={gscVerify} />}
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#111726" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="format-detection" content="telephone=no" />
