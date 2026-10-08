@@ -1,0 +1,305 @@
+---
+// 採用ページ（shipporitei.jp/recruit）。中身は data/site.json の「求人」。
+// Instagramの求人投稿はフォロワー（＝お客様）にしか届かないので、
+// 「新居浜 バイト 居酒屋」と検索した人が着地できる受け皿としてHPに置く。
+// JobPosting の構造化データを出すので、Googleのしごと検索にも載る。
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Icon from '../components/Icon.astro';
+import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
+
+const j = site.求人;
+const s = site.店舗情報;
+const r = site.予約問い合わせ;
+const ig = site.instagram;
+const open = j.公開 === true;
+const tel = s.電話番号.replace(/-/g, '');
+const yen = (n: number) => n.toLocaleString('ja-JP');
+const lineURL = (r.lineURL || '').trim();
+
+const rows: [string, string][] = [
+  ['雇用形態', j.雇用形態],
+  ['職種', j.職種],
+  ['仕事内容', j.仕事内容],
+  ['給与', `時給${yen(j.時給)}円〜（${j.給与補足}）`],
+  ['勤務時間', j.勤務時間],
+  ['勤務日数', j.勤務日数],
+  ['休日', j.休日],
+  ['応募資格', j.応募資格],
+  ['待遇', j.歓迎ポイント.filter((p: string) => !['未経験歓迎', 'Wワーク可', '週2日〜OK'].includes(p)).join('／')],
+  ['勤務地', `${s.住所}（${s.店名}）`],
+  ['受動喫煙対策', j.受動喫煙対策],
+  ['募集人数', j.募集人数],
+  ['募集者', j.募集者],
+];
+
+// Googleのしごと検索用（schema.org/JobPosting）
+const jobLd = {
+  '@context': 'https://schema.org',
+  '@type': 'JobPosting',
+  title: `${j.職種.split('／')[0]}（${j.雇用形態}）｜${s.店名}`,
+  description: [
+    `<p>${j.キャッチ}${j.リード}</p>`,
+    `<p>仕事内容：${j.仕事内容}</p>`,
+    `<p>給与：時給${yen(j.時給)}円〜。${j.給与補足}。</p>`,
+    `<p>勤務時間：${j.勤務時間}。${j.勤務日数}。休日：${j.休日}。</p>`,
+    `<p>応募資格：${j.応募資格}</p>`,
+    `<p>待遇：${j.歓迎ポイント.join('／')}</p>`,
+    `<p>受動喫煙対策：${j.受動喫煙対策}</p>`,
+    `<p>応募方法：${j.応募方法}</p>`,
+  ].join(''),
+  datePosted: j.掲載日,
+  validThrough: `${j.掲載期限}T23:59:59+09:00`,
+  employmentType: 'PART_TIME',
+  hiringOrganization: {
+    '@type': 'Organization',
+    name: j.募集者,
+    sameAs: Astro.site?.href,
+    logo: new URL('/images/logo-mark.png', Astro.site).href,
+  },
+  jobLocation: {
+    '@type': 'Place',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: s.住所.replace(/^愛媛県新居浜市/, ''),
+      addressLocality: '新居浜市',
+      addressRegion: '愛媛県',
+      postalCode: s.郵便番号,
+      addressCountry: 'JP',
+    },
+  },
+  baseSalary: {
+    '@type': 'MonetaryAmount',
+    currency: 'JPY',
+    value: { '@type': 'QuantitativeValue', minValue: j.時給, unitText: 'HOUR' },
+  },
+  directApply: false,
+};
+---
+<Base
+  title={`スタッフ募集（アルバイト・パート）｜新居浜の居酒屋 ${s.店名}`}
+  description={`新居浜のおばんざい居酒屋「${s.店名}」でホールスタッフを募集中。時給${yen(j.時給)}円〜（22時以降${yen(j.深夜時給)}円〜）・週2日〜・未経験歓迎・Wワーク可。`}
+  noindex={!open}
+>
+  <Header onSubPage />
+  <main class="rec">
+    {open && <script type="application/ld+json" set:html={JSON.stringify(jobLd).replace(/</g, '\\u003c')} />}
+
+    <section class="rec-hero" style={`--img:url(${withBase('/images/gallery-counter.jpg')})`}>
+      <div class="rec-hero__inner container">
+        <p class="rec-hero__kicker">RECRUIT</p>
+        <h1 class="rec-hero__title">{j.見出し}</h1>
+        {open ? (
+          <>
+            <p class="rec-hero__catch">{j.キャッチ}</p>
+            <p class="rec-hero__lead">{j.リード}</p>
+            <ul class="rec-hero__badges">
+              <li class="is-hot">{j.募集人数}</li>
+              <li>時給{yen(j.時給)}円〜</li>
+              <li>22時以降 {yen(j.深夜時給)}円〜</li>
+              <li>週2日〜OK</li>
+            </ul>
+            <div class="rec-hero__cta">
+              {lineURL && (
+                <a class="btn btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
+                  <Icon name="line" size={20} /> <span>LINEで応募する</span>
+                </a>
+              )}
+              <a class="btn btn--ghost" href={`tel:${tel}`}>
+                <Icon name="phone" size={18} /> <span>電話で応募</span>
+              </a>
+            </div>
+          </>
+        ) : (
+          <p class="rec-hero__lead">現在、スタッフの募集は行っておりません。募集を再開した際はこちらとInstagramでお知らせします。</p>
+        )}
+      </div>
+    </section>
+
+    {open && (
+      <>
+        <section class="section">
+          <div class="container rec-pay">
+            <div class="rec-pay__card">
+              <p class="rec-pay__label"><Icon name="yen" size={18} /> 時給</p>
+              <p class="rec-pay__big">{yen(j.時給)}<span>円〜</span></p>
+              <p class="rec-pay__sub">22時以降は深夜割増</p>
+              <p class="rec-pay__big rec-pay__big--night">{yen(j.深夜時給)}<span>円〜</span></p>
+            </div>
+            <div class="rec-pay__card rec-pay__card--model">
+              <p class="rec-pay__label"><Icon name="calendar" size={18} /> 収入のめやす</p>
+              <p class="rec-pay__cond">{j.モデル収入.条件}</p>
+              <p class="rec-pay__model">1日 <strong>{yen(j.モデル収入.日給)}円</strong></p>
+              <p class="rec-pay__model">1か月 <strong>{j.モデル収入.月収目安}</strong></p>
+              <p class="rec-pay__note">18〜22時は時給{yen(j.時給)}円、22時以降は{yen(j.深夜時給)}円で計算</p>
+            </div>
+          </div>
+          <ul class="container rec-tags">
+            {j.歓迎ポイント.map((p: string) => <li>{p}</li>)}
+          </ul>
+        </section>
+
+        <section class="section section--alt">
+          <div class="container">
+            <div class="section__head">
+              <p class="section__kicker">WORKPLACE</p>
+              <h2 class="section__title">こんなお店です</h2>
+              <p class="section__lead">おひとり様のカウンター飲みから、36名までの宴会まで。常連さんも多い、にぎやかで気取らない居酒屋です。</p>
+            </div>
+            <div class="rec-photos">
+              <img src={withBase('/images/gallery-counter.jpg')} alt="カウンター席" loading="lazy" />
+              <img src={withBase('/images/gallery-table.jpg')} alt="テーブル席" loading="lazy" />
+              <img src={withBase('/images/gallery-gaikan-yoru.jpg')} alt="夜の外観" loading="lazy" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="container">
+            <div class="section__head">
+              <p class="section__kicker">REQUIREMENTS</p>
+              <h2 class="section__title">募集要項</h2>
+            </div>
+            <dl class="rec-table">
+              {rows.map(([k, v]) => (
+                <div class="rec-table__row">
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p class="rec-note">{j.詳細注記}</p>
+          </div>
+        </section>
+
+        <section class="section section--alt" id="apply">
+          <div class="container">
+            <div class="section__head">
+              <p class="section__kicker">ENTRY</p>
+              <h2 class="section__title">応募方法</h2>
+              <p class="section__lead">{j.応募方法}</p>
+            </div>
+            <ol class="rec-steps">
+              {j.応募の流れ.map((t: string, i: number) => (
+                <li><span class="rec-steps__n">{i + 1}</span>{t}</li>
+              ))}
+            </ol>
+            <div class="rec-apply">
+              {lineURL && (
+                <a class="btn btn--line btn--lg" href={lineURL} target="_blank" rel="noopener noreferrer">
+                  <Icon name="line" size={22} /> <span>公式LINEで応募</span>
+                </a>
+              )}
+              <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+                <Icon name="phone" size={20} /> <span>電話で応募</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+              </a>
+              <a class="btn btn--ghost" href={ig.プロフィールURL} target="_blank" rel="noopener noreferrer">
+                <Icon name="instagram" size={18} /> <span>InstagramのDMで応募</span>
+              </a>
+            </div>
+            <p class="rec-note">営業中（18時以降）はお電話に出られないことがあります。その際はLINEかDMでご連絡ください。</p>
+          </div>
+        </section>
+      </>
+    )}
+  </main>
+  <Footer />
+
+  {open && (
+    <div class="rec-bar">
+      {lineURL && (
+        <a class="rec-bar__btn rec-bar__btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
+          <Icon name="line" size={18} /> LINEで応募
+        </a>
+      )}
+      <a class="rec-bar__btn rec-bar__btn--tel" href={`tel:${tel}`}>
+        <Icon name="phone" size={18} /> 電話で応募
+      </a>
+    </div>
+  )}
+</Base>
+
+<style>
+  .rec-hero {
+    position: relative;
+    padding: clamp(4rem, 14vw, 7.5rem) var(--pad) clamp(3rem, 10vw, 5rem);
+    background:
+      linear-gradient(180deg, rgba(10, 14, 24, 0.82), rgba(10, 14, 24, 0.9)),
+      var(--img) center 45% / cover no-repeat;
+    border-bottom: 1px solid var(--line);
+    text-align: center;
+  }
+  .rec-hero__kicker { margin: 0; letter-spacing: 0.4em; font-size: 0.78rem; color: var(--gold); }
+  .rec-hero__title {
+    margin: 0.4rem 0 0.8rem;
+    font-family: var(--font-serif);
+    font-size: clamp(2.4rem, 9vw, 3.8rem);
+    letter-spacing: 0.12em;
+    color: var(--gold-soft);
+  }
+  .rec-hero__catch { margin: 0; font-family: var(--font-serif); font-size: clamp(1.05rem, 3.6vw, 1.35rem); color: var(--text); }
+  .rec-hero__lead { margin: 0.8rem auto 0; max-width: 34rem; color: var(--text-dim); line-height: 1.9; }
+  .rec-hero__badges { list-style: none; padding: 0; margin: 1.4rem 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  .rec-hero__badges li {
+    padding: 0.35em 0.9em; border-radius: 999px; font-size: 0.86rem; font-weight: 700;
+    border: 1px solid var(--gold); color: var(--gold-soft); background: rgba(210, 162, 92, 0.08);
+  }
+  .rec-hero__badges li.is-hot { background: var(--seal); border-color: var(--seal); color: #fff; }
+  .rec-hero__cta { margin-top: 1.6rem; display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; }
+
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+
+  .rec-pay { display: grid; gap: 1rem; }
+  @media (min-width: 720px) { .rec-pay { grid-template-columns: 1fr 1fr; } }
+  .rec-pay__card {
+    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.4rem 1.5rem; text-align: center;
+  }
+  .rec-pay__card--model { text-align: left; }
+  .rec-pay__label { margin: 0 0 0.4rem; display: flex; align-items: center; gap: 0.4rem; justify-content: inherit; color: var(--gold); font-weight: 700; letter-spacing: 0.08em; }
+  .rec-pay__card:not(.rec-pay__card--model) .rec-pay__label { justify-content: center; }
+  .rec-pay__big { margin: 0; font-family: var(--font-serif); font-size: clamp(2.6rem, 10vw, 3.4rem); line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
+  .rec-pay__big span { font-size: 0.4em; margin-left: 0.15em; color: var(--text-dim); }
+  .rec-pay__big--night { font-size: clamp(2rem, 8vw, 2.6rem); color: var(--gold-soft); }
+  .rec-pay__sub { margin: 0.7rem 0 0; font-size: 0.86rem; color: var(--text-dim); }
+  .rec-pay__cond { margin: 0 0 0.6rem; font-size: 0.9rem; color: var(--text-dim); }
+  .rec-pay__model { margin: 0.2rem 0; font-size: 1rem; }
+  .rec-pay__model strong { font-size: 1.5rem; color: var(--gold-soft); margin-left: 0.3em; font-variant-numeric: tabular-nums; }
+  .rec-pay__note { margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--text-dim); }
+
+  .rec-tags { list-style: none; padding: 0; margin-top: 1.2rem; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+  .rec-tags li { padding: 0.4em 1em; border-radius: 999px; background: var(--bg-3); border: 1px solid var(--line); font-size: 0.88rem; }
+
+  .rec-photos { display: grid; gap: 0.6rem; grid-template-columns: repeat(3, 1fr); }
+  .rec-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
+  @media (max-width: 559px) {
+    .rec-photos { grid-template-columns: 1fr 1fr; }
+    .rec-photos img:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+  }
+
+  .rec-table { margin: 0; border-top: 1px solid var(--line); }
+  .rec-table__row { display: grid; grid-template-columns: 1fr; gap: 0.2rem; padding: 0.9rem 0.2rem; border-bottom: 1px solid var(--line); }
+  @media (min-width: 640px) { .rec-table__row { grid-template-columns: 9rem 1fr; gap: 1rem; } }
+  .rec-table dt { color: var(--gold); font-weight: 700; font-size: 0.92rem; }
+  .rec-table dd { margin: 0; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
+  .rec-note { margin: 1rem 0 0; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+
+  .rec-steps { list-style: none; padding: 0; margin: 0 auto 1.6rem; max-width: 36rem; display: grid; gap: 0.6rem; }
+  .rec-steps li { display: flex; align-items: center; gap: 0.8rem; background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem 1rem; }
+  .rec-steps__n { flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #1a130b; font-weight: 800; }
+  .rec-apply { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+
+  .rec-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: flex; gap: 0.5rem;
+    padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom));
+    background: rgba(13, 18, 30, 0.93); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  }
+  .rec-bar__btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; border-radius: 999px; font-weight: 700; padding: 0.85em 1em; }
+  .rec-bar__btn--line { background: #06c755; color: #fff; }
+  .rec-bar__btn--tel { background: var(--gold); color: #1a130b; }
+  @media (min-width: 760px) { .rec-bar { display: none; } }
+</style>

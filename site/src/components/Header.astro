@@ -4,10 +4,15 @@ import Icon from './Icon.astro';
 import { withBase } from '../lib/text.js';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
+// トップ以外のページ（/recruit など）から開いたとき、#banquet 等をトップ宛てにする
+interface Props { onSubPage?: boolean; }
+const { onSubPage = false } = Astro.props;
+const home = onSubPage ? withBase('/') : '';
+const recruitOpen = site.求人?.公開 === true;
 ---
 <header class="hdr">
   <div class="hdr__inner">
-    <a class="hdr__brand" href="#top">
+    <a class="hdr__brand" href={onSubPage ? home : '#top'}>
       <img class="hdr__logo" src={withBase('/images/logo-mark.png')} alt="" width="40" height="40" decoding="async" />
       <span class="hdr__words">
         <span class="hdr__name">{s.店名}</span>
@@ -15,10 +20,11 @@ const tel = s.電話番号.replace(/-/g, '');
       </span>
     </a>
     <nav class="hdr__nav" aria-label="メインメニュー">
-      <a href="#banquet">宴会・コース</a>
-      <a href="#menu">メニュー</a>
-      <a href="#access">アクセス</a>
-      <a href="#reserve">ご予約</a>
+      <a href={`${home}#banquet`}>宴会・コース</a>
+      <a href={`${home}#menu`}>メニュー</a>
+      <a href={`${home}#access`}>アクセス</a>
+      <a href={`${home}#reserve`}>ご予約</a>
+      {recruitOpen && <a href={withBase('/recruit')}>採用情報</a>}
     </nav>
     <a class="hdr__tel" href={`tel:${tel}`} aria-label={`電話で予約 ${s.電話番号}`}>
       <span class="hdr__tel-ico"><Icon name="phone" size={18} /></span>
