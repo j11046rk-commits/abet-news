@@ -7,6 +7,7 @@ import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import Icon from '../components/Icon.astro';
+import BottomNav from '../components/BottomNav.astro';
 import site from '../../data/site.json';
 import { withBase } from '../lib/text.js';
 
@@ -242,18 +243,7 @@ const jobLd = {
   </main>
   <Footer />
 
-  {open && (
-    <div class="rec-bar">
-      {lineURL && (
-        <a class="rec-bar__btn rec-bar__btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
-          <Icon name="line" size={18} /> LINEで応募
-        </a>
-      )}
-      <a class="rec-bar__btn rec-bar__btn--tel" href={`tel:${tel}`}>
-        <Icon name="phone" size={18} /> 電話で応募
-      </a>
-    </div>
-  )}
+  <BottomNav page="recruit" />
 </Base>
 
 <style>
@@ -335,14 +325,4 @@ const jobLd = {
   .rec-steps__n { flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #1a130b; font-weight: 800; }
   .rec-apply { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
 
-  .rec-bar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-    display: flex; gap: 0.5rem;
-    padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom));
-    background: rgba(13, 18, 30, 0.93); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
-  }
-  .rec-bar__btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; border-radius: 999px; font-weight: 700; padding: 0.85em 1em; }
-  .rec-bar__btn--line { background: #06c755; color: #fff; }
-  .rec-bar__btn--tel { background: var(--gold); color: #1a130b; }
-  @media (min-width: 760px) { .rec-bar { display: none; } }
 </style>
