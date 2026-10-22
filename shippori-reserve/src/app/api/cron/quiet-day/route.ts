@@ -7,7 +7,7 @@ import { isHoliday } from "@/lib/holidays";
 import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 
 /**
- * 静かな日のクーポン（毎日12:30・予約ゼロの日だけ）。
+ * 静かな日のクーポン（毎日12:30・予約が4名以下の日だけ）。
  *
  * 12:30なのは「行く予定のなかった人が誰かを誘う」ためのリードタイム
  * （店主の読み 2026-09-01）。誘う側も誘われる側も昼休み中で、
@@ -95,6 +95,7 @@ export async function GET(request: Request) {
     console.error("quiet_day_count_failed", error.message);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+  const resvCount = (resvRows ?? []).length;
   const bookedHeads = (resvRows ?? []).reduce((a, r) => a + (r.party_size ?? 0), 0);
   if (bookedHeads > QUIET_MAX_HEADS) {
     return NextResponse.json({ ok: true, skipped: "has-reservations", heads: bookedHeads });
@@ -222,7 +223,9 @@ export async function GET(request: Request) {
   await pushLine(
     [
       `📣 本日（${dateJa}）のクーポンを配信しました。`,
-      `友だち ${reach} 名へ / 予約0件のため`,
+      // 判定に使った数をそのまま出す。以前は「予約0件」と固定で書いていて、
+      // 4名以下でも配信するルール（2026-09-01）に変えた後、予約1件の日に食い違った
+      `友だち ${reach} 名へ / 配信時点の予約 ${resvCount}件・${bookedHeads}名（${QUIET_MAX_HEADS}名以下のため）`,
       "",
       "本日限定の500円OFFです。ご提示のお客様の会計では、",
       "エアレジの「当日限定クーポン」を一緒にお打ちください（利用数の集計に使います）。",
