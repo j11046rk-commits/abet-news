@@ -264,12 +264,11 @@ function handlePrint_(fileId, replyToken) {
   store.setProperty(guard, String(Date.now()));
 
   try {
-    var file = DriveApp.getFileById(fileId);
     // 複合機のインターネット FAX 受信は PDF を処理できない (エラー紙が出る)。
     // TIFF-F にしてから送る。
     // 件名とファイル名は旧構成で通っていたものに揃える。複合機が件名で
     // 振り分けている可能性があり、揃えておいて損は無い。
-    var tiff = convertToFaxTiff_(file.getBlob());
+    var tiff = convertToFaxTiff_(readPdfFromDrive_(fileId));
     GmailApp.sendEmail(prop_('PRINTER_EMAIL'), 'FAX印刷ジョブ', '', { attachments: [tiff] });
     replyToLine_(replyToken, '印刷ジョブを送信しました');
   } catch (err) {
@@ -277,6 +276,39 @@ function handlePrint_(fileId, replyToken) {
     store.deleteProperty(guard);  // 失敗したので押し直せるようにする
     replyToLine_(replyToken, '印刷に失敗しました: ' + err);
   }
+}
+
+/**
+ * Drive から FAX の PDF を読む。
+ *
+ * DriveApp は時々、中身のある PDF に対して空のデータを返す。2026-10-21 には
+ * 同じファイルが 4 秒の間に「空 → 66KB → 空 → 空」と返り、印刷が 3 回失敗した
+ * (変換関数が受け取ったリクエストは 581 バイト = ヘッダーのみ)。
+ * 空なら読み直し、それでも空なら Drive API を直接呼ぶ別経路で読む。
+ */
+function readPdfFromDrive_(fileId) {
+  var file = DriveApp.getFileById(fileId);
+  var name = file.getName();
+  var expected = file.getSize();
+
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    var blob = file.getBlob();
+    if (blob.getBytes().length > 0) return blob;
+    console.warn('Drive が空のデータを返しました (' + attempt + ' 回目, ' + name + ', 本来 ' + expected + ' bytes)');
+    Utilities.sleep(1000 * attempt);
+    file = DriveApp.getFileById(fileId);
+  }
+
+  var response = UrlFetchApp.fetch(
+    'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) + '?alt=media',
+    { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true }
+  );
+  if (response.getResponseCode() === 200) {
+    var direct = response.getBlob();
+    if (direct.getBytes().length > 0) return direct.setName(name).setContentType('application/pdf');
+  }
+  throw new Error('Drive から PDF を読めませんでした (' + name + ', 本来 ' + expected + ' bytes, ' +
+                  'Drive API ' + response.getResponseCode() + ')');
 }
 
 function convertToFaxTiff_(pdfBlob) {
