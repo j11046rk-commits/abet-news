@@ -117,10 +117,21 @@ def convert(request):
     if API_KEY and request.headers.get("X-API-Key") != API_KEY:
         return {"error": "unauthorized"}, 401
 
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        # 本文が JSON として読めない。リダイレクトで GET に化けた、途中で欠けた等を
+        # 見分けられるよう、受け取ったものを返す (呼び出し側がそのまま LINE に出す)。
+        raw = request.get_data(cache=True)
+        detail = (f"method={request.method} type={request.content_type} "
+                  f"length={request.content_length} received={len(raw)}")
+        print(f"bad request: {detail} head={raw[:40]!r}")
+        return {"error": f"body is not JSON ({detail})"}, 400
+
     encoded = payload.get("pdf_base64")
     if not encoded:
-        return {"error": "pdf_base64 is required"}, 400
+        detail = f"keys={sorted(payload)} length={request.content_length}"
+        print(f"pdf_base64 missing: {detail}")
+        return {"error": f"pdf_base64 is required ({detail})"}, 400
 
     try:
         pdf_bytes = base64.b64decode(encoded)

@@ -109,17 +109,40 @@ function saveToDrive_(pdf, fax) {
 }
 
 function convertToImages_(pdf) {
-  var response = UrlFetchApp.fetch(prop_('CONVERTER_URL'), {
+  return (callConverter_(pdf, {}).urls || []).slice(0, MAX_IMAGES);
+}
+
+/**
+ * 変換関数を呼ぶ。一時的な失敗 (データが欠けて届いた、5xx 等) は最大 3 回までやり直す。
+ * 失敗したときのメッセージは LINE にそのまま出るので、原因が分かるだけの情報を入れる。
+ */
+function callConverter_(pdfBlob, extra) {
+  var bytes = pdfBlob.getBytes();
+  var label = pdfBlob.getName() + ', ' + pdfBlob.getContentType() + ', ' + bytes.length + ' bytes';
+  if (bytes.length === 0) throw new Error('PDF が空です (' + label + ')');
+
+  var body = { pdf_base64: Utilities.base64Encode(bytes) };
+  Object.keys(extra).forEach(function (key) { body[key] = extra[key]; });
+  var options = {
     method: 'post',
     contentType: 'application/json',
     headers: { 'X-API-Key': prop_('CONVERTER_API_KEY') },
-    payload: JSON.stringify({ pdf_base64: Utilities.base64Encode(pdf.getBytes()) }),
+    payload: JSON.stringify(body),
     muteHttpExceptions: true,
-  });
-  if (response.getResponseCode() !== 200) {
-    throw new Error('変換関数が ' + response.getResponseCode() + ' を返しました: ' + response.getContentText());
+  };
+
+  var response;
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    response = UrlFetchApp.fetch(prop_('CONVERTER_URL'), options);
+    var code = response.getResponseCode();
+    if (code === 200) return JSON.parse(response.getContentText());
+    // 401 (キー違い) と 422 (壊れた PDF) はやり直しても結果が変わらない
+    if (code === 401 || code === 422) break;
+    console.warn('変換関数が ' + code + ' (' + attempt + ' 回目, ' + label + '): ' + response.getContentText());
+    if (attempt < 3) Utilities.sleep(1500 * attempt);
   }
-  return (JSON.parse(response.getContentText()).urls || []).slice(0, MAX_IMAGES);
+  throw new Error('変換関数が ' + response.getResponseCode() + ' を返しました (' + label + '): ' +
+                  response.getContentText());
 }
 
 /* -------------------------------------------------------------- LINE 送信 */
@@ -257,17 +280,7 @@ function handlePrint_(fileId, replyToken) {
 }
 
 function convertToFaxTiff_(pdfBlob) {
-  var response = UrlFetchApp.fetch(prop_('CONVERTER_URL'), {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'X-API-Key': prop_('CONVERTER_API_KEY') },
-    payload: JSON.stringify({ pdf_base64: Utilities.base64Encode(pdfBlob.getBytes()), format: 'tiff' }),
-    muteHttpExceptions: true,
-  });
-  if (response.getResponseCode() !== 200) {
-    throw new Error('TIFF 変換が ' + response.getResponseCode() + ' を返しました: ' + response.getContentText());
-  }
-  var data = JSON.parse(response.getContentText());
+  var data = callConverter_(pdfBlob, { format: 'tiff' });
   return Utilities.newBlob(Utilities.base64Decode(data.tiff_base64), 'image/tiff', 'FAX_received.tif');
 }
 
