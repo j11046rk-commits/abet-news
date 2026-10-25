@@ -29,6 +29,19 @@ export type BoardDay = {
   busy: boolean;
   /** イベント営業。人数の目安が別なのでアラートの判定から外す */
   event: boolean;
+  /** 予想客数と目安人数（店長・オーナーのときだけ。過去の数字が無い日は null） */
+  forecast?: { expected: number; booked: number; recommended: number } | null;
+};
+
+/** 目安人数の前提（画面の注記と、人件費の概算に使う） */
+export type StaffingInfo = {
+  /** 1人で回せる客数 */
+  perStaff: number;
+  /** perStaff が過去の実績から出たものか（足りなければ既定値） */
+  fromHistory: boolean;
+  hourlyWage: number;
+  /** 1人減らしたときの時間の目安 */
+  hoursPerShift: number;
 };
 
 /** 時間を選ぶ候補。18:00〜22:00 を30分刻み（それ以降から入る運用は無い） */
@@ -74,6 +87,7 @@ export default function ShiftBoard({
   times,
   confirmedTimes,
   defaults,
+  staffing = null,
 }: {
   ym: string;
   days: BoardDay[];
@@ -98,6 +112,8 @@ export default function ShiftBoard({
   confirmedTimes: Record<string, ShiftTimeRow>;
   /** 全員の基本の時間（profile_id → 基本） */
   defaults: Record<string, ShiftDefault>;
+  /** 目安人数の前提。組む側だけ渡す */
+  staffing?: StaffingInfo | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -488,6 +504,36 @@ export default function ShiftBoard({
           .join("　")}
       </p>
 
+      {staffing ? (() => {
+        /*
+         * 目安より多く入れている日の合計（下書きが変わるたびに動く）。
+         * 人件費は「1人◯時間×時給」の概算。誰を外すかで変わるので目安として出す。
+         */
+        let over = 0;
+        let under = 0;
+        for (const d of days) {
+          if (d.closed || !d.forecast) continue;
+          const n = (draft[d.date] ?? []).length;
+          if (n > d.forecast.recommended) over += n - d.forecast.recommended;
+          if (n < d.forecast.recommended) under += 1;
+        }
+        const yen = over * staffing.hoursPerShift * staffing.hourlyWage;
+        return (
+          <div className="shiftfc-sum">
+            <div>
+              目安より多い：<strong>のべ{over}人</strong>
+              {over > 0 ? <>（人件費 約¥{yen.toLocaleString()}）</> : null}
+              {under > 0 ? <>　目安より少ない日：<strong>{under}日</strong></> : null}
+            </div>
+            <div className="micro">
+              目安＝予想客数÷{staffing.perStaff}名（1人で回せる客数
+              {staffing.fromHistory ? "・過去12週の実績の上位25%点" : "・実績が少ないため仮の値"}）。
+              人件費は1人{staffing.hoursPerShift}時間×時給{staffing.hourlyWage.toLocaleString()}円で概算。
+            </div>
+          </div>
+        );
+      })() : null}
+
       <div className="shiftboard">
         {days.map((d) => {
           /*
@@ -505,6 +551,9 @@ export default function ShiftBoard({
                 return [{ name: p.name, colorIndex: p.colorIndex, start: t.start, end: t.end ?? d.closeMin }];
               });
           const alert = staffAlert(d, d.closed ? 0 : (draft[d.date] ?? []).length);
+          const n = (draft[d.date] ?? []).length;
+          const fc = !d.closed && staffing ? (d.forecast ?? null) : null;
+          const fcKind = fc ? (n > fc.recommended ? "over" : n < fc.recommended ? "under" : "ok") : null;
           return (
           <div key={d.date} className={`srow ${d.closed ? "srow--closed" : ""}`}>
             <div className="srow__date">
@@ -550,6 +599,12 @@ export default function ShiftBoard({
               {/* 日別ページと同じ帯のバー（店主指定：数字だけの行は分かりにくい）。
                   タップで下書きが変わるたびにライブで動く */}
               {strip.length > 0 ? <ShiftTimeBar entries={strip} note={false} /> : null}
+              {fc ? (
+                <span className={`shiftfc shiftfc--${fcKind}`}>
+                  予想{fc.expected}名{fc.booked > 0 ? `（予約${fc.booked}）` : ""}→ 目安{fc.recommended}人
+                  {fcKind === "over" ? `・${n - fc.recommended}人多いかも` : fcKind === "under" ? "・足りないかも" : "・ちょうど"}
+                </span>
+              ) : null}
               {alert && !acked.has(alert.key) ? (
                 <span className={`shiftalert shiftalert--${alert.kind}`} role="alert">
                   ⚠ {alert.msg}

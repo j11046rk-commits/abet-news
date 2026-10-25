@@ -261,6 +261,53 @@ export async function getMonthReservations(ym: string): Promise<Map<string, Rese
   return map;
 }
 
+/**
+ * シフトの目安人数を出すための過去の実績（店主要望 2026-10-25）。
+ * 期間内の 客数・予約の人数・出勤人数 を日付ごとに返す。
+ * イベント営業の日は客数の出方が別物なので外す。
+ */
+export async function getStaffingHistory(
+  from: string,
+  to: string,
+): Promise<{ date: string; guests: number; booked: number; staff: number }[]> {
+  const supabase = await createClient();
+  const [sales, resv, shifts, events] = await Promise.all([
+    supabase
+      .from("sales_daily")
+      .select("biz_date, guest_count")
+      .gte("biz_date", from)
+      .lte("biz_date", to)
+      .gt("guest_count", 0),
+    supabase
+      .from("reservations")
+      .select("biz_date, party_size")
+      .gte("biz_date", from)
+      .lte("biz_date", to)
+      .in("status", ["tentative", "confirmed", "seated", "completed"])
+      .limit(5000),
+    supabase.from("shifts").select("biz_date").gte("biz_date", from).lte("biz_date", to).limit(5000),
+    supabase.from("business_days").select("biz_date").gte("biz_date", from).lte("biz_date", to).eq("mode", "event"),
+  ]);
+  warnQuery("getStaffingHistory.sales", sales.error);
+  warnQuery("getStaffingHistory.resv", resv.error);
+  warnQuery("getStaffingHistory.shifts", shifts.error);
+  warnQuery("getStaffingHistory.events", events.error);
+
+  const add = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) ?? 0) + v);
+  const booked = new Map<string, number>();
+  for (const r of resv.data ?? []) add(booked, r.biz_date as string, (r.party_size as number) ?? 0);
+  const staff = new Map<string, number>();
+  for (const r of shifts.data ?? []) add(staff, r.biz_date as string, 1);
+  const eventDays = new Set((events.data ?? []).map((r) => r.biz_date as string));
+
+  return (sales.data ?? [])
+    .filter((r) => !eventDays.has(r.biz_date as string))
+    .map((r) => {
+      const date = r.biz_date as string;
+      return { date, guests: r.guest_count as number, booked: booked.get(date) ?? 0, staff: staff.get(date) ?? 0 };
+    });
+}
+
 /** 月ぶんのシフト（日付 → profile_id の配列） */
 export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
   return (await getMonthShiftRows(ym)).byDate;

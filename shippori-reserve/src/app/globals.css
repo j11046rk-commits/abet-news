@@ -2529,3 +2529,28 @@ textarea.field:-webkit-autofill {
   background: color-mix(in srgb, var(--gold) 12%, transparent);
   white-space: nowrap;
 }
+
+/* シフトの目安人数（店主要望 2026-10-25：人件費を削りたい） */
+.shiftfc {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+}
+.shiftfc--over {
+  color: var(--warn);
+  font-weight: 600;
+}
+.shiftfc--under {
+  color: var(--seal);
+}
+.shiftfc-sum {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  font-size: 0.86rem;
+  display: grid;
+  gap: 0.25rem;
+}

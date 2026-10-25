@@ -12,8 +12,12 @@ import {
   getSettings,
   getShiftPublication,
   getShiftSubmissions,
+  getMonthReservations,
+  getStaffingHistory,
 } from "@/lib/queries";
-import type { ShiftTimeRow } from "@/lib/types";
+import { isHoliday } from "@/lib/holidays";
+import { buildStaffingModel, forecastDay } from "@/lib/staffing";
+import type { Reservation, ShiftTimeRow } from "@/lib/types";
 import { isRequestWindowOpen, REQUEST_DEADLINE_DAY, requestTargetYm } from "@/lib/shifts";
 import {
   fmtMonthJa,
@@ -81,6 +85,47 @@ export default async function ShiftsPage({
     .filter((p) => p.is_active && p.role === "staff")
     .map((p) => p.id);
 
+  /*
+   * 目安人数（店長・オーナーが組むときだけ・店主要望 2026-10-25）。
+   * 過去12週の実績から、その日の予想客数と「何人で回せるか」を出す。
+   * 数字の出し方は lib/staffing.ts。設定で既定値を上書きできる。
+   */
+  const readNum = (v: unknown, fallback: number, max: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 && n <= max ? n : fallback;
+  };
+  const minStaff = readNum(settings.staff_min, 2, 10);
+  const today = todayBizDate();
+  const [history, monthResv]: [Awaited<ReturnType<typeof getStaffingHistory>>, Map<string, Reservation[]>] =
+    mode === "manage"
+      ? await Promise.all([getStaffingHistory(shiftDate(today, -84), shiftDate(today, -1)), getMonthReservations(ym)])
+      : [[], new Map()];
+  // 祝日の前日は土曜と同じ扱い（静かな日のクーポンの判定と同じ）
+  const keyOf = (date: string): number => {
+    const dow = weekdayOf(date);
+    return dow !== 5 && dow !== 6 && isHoliday(shiftDate(date, 1)) ? 6 : dow;
+  };
+  const model =
+    mode === "manage"
+      ? buildStaffingModel(
+          history.map((h) => ({ ...h, key: keyOf(h.date) })),
+          readNum(settings.staff_guests_per_person, 10, 100),
+        )
+      : null;
+  const bookedOf = (date: string): number =>
+    (monthResv.get(date) ?? [])
+      .filter((r) => r.status === "tentative" || r.status === "confirmed" || r.status === "seated")
+      .reduce((a, r) => a + (r.party_size ?? 0), 0);
+  const staffing =
+    model != null
+      ? {
+          perStaff: Math.round(model.perStaff * 10) / 10,
+          fromHistory: model.perStaffFromHistory,
+          hourlyWage: readNum(settings.hourly_wage, 1100, 10000),
+          hoursPerShift: readNum(settings.staff_cut_hours, 5, 12),
+        }
+      : null;
+
   const { from, to } = monthRange(ym);
   const days: BoardDay[] = [];
   for (let d = from; d <= to; d = shiftDate(d, 1)) {
@@ -98,6 +143,10 @@ export default async function ShiftsPage({
       // 人数アラート用。金土は既定で繁忙日。イベント日は人数の目安が別なので判定から外す
       busy: summary?.is_busy ?? derived.is_busy,
       event: (summary?.mode ?? "normal") === "event",
+      forecast:
+        model != null && !(summary?.is_closed ?? derived.is_closed) && (summary?.mode ?? "normal") !== "event"
+          ? forecastDay(model, keyOf(d), bookedOf(d), minStaff)
+          : null,
     });
   }
 
@@ -193,7 +242,8 @@ export default async function ShiftsPage({
           requestOpen={requestOpen}
           myDefault={myDefault}
           times={times}
-        confirmedTimes={confirmedTimes}
+          confirmedTimes={confirmedTimes}
+          staffing={staffing}
           defaults={Object.fromEntries(
             profiles.map((p) => [
               p.id,
