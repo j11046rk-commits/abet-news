@@ -5,7 +5,7 @@
   "description": "しっぽり亭 予約管理システム",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate.mjs && next build",
     "start": "next start",
     "test": "node --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
     "lint": "next lint",
