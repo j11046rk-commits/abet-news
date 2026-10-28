@@ -72,6 +72,8 @@ const placeholders = Array.from({ length: 6 });
     align-items: flex-start;
   }
   .ig__post { flex: 0 1 330px; min-width: 0; max-width: 360px; width: 100%; }
+  /* 埋め込みが読み込まれる前の「投稿URLの文字」が長く、スマホで横にはみ出していた */
+  .ig__post a { overflow-wrap: anywhere; }
   .ig__post .instagram-media {
     min-width: 0 !important;
     margin: 0 !important;

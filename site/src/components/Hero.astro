@@ -9,19 +9,39 @@ const netURL = (site.予約問い合わせ?.ネット予約URL || '').trim();
 const hasPhoto = s.ヒーロー画像 && s.ヒーロー画像.trim() !== '';
 const badges = s.ヒーローバッジ || [];
 const heroPos = (s.ヒーロー画像位置 && s.ヒーロー画像位置.trim()) || 'center 42%';
+// 店名を1文字ずつ浮かび上がらせる（読み上げ・検索には h1 の aria-label と元の文字がそのまま届く）
+const titleChars = [...s.店名];
+// 立ちのぼる灯りの粒。毎回同じ並びになるよう、乱数は種つきで作る（ビルドごとに見た目が変わらない）
+let seed = 7;
+const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+const embers = Array.from({ length: 14 }, () => ({
+  x: Math.round(rand() * 100),
+  size: (2 + rand() * 3).toFixed(1),
+  dur: (9 + rand() * 8).toFixed(1),
+  delay: (-rand() * 16).toFixed(1),
+  drift: Math.round((rand() - 0.5) * 80),
+}));
 ---
 <section class={`hero ${hasPhoto ? 'hero--photo' : ''}`} aria-label="しっぽり亭 トップ">
   {hasPhoto
     ? <div class="hero__bg hero__bg--photo" style={`background-image:url(${withBase(s.ヒーロー画像)});background-position:${heroPos}`} aria-hidden="true"></div>
     : <div class="hero__bg" aria-hidden="true"></div>}
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="hero__embers" aria-hidden="true">
+    {embers.map((e) => (
+      <span style={`--x:${e.x}%;--s:${e.size}px;--dur:${e.dur}s;--delay:${e.delay}s;--drift:${e.drift}px`}></span>
+    ))}
+  </div>
   <div class="hero__inner">
     <p class="hero__roman">Izakaya {s.店名ローマ字} ・ Niihama</p>
-    <h1 class="hero__title">{s.店名}</h1>
+    <h1 class="hero__title" aria-label={s.店名}>
+      {titleChars.map((ch, i) => <span class="hero__char" aria-hidden="true" style={`--i:${i}`}>{ch}</span>)}
+    </h1>
     <p class="hero__catch">{s.キャッチコピー}</p>
     <p class="hero__sub">{s.サブキャッチ}</p>
     {badges.length > 0 && (
       <ul class="hero__badges" aria-label="お店のポイント">
-        {badges.map((b) => <li class="hero__badge">{b}</li>)}
+        {badges.map((b, i) => <li class="hero__badge" style={`--i:${i}`}>{b}</li>)}
       </ul>
     )}
     <div class="hero__cta">
@@ -184,6 +204,80 @@ const heroPos = (s.ヒーロー画像位置 && s.ヒーロー画像位置.trim()
     transform: translateX(-50%);
     animation: scroll 1.6s ease-in-out infinite;
   }
+  /* ===== 動き（2026-10-28） =====
+     ・写真がゆっくり寄ってくる ・店名が1文字ずつ浮かぶ ・文字が順にふわっと出る
+     ・中央に提灯のような暖かい灯りが揺れる ・灯りの粒がゆっくり立ちのぼる
+     「視差効果を減らす」設定では global.css の一括指定で全部止まり、最初から全部見える */
+  .hero__bg--photo { transform-origin: 50% 42%; animation: heroZoom 9s cubic-bezier(0.2, 0.6, 0.2, 1) both; }
+  @keyframes heroZoom { from { transform: scale(1.14); } to { transform: scale(1); } }
+
+  .hero__glow {
+    position: absolute; left: 50%; top: 46%;
+    width: min(90vw, 760px); aspect-ratio: 1.6;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(closest-side, rgba(230, 160, 80, 0.28), rgba(196, 122, 61, 0.1) 55%, transparent 75%);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: lantern 7s ease-in-out infinite;
+  }
+  @keyframes lantern {
+    0%, 100% { opacity: 0.7; }
+    18% { opacity: 0.95; }
+    32% { opacity: 0.78; }
+    55% { opacity: 1; }
+    74% { opacity: 0.82; }
+  }
+
+  .hero__embers { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .hero__embers span {
+    position: absolute; bottom: -12px; left: var(--x);
+    width: var(--s); height: var(--s); border-radius: 50%;
+    background: #ffd59a;
+    box-shadow: 0 0 6px 2px rgba(255, 190, 110, 0.55);
+    opacity: 0;
+    animation: ember var(--dur) linear var(--delay) infinite;
+  }
+  @keyframes ember {
+    0% { transform: translate(0, 0); opacity: 0; }
+    12% { opacity: 0.85; }
+    70% { opacity: 0.5; }
+    100% { transform: translate(var(--drift), -78vh); opacity: 0; }
+  }
+  @media (max-width: 768px) {
+    .hero__embers span:nth-child(n + 9) { display: none; }
+  }
+
+  .hero__char {
+    display: inline-block;
+    animation: heroChar 1s cubic-bezier(0.2, 0.65, 0.2, 1) both;
+    animation-delay: calc(0.25s + var(--i) * 0.09s);
+  }
+  @keyframes heroChar {
+    from { opacity: 0; transform: translateY(0.35em); filter: blur(10px); }
+    to { opacity: 1; transform: none; filter: blur(0); }
+  }
+  .hero__roman, .hero__catch, .hero__sub, .hero__badge, .hero__cta, .hero__tel {
+    animation: heroIn 0.9s cubic-bezier(0.2, 0.65, 0.2, 1) both;
+  }
+  .hero__roman { animation-delay: 0.05s; }
+  .hero__catch { animation-delay: 0.85s; }
+  .hero__sub { animation-delay: 1s; }
+  .hero__badge { animation-delay: calc(1.1s + var(--i, 0) * 0.07s); }
+  .hero__cta { animation-delay: 1.35s; }
+  .hero__tel { animation-delay: 1.5s; }
+  @keyframes heroIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: none; }
+  }
+  /* ネット予約ボタンに数秒おきに光が走る（気づいてもらうための控えめな合図） */
+  .hero__cta :global(.btn--primary::after) { animation: heroShine 6s ease-in-out 3s infinite; }
+  @keyframes heroShine {
+    0%, 78% { transform: translateX(-130%); }
+    100% { transform: translateX(130%); }
+  }
+  /* 2つ目のボタンの文字が1文字だけ次の行に落ちないように */
+  .hero__cta .btn--ghost { white-space: nowrap; }
+
   @keyframes scroll { 0%{opacity:0;transform:translate(-50%,0)} 40%{opacity:1} 100%{opacity:0;transform:translate(-50%,14px)} }
   @media (min-width: 560px) {
     .hero__cta { flex-direction: row; justify-content: center; }
