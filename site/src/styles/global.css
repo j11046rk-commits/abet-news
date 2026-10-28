@@ -195,3 +195,64 @@ h1, h2, h3,
   color: var(--seal);
   opacity: 0.85;
 }
+
+/* =========================================================
+   動き（2026-10-28・店主要望「もうちょっとかっこよく」）
+   - スクロールで各ブロックがふわっと浮き上がる（html.rv のときだけ）
+     html.rv は Base.astro の先頭スクリプトが付ける。JSが動かない・
+     「視差効果を減らす」設定の端末では付かないので、最初から全部見える
+   - 見出しの金の線が左右に伸びる
+   - 予約ボタンに光が走る
+   ========================================================= */
+html.rv :is(.section__head, .concept__title, .concept__body, .scenes__item, .feat__item, .drinks,
+  .course, .facts__item, .banquet__cta, .ctaband__copy, .ctaband__btns, .menu-card, .gallery__item,
+  .access__info, .access__map, .reserve__card, .ig__post) {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.65, 0.2, 1) var(--rv-d, 0ms),
+    transform 0.9s cubic-bezier(0.2, 0.65, 0.2, 1) var(--rv-d, 0ms);
+}
+html.rv :is(.section__head, .concept__title, .concept__body, .scenes__item, .feat__item, .drinks,
+  .course, .facts__item, .banquet__cta, .ctaband__copy, .ctaband__btns, .menu-card, .gallery__item,
+  .access__info, .access__map, .reserve__card, .ig__post).is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* 見出し：下の金の線が伸び、英字の両脇の線が外へ広がる */
+html.rv .section__head .section__title::after {
+  width: 0;
+  transition: width 1.1s cubic-bezier(0.2, 0.65, 0.2, 1) 0.35s;
+}
+html.rv .section__head.is-in .section__title::after { width: 44px; }
+html.rv .section__head .section__kicker::before,
+html.rv .section__head .section__kicker::after {
+  transform: scaleX(0);
+  transition: transform 0.9s cubic-bezier(0.2, 0.65, 0.2, 1) 0.2s;
+}
+html.rv .section__head .section__kicker::before { transform-origin: right center; }
+html.rv .section__head .section__kicker::after { transform-origin: left center; }
+html.rv .section__head.is-in .section__kicker::before,
+html.rv .section__head.is-in .section__kicker::after { transform: scaleX(1); }
+
+/* 予約ボタン：触れると光がすっと走る（ヒーローのボタンは数秒おきに自動で） */
+.btn--primary { position: relative; overflow: hidden; isolation: isolate; }
+.btn--primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 32%, rgba(255, 244, 222, 0.45) 50%, transparent 68%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .btn--primary:hover::after { transform: translateX(130%); transition: transform 0.85s ease; }
+}
+
+/* 料理写真：PCでカーソルを乗せると少し寄る（ギャラリーと同じ動き） */
+.menu-card__media img { transition: transform 0.6s ease; }
+@media (hover: hover) {
+  .menu-card:hover .menu-card__media img { transform: scale(1.05); }
+}
