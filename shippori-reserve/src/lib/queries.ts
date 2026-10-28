@@ -308,6 +308,24 @@ export async function getStaffingHistory(
     });
 }
 
+/**
+ * 月ぶんの労働時間（freee人事労務から取り込んだ全員の合計）。人時売上に使う。
+ * 連携前・取り込み前の日は入っていない（＝人時売上を出さない）。
+ */
+export async function getMonthLabor(ym: string): Promise<Map<string, { workMin: number; headcount: number }>> {
+  const { from, to } = monthRange(ym);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("labor_daily")
+    .select("biz_date, work_min, headcount")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+  warnQuery("getMonthLabor", error);
+  return new Map(
+    (data ?? []).map((r) => [r.biz_date as string, { workMin: r.work_min as number, headcount: r.headcount as number }]),
+  );
+}
+
 /** 月ぶんのシフト（日付 → profile_id の配列） */
 export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
   return (await getMonthShiftRows(ym)).byDate;

@@ -17,6 +17,7 @@ import {
   getDayShiftRows,
   getMonthLineFollowers,
   getMonthQuietCoupons,
+  getMonthLabor,
   getMonthReservations,
   getMonthSales,
   getMonthShifts,
@@ -28,6 +29,7 @@ import {
   getShiftPublication,
 } from "@/lib/queries";
 import { fmtYen, hitOf, perGuest, salesView, shownYen } from "@/lib/sales";
+import { perLaborHour } from "@/lib/labor";
 import {
   fmtMonthJa,
   fmtYm,
@@ -126,7 +128,7 @@ async function MonthList({
   focus: string | null;
   today: string;
 }) {
-  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap, couponDates] =
+  const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap, couponDates, laborMap] =
     await Promise.all([
       getMonthSummaries(ym),
       getMonthReservations(ym),
@@ -140,6 +142,7 @@ async function MonthList({
       getMonthWeather(ym),
       getMonthLineFollowers(ym),
       getMonthQuietCoupons(ym),
+      getMonthLabor(ym),
     ]);
   // 目安客数（目標日商÷直近3か月の平均客単価・店主要望 2026-08-29）
   const perGuestAvg = await getRecentPerGuest();
@@ -230,6 +233,8 @@ async function MonthList({
           // 実績の客数と1名あたり（店主要望 2026-08-28）。分子は物販を除く店内売上
           const saleGuests = salesMap.get(date)?.guest_count ?? null;
           const salePerGuest = perGuest(sale.dineIn, saleGuests);
+          // 人時売上＝店内の売上÷全員の労働時間（freee人事労務・店主要望 2026-10-28）
+          const salePerHour = perLaborHour(sale.dineIn, laborMap.get(date)?.workMin);
           // クーポンがレジを通った回数（0や未集計の日は出さない・店主要望 2026-09-05）
           const saleCoupon = salesMap.get(date)?.coupon_count ?? 0;
           // 天気マーク（晴☀️・曇☁️・雨☂️）。実測だけなので過ぎた日にだけ付く
@@ -384,6 +389,14 @@ async function MonthList({
                             ) : null}
                           </span>
                         ) : null}
+                      </span>
+                    ) : null}
+                    {/* 人時売上（店内の売上÷全員の労働時間）。枠の外に置いて、幅が足りない日は2段目へ流す */}
+                    {salePerHour != null ? (
+                      <span className="salesline__guests" aria-label="人時売上">
+                        人時
+                        <br />
+                        {fmtYen(salePerHour)}
                       </span>
                     ) : null}
                     {sale.retail > 0 ? (

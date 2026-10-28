@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fmtYen, guestsPerCheck, hitOf, perGuest, shownYen } from "@/lib/sales";
+import { fmtHours, perLaborHour } from "@/lib/labor";
 import { chipColors } from "@/lib/staff";
 
 export type SalesBoardDay = {
@@ -36,6 +37,8 @@ export type SalesBoardDay = {
   lineGoal: number;
   /** クーポンがレジを通った回数。0や未集計は出さない */
   couponUsed: number;
+  /** 全員の労働時間の合計（分・freee人事労務）。取り込めていない日は null */
+  laborMin: number | null;
 };
 
 export type SalesContrib = {
@@ -141,6 +144,9 @@ export default function SalesBoard({
     guestSales,
     guestRetail,
     guestDays,
+    laborMin,
+    laborSales,
+    laborDays,
   } = useMemo(() => {
     /*
      * 「ここまでの目標」の締め日。
@@ -171,7 +177,16 @@ export default function SalesBoard({
     let guestSales = 0;
     let guestRetail = 0;
     let guestDays = 0;
+    // 人時売上も「労働時間が取り込めた日」だけで割る（客単価と同じ理由）
+    let laborMin = 0;
+    let laborSales = 0;
+    let laborDays = 0;
     for (const d of days) {
+      if (d.laborMin != null && d.laborMin > 0 && d.dineIn != null) {
+        laborMin += d.laborMin;
+        laborSales += d.dineIn;
+        laborDays += 1;
+      }
       if (d.guests != null && d.guests > 0) {
         guestTotal += d.guests;
         guestSales += d.total ?? 0;
@@ -210,6 +225,9 @@ export default function SalesBoard({
       guestSales,
       guestRetail,
       guestDays,
+      laborMin,
+      laborSales,
+      laborDays,
     };
   }, [days, today]);
 
@@ -432,6 +450,30 @@ export default function SalesBoard({
         </section>
       ) : null}
 
+      {/* 人時売上（店内の売上÷全員の労働時間・freee人事労務から・店主要望 2026-10-28）。
+          取り込めた日だけで割る。1日も無い月は枠ごと出さない */}
+      {laborMin > 0 ? (
+        <section className="card">
+          <div className="summary" style={{ margin: 0 }}>
+            <div className="summary__item">
+              <span className="summary__num">{fmtYen(perLaborHour(laborSales, laborMin) ?? 0)}</span>
+              <span className="summary__label">人時売上</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">{fmtHours(laborMin)}</span>
+              <span className="summary__label">労働時間（全員）</span>
+            </div>
+            <div className="summary__item">
+              <span className="summary__num">{laborDays}日</span>
+              <span className="summary__label">集計した日</span>
+            </div>
+          </div>
+          <p className="micro" style={{ margin: "0.5rem 0 0", lineHeight: 1.8 }}>
+            人時売上＝店内の売上÷全員の労働時間（freee人事労務の出退勤から休憩を除いた時間）。物販は含めません。
+          </p>
+        </section>
+      ) : null}
+
       {/* 物販の別枠。物販があった月だけ出す（無い月に「¥0」の枠は出さない） */}
       {retailTotal > 0 ? (
         <section className="card retail">
@@ -481,12 +523,14 @@ export default function SalesBoard({
           const dine = shownYen(d.dineIn);
           // その日の客単価。分子は店内の売上（物販は入れない・店主指示 2026-08-18）
           const pg = perGuest(d.dineIn, d.guests);
+          // 人時売上＝店内の売上÷全員の労働時間（店主要望 2026-10-28）
+          const ph = perLaborHour(d.dineIn, d.laborMin);
           return (
             <Link
               key={d.date}
               href={`/day/${d.date}`}
               className={`salescell ${d.closed ? "salescell--closed" : ""} ${d.isToday ? "salescell--today" : ""} ${hit ? "salescell--hit" : ""}`}
-              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 店内${dine != null ? fmtYen(dine) : "なし"}${d.guests ? ` ${d.guests}名` : ""}${pg != null ? ` 客単価${fmtYen(pg)}` : ""}${d.retail > 0 ? ` 物販${fmtYen(d.retail)}` : ""}`}
+              aria-label={`${d.day}日 目標${d.target ? fmtYen(d.target) : "なし"} 店内${dine != null ? fmtYen(dine) : "なし"}${d.guests ? ` ${d.guests}名` : ""}${pg != null ? ` 客単価${fmtYen(pg)}` : ""}${ph != null ? ` 人時売上${fmtYen(ph)}` : ""}${d.retail > 0 ? ` 物販${fmtYen(d.retail)}` : ""}`}
             >
               <span
                 className={`salescell__day ${d.dow === 0 || d.holiday ? "dow-red" : d.dow === 6 ? "dow-blue" : ""}`}
@@ -514,6 +558,7 @@ export default function SalesBoard({
                       {d.guests}名{pg != null ? `＠${pg.toLocaleString()}` : ""}
                     </span>
                   ) : null}
+                  {ph != null ? <span className="salescell__g">人時{ph.toLocaleString()}</span> : null}
                 </>
               )}
               {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}

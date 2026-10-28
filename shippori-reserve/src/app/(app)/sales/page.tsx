@@ -11,6 +11,7 @@ import {
   getMonthLineFollowers,
   getMonthlySalesTarget,
   getMonthSales,
+  getMonthLabor,
   getMonthShifts,
   getMonthSummaries,
   getMonthWeather,
@@ -52,7 +53,7 @@ export default async function SalesPage({
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
 
-  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles, weather, lineMap] =
+  const [sales, monthlyTarget, summaries, settings, shiftMap, shiftsPublishedAt, profiles, weather, lineMap, labor] =
     await Promise.all([
       getMonthSales(ym),
       getMonthlySalesTarget(ym),
@@ -63,6 +64,7 @@ export default async function SalesPage({
       getAllProfiles(),
       getMonthWeather(ym),
       getMonthLineFollowers(ym),
+      getMonthLabor(ym),
     ]);
 
   /*
@@ -111,6 +113,7 @@ export default async function SalesPage({
       lineGain: lineDeltaOf(d),
       lineGoal: lineDailyGoal(dow, summaries.get(d)?.is_closed ?? deriveBusinessDay(d, settings).is_closed),
       couponUsed: row?.coupon_count ?? 0,
+      laborMin: labor.get(d)?.workMin ?? null,
     });
   }
 

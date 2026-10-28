@@ -5,7 +5,8 @@
   "crons": [
     { "path": "/api/cron/purge", "schedule": "0 3 * * *" },
     { "path": "/api/cron/remind", "schedule": "0 10 * * *" },
-    { "path": "/api/cron/quiet-day", "schedule": "30 3 * * *" }
+    { "path": "/api/cron/quiet-day", "schedule": "30 3 * * *" },
+    { "path": "/api/cron/labor", "schedule": "0 21 * * *" }
   ],
   "headers": [
     {
