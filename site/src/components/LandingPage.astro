@@ -1,0 +1,227 @@
+---
+// 検索の入口ページの共通の形（2026-11-02・アクセス改善）。
+// 「新居浜 ひとり飲み」「新居浜 二次会」「新居浜 出張 居酒屋」など、
+// 調べられ方ごとに受け皿のページを用意する。中身は各ページが site.json の
+// 確定した事実だけで組み立てて渡す（ここで事実を書かない）。
+// よくある質問は FAQPage の構造化データにもする（Google・AIに拾われやすくするため）。
+import Base from '../layouts/Base.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import BottomNav from './BottomNav.astro';
+import Icon from './Icon.astro';
+import site from '../../data/site.json';
+import { withBase } from '../lib/text.js';
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  kicker: string;
+  heading: string;
+  catchCopy: string;
+  lead: string;
+  badges: string[];
+  heroImage: string;
+  points: { icon: string; title: string; body: string }[];
+  facts: [string, string, string][];
+  photos: { src: string; alt: string }[];
+  faqs: [string, string][];
+  related: { href: string; label: string }[];
+}
+const p = Astro.props;
+const s = site.店舗情報;
+const r = site.予約問い合わせ;
+const tel = s.電話番号.replace(/-/g, '');
+const lineURL = (r.lineURL || '').trim();
+const netURL = (r.ネット予約URL || '').trim();
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: p.faqs.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+};
+// パンくず（トップ ＞ このページ）。検索結果に階層が出る
+const crumbLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: s.店名, item: new URL('/', Astro.site).href },
+    { '@type': 'ListItem', position: 2, name: p.heading, item: new URL(p.path, Astro.site).href },
+  ],
+};
+---
+<Base title={p.title} description={p.description}>
+  <Header onSubPage />
+  <main>
+    <script type="application/ld+json" set:html={JSON.stringify(faqLd).replace(/</g, '\\u003c')} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbLd).replace(/</g, '\\u003c')} />
+
+    <section class="lp-hero" style={`--img:url(${withBase(p.heroImage)})`}>
+      <div class="container lp-hero__inner">
+        <p class="lp-hero__kicker">{p.kicker}</p>
+        <h1 class="lp-hero__title">{p.heading}</h1>
+        <p class="lp-hero__catch">{p.catchCopy}</p>
+        <p class="lp-hero__lead">{p.lead}</p>
+        <ul class="lp-hero__badges">{p.badges.map((b) => <li>{b}</li>)}</ul>
+        <div class="lp-hero__cta">
+          {netURL && (
+            <a class="btn btn--primary btn--lg" href={netURL}>
+              <Icon name="calendar" size={20} /> <span>ネット予約</span>
+              <span class="lp-sub">空席がすぐ分かる・24時間受付</span>
+            </a>
+          )}
+          <a class="btn btn--ghost btn--lg" href={`tel:${tel}`}>
+            <Icon name="phone" size={18} /> <span>電話</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">POINT</p>
+          <h2 class="section__title">しっぽり亭のここがいい</h2>
+        </div>
+        <div class="lp-points">
+          {p.points.map((pt) => (
+            <article class="lp-point">
+              <span class="lp-point__ico"><Icon name={pt.icon} size={22} /></span>
+              <h3>{pt.title}</h3>
+              <p>{pt.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">INFO</p>
+          <h2 class="section__title">ご案内</h2>
+        </div>
+        <dl class="lp-facts">
+          {p.facts.map(([icon, k, v]) => (
+            <div class="lp-facts__row">
+              <dt><Icon name={icon} size={18} /> {k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="lp-photos">
+          {p.photos.map((ph) => (
+            <figure><img src={withBase(ph.src)} alt={ph.alt} loading="lazy" decoding="async" /><figcaption>{ph.alt}</figcaption></figure>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt">
+      <div class="container">
+        <div class="section__head">
+          <p class="section__kicker">FAQ</p>
+          <h2 class="section__title">よくあるご質問</h2>
+        </div>
+        <div class="lp-faq">
+          {p.faqs.map(([q, a]) => (
+            <details>
+              <summary>{q}</summary>
+              <p>{a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="contact">
+      <div class="container lp-contact">
+        <div class="section__head">
+          <p class="section__kicker">RESERVE</p>
+          <h2 class="section__title">ご予約</h2>
+          <p class="section__lead">{r.リード}</p>
+        </div>
+        <div class="lp-contact__btns">
+          {netURL && (
+            <a class="btn btn--primary btn--lg" href={netURL}>
+              <Icon name="calendar" size={20} /> <span>ネット予約</span>
+            </a>
+          )}
+          <a class="btn btn--ghost btn--lg" href={`tel:${tel}`}>
+            <Icon name="phone" size={18} /> <span>電話で予約</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+          </a>
+          {lineURL && (
+            <a class="btn btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
+              <Icon name="line" size={20} /> <span>公式LINE</span>
+            </a>
+          )}
+        </div>
+        <p class="lp-note">{r.当日注記}</p>
+        {p.related.length > 0 && (
+          <nav class="lp-related" aria-label="ほかのご案内">
+            <span>ほかのご案内：</span>
+            {p.related.map((l) => <a href={withBase(l.href)}>{l.label}</a>)}
+          </nav>
+        )}
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <BottomNav page="sub" />
+</Base>
+
+<style>
+  .lp-hero {
+    padding: clamp(4rem, 14vw, 7rem) var(--pad) clamp(3rem, 10vw, 4.5rem);
+    background: linear-gradient(180deg, rgba(10, 14, 24, 0.76), rgba(10, 14, 24, 0.9)), var(--img) center / cover no-repeat;
+    border-bottom: 1px solid var(--line);
+    text-align: center;
+  }
+  .lp-hero__kicker { margin: 0; letter-spacing: 0.4em; font-size: 0.78rem; color: var(--gold); }
+  .lp-hero__title { margin: 0.4rem 0 0.8rem; font-family: var(--font-serif); font-size: clamp(1.9rem, 7.5vw, 3.2rem); letter-spacing: 0.08em; color: var(--gold-soft); }
+  .lp-hero__catch { margin: 0; font-family: var(--font-serif); font-size: clamp(1.05rem, 3.6vw, 1.35rem); }
+  .lp-hero__lead { margin: 0.8rem auto 0; max-width: 38rem; color: var(--text-dim); line-height: 1.9; }
+  .lp-hero__badges { list-style: none; padding: 0; margin: 1.3rem 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  .lp-hero__badges li { padding: 0.35em 0.9em; border-radius: 999px; font-size: 0.84rem; font-weight: 700; border: 1px solid var(--gold); color: var(--gold-soft); background: rgba(210, 162, 92, 0.08); }
+  .lp-hero__cta { margin-top: 1.6rem; display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; }
+  .lp-sub { font-size: 0.72em; font-weight: 600; opacity: 0.85; }
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+
+  .lp-points { display: grid; gap: 0.9rem; }
+  @media (min-width: 700px) { .lp-points { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1000px) { .lp-points { grid-template-columns: repeat(3, 1fr); } }
+  .lp-point { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.2rem 1.3rem; }
+  .lp-point__ico { color: var(--gold); }
+  .lp-point h3 { margin: 0.4rem 0 0; font-size: 1.08rem; }
+  .lp-point p { margin: 0.5rem 0 0; line-height: 1.8; color: var(--text-dim); }
+
+  .lp-facts { margin: 0; border-top: 1px solid var(--line); }
+  .lp-facts__row { display: grid; gap: 0.2rem; padding: 0.9rem 0.2rem; border-bottom: 1px solid var(--line); }
+  @media (min-width: 640px) { .lp-facts__row { grid-template-columns: 10rem 1fr; gap: 1rem; } }
+  .lp-facts dt { display: flex; align-items: center; gap: 0.4rem; color: var(--gold); font-weight: 700; font-size: 0.92rem; }
+  .lp-facts dd { margin: 0; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
+
+  .lp-photos { display: grid; gap: 0.8rem; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .lp-photos { grid-template-columns: repeat(3, 1fr); } }
+  .lp-photos figure { margin: 0; }
+  .lp-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
+  .lp-photos figcaption { margin-top: 0.4rem; font-size: 0.86rem; color: var(--text-dim); text-align: center; }
+
+  .lp-faq { max-width: 44rem; margin-inline: auto; display: grid; gap: 0.6rem; }
+  .lp-faq details { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.9rem 1.1rem; }
+  .lp-faq summary { cursor: pointer; font-weight: 700; list-style: none; position: relative; padding-right: 1.6rem; }
+  .lp-faq summary::-webkit-details-marker { display: none; }
+  .lp-faq summary::after { content: '+'; position: absolute; right: 0; top: -0.05em; color: var(--gold); font-size: 1.2rem; }
+  .lp-faq details[open] summary::after { content: '−'; }
+  .lp-faq p { margin: 0.7rem 0 0; line-height: 1.85; color: var(--text-dim); }
+
+  .lp-contact__btns { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+  .lp-note { margin: 1rem auto 0; max-width: 34rem; font-size: 0.82rem; color: var(--text-dim); text-align: center; }
+  .lp-related { margin: 1.6rem auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem 1rem; font-size: 0.88rem; color: var(--text-dim); }
+</style>

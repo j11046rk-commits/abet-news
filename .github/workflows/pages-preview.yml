@@ -78,4 +78,4 @@ jobs:
         run: |
           curl -s -o /dev/null -w "IndexNow HTTP %{http_code}\n" -X POST https://api.indexnow.org/indexnow \
             -H 'Content-Type: application/json; charset=utf-8' \
-            -d '{"host":"shipporitei.jp","key":"30c147764750fc0f673241cb01c33aa2","keyLocation":"https://shipporitei.jp/30c147764750fc0f673241cb01c33aa2.txt","urlList":["https://shipporitei.jp/","https://shipporitei.jp/enkai/","https://shipporitei.jp/recruit/","https://shipporitei.jp/llms.txt"]}' || true
+            -d '{"host":"shipporitei.jp","key":"30c147764750fc0f673241cb01c33aa2","keyLocation":"https://shipporitei.jp/30c147764750fc0f673241cb01c33aa2.txt","urlList":["https://shipporitei.jp/","https://shipporitei.jp/enkai/","https://shipporitei.jp/recruit/","https://shipporitei.jp/hitori/","https://shipporitei.jp/nijikai/","https://shipporitei.jp/shucchou/","https://shipporitei.jp/llms.txt"]}' || true

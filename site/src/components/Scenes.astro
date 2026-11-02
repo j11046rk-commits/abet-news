@@ -1,6 +1,7 @@
 ---
 import site from '../../data/site.json';
 import Icon from './Icon.astro';
+import { withBase } from '../lib/text.js';
 const sc = site.利用シーン;
 ---
 <section class="section section--alt" id="scenes" aria-labelledby="scenes-title">
@@ -14,7 +15,10 @@ const sc = site.利用シーン;
       {sc.items.map((item) => (
         <li class="scenes__item">
           <span class="scenes__ico"><Icon name={item.アイコン} size={24} /></span>
-          <span class="scenes__text">{item.テキスト}</span>
+          {/* リンク先があるシーンは、そのページへ（ひとり飲み・二次会・宴会の入口ページ） */}
+          {item.リンク
+            ? <a class="scenes__text scenes__link" href={withBase(item.リンク)}>{item.テキスト}</a>
+            : <span class="scenes__text">{item.テキスト}</span>}
         </li>
       ))}
     </ul>
@@ -34,6 +38,7 @@ const sc = site.利用シーン;
     color: var(--gold); background: rgba(210,162,92,0.12); border: 1px solid var(--line);
   }
   .scenes__text { font-size: 0.95rem; color: var(--text); }
+  .scenes__link { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--gold) 55%, transparent); text-underline-offset: 0.25em; }
   @media (min-width: 620px) { .scenes { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 900px) { .scenes { grid-template-columns: 1fr 1fr 1fr; } }
 </style>
