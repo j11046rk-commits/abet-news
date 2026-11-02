@@ -435,6 +435,17 @@ export default function SalesBoard({
               </span>
               <span className="summary__label">組数（会計）</span>
             </div>
+            {/* 人時売上も客数・客単価と並べて見る（店主要望 2026-11-02）。労働時間が届いた日だけで割る */}
+            {laborMin > 0 ? (
+              <div className="summary__item">
+                <span
+                  className={`summary__num salesline__ph--${laborTier(perLaborHour(laborSales, laborMin) ?? 0)}`}
+                >
+                  {fmtYen(perLaborHour(laborSales, laborMin) ?? 0)}
+                </span>
+                <span className="summary__label">人時売上（目標 {fmtYen(LABOR_TARGET)}）</span>
+              </div>
+            ) : null}
           </div>
           <p className="micro" style={{ margin: "0.5rem 0 0", lineHeight: 1.8 }}>
             {guestsPerCheck(guestTotal, checkTotal) !== null
@@ -455,14 +466,6 @@ export default function SalesBoard({
       {laborMin > 0 ? (
         <section className="card">
           <div className="summary" style={{ margin: 0 }}>
-            <div className="summary__item">
-              <span
-                className={`summary__num salesline__ph--${laborTier(perLaborHour(laborSales, laborMin) ?? 0)}`}
-              >
-                {fmtYen(perLaborHour(laborSales, laborMin) ?? 0)}
-              </span>
-              <span className="summary__label">人時売上（目標 {fmtYen(LABOR_TARGET)}）</span>
-            </div>
             <div className="summary__item">
               <span className="summary__num">{fmtHours(laborMin)}</span>
               <span className="summary__label">労働時間（全員）</span>
