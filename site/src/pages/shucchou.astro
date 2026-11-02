@@ -1,0 +1,61 @@
+---
+// 「新居浜 出張 居酒屋」「ホテル 近く 居酒屋」の受け皿（2026-11-02・アクセス改善）。
+// ホテルからの道のりは site.json の アクセス.ホテルから（地図実測・店主提供）をそのまま使う。
+import LandingPage from '../components/LandingPage.astro';
+import site from '../../data/site.json';
+
+const s = site.店舗情報;
+const h = site.営業時間;
+const a = site.アクセス;
+const b = site.宴会コース;
+const f = site.特長;
+const hours = h.表示.map((x: any) => `${x.曜日} ${x.時間}`).join('／');
+
+const faqs: [string, string][] = [
+  ['ホテルから近いですか？', a.ホテルから],
+  ['新居浜駅からはどう行けばいいですか？', `${a.最寄り}。${a.バス}。`],
+  ['ひとりでも入りやすいですか？', 'はい、おひとり様大歓迎です。カウンター10席があり、出張先でもひとりで気兼ねなく過ごせます。'],
+  ['会社の経費用に領収書は出せますか？', `${b.領収書対応}`],
+  ['何時まで営業していますか？', `${hours}。定休日は${h.定休日}です。`],
+  ['どんな料理がありますか？', '名物のだし巻きと日替わりのおばんざい、市場の旬を仕入れた本日のお刺身などをご用意しています。'],
+  ['駐車場はありますか？', a.駐車場],
+];
+---
+<LandingPage
+  title={`新居浜に出張・ご宿泊の方へ｜ホテル近くの居酒屋 ${s.店名}`}
+  description={`新居浜への出張・ご宿泊に。「${s.店名}」はホテルNo.1新居浜から徒歩約4分。おひとり様のカウンター飲み歓迎、インボイス対応の領収書OK。サッポロ黒ラベル(生)と名物だし巻き。${hours}。`}
+  path="/shucchou/"
+  kicker="FOR TRAVELERS"
+  heading="出張・ご宿泊の方へ"
+  catchCopy="ホテルに荷物を置いたら、ふらっと一杯。"
+  lead={`ホテルNo.1新居浜から徒歩約4分。おひとり様のカウンター飲み歓迎、経費精算用の領収書も出せます。`}
+  badges={['ホテルNo.1新居浜から徒歩約4分', 'おひとり様歓迎', 'インボイス対応の領収書', '金・土は25時まで']}
+  heroImage="/images/gallery-gaikan-yoru.jpg"
+  points={[
+    { icon: 'pin', title: 'ホテルから歩いてすぐ', body: a.ホテルから },
+    { icon: 'user', title: 'ひとりでも気軽に', body: 'カウンター10席。出張先でも、ひとりで気兼ねなく過ごせます。' },
+    { icon: 'receipt', title: '経費精算OK', body: b.領収書対応 },
+    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: f.items.find((i: any) => i.見出し.includes('黒ラベル'))?.本文 ?? '' },
+    { icon: 'utensils', title: '名物のだし巻き', body: '名物のだし巻きと日替わりのおばんざい、本日のお刺身などをどうぞ。' },
+    { icon: 'clock', title: '遅くまで営業', body: `${hours}。到着が遅くなっても寄りやすい時間です。` },
+  ]}
+  facts={[
+    ['pin', '住所', `〒${s.郵便番号} ${s.住所}`],
+    ['pin', 'ホテルから', a.ホテルから],
+    ['pin', '駅・バス', `${a.最寄り}。${a.バス}。`],
+    ['clock', '営業時間', `${hours}（${h.定休日}定休）`],
+    ['receipt', '領収書', b.領収書対応],
+    ['seats', '駐車場', a.駐車場],
+  ]}
+  photos={[
+    { src: '/images/gallery-gaikan-yoru.jpg', alt: '夜のお店の外観' },
+    { src: '/images/gallery-counter.jpg', alt: 'カウンター席' },
+    { src: '/images/menu-sashimi.jpg', alt: '本日のお刺身' },
+  ]}
+  faqs={faqs}
+  related={[
+    { href: '/hitori', label: 'ひとり飲み' },
+    { href: '/nijikai', label: '二次会' },
+    { href: '/enkai', label: '宴会・忘年会' },
+  ]}
+/>

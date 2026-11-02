@@ -1,0 +1,61 @@
+---
+// 「新居浜 ひとり飲み」「新居浜 カウンター 居酒屋」の受け皿（2026-11-02・アクセス改善）。
+// 事実は site.json（特長・営業時間・店舗情報・アクセス）からだけ取る。
+import LandingPage from '../components/LandingPage.astro';
+import site from '../../data/site.json';
+
+const s = site.店舗情報;
+const h = site.営業時間;
+const a = site.アクセス;
+const f = site.特長;
+const feat = (title: string) => f.items.find((i: any) => i.見出し.includes(title))?.本文 ?? '';
+const hours = h.表示.map((x: any) => `${x.曜日} ${x.時間}`).join('／');
+
+const faqs: [string, string][] = [
+  ['ひとりでも入れますか？', `はい、おひとり様大歓迎です。${feat('おひとり様')}カウンターは10席あります。`],
+  ['予約しないと入れませんか？', `空いていればご予約なしでもご案内できます。確実に入りたい日は、空席がその場で分かるネット予約（24時間受付）が便利です。当日のご予約・お急ぎの場合はお電話（${s.電話番号表示用}）ください。`],
+  ['何時まで営業していますか？', `${hours}。定休日は${h.定休日}です。`],
+  ['どんなお酒がありますか？', `${f.ドリンク.join('・')}。生の黒ラベルが飲めるお店は新居浜でもめずらしいです。`],
+  ['スポーツ中継は見られますか？', `カウンターに55インチの大型テレビがあり、スポーツ中継を見ながら一杯楽しめます。`],
+  ['タバコは吸えますか？', `${s.喫煙}です。`],
+  ['駐車場はありますか？', a.駐車場],
+];
+---
+<LandingPage
+  title={`新居浜でひとり飲み・カウンター飲みなら｜${s.店名}（若水町のおばんざい居酒屋）`}
+  description={`新居浜でひとり飲みなら「${s.店名}」。おひとり様大歓迎、カウンター10席。サッポロ黒ラベル(生)と名物だし巻き、日替わりのおばんざい。大型テレビでスポーツ中継も。${hours}、${h.定休日}定休。`}
+  path="/hitori/"
+  kicker="COUNTER"
+  heading="ひとり飲み・カウンター"
+  catchCopy="仕事帰りに、ふらっと一人で。"
+  lead={`${feat('おひとり様')} 生の黒ラベルと名物のだし巻きで、気軽な一杯をどうぞ。`}
+  badges={['おひとり様大歓迎', 'カウンター10席', 'サッポロ黒ラベル(生)', '名物だし巻き', `${h.定休日}定休`]}
+  heroImage="/images/gallery-counter.jpg"
+  points={[
+    { icon: 'user', title: 'おひとり様、大歓迎', body: feat('おひとり様') },
+    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: feat('黒ラベル') },
+    { icon: 'utensils', title: '名物のだし巻きとおばんざい', body: `${feat('だし巻き')} 日替わりのおばんざいもあります。` },
+    { icon: 'tv', title: 'スポーツ中継を見ながら', body: 'カウンターに55インチの大型テレビ。中継を見ながら一杯楽しめます。' },
+    { icon: 'smile', title: '敷居の低いお店', body: feat('幅広い客層') },
+    { icon: 'clock', title: '遅くまで営業', body: `${hours}。仕事帰りにも寄りやすい時間です。` },
+  ]}
+  facts={[
+    ['seats', 'お席', 'カウンター10席（ほかにテーブル席・掘りごたつ個室あり）'],
+    ['clock', '営業時間', hours],
+    ['calendar', '定休日', h.定休日],
+    ['glass', 'ドリンク', f.ドリンク.join('・')],
+    ['pin', '場所', `${s.住所}。${a.最寄り}。${a.バス}。`],
+    ['seats', '駐車場', a.駐車場],
+  ]}
+  photos={[
+    { src: '/images/gallery-counter.jpg', alt: 'カウンター席' },
+    { src: '/images/menu-dashimaki.jpg', alt: '名物のだし巻き' },
+    { src: '/images/menu-ebinira.jpg', alt: '海老にら豆腐' },
+  ]}
+  faqs={faqs}
+  related={[
+    { href: '/nijikai', label: '二次会' },
+    { href: '/shucchou', label: '出張・ご宿泊の方へ' },
+    { href: '/enkai', label: '宴会・忘年会' },
+  ]}
+/>

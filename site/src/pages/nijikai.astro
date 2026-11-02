@@ -1,0 +1,61 @@
+---
+// 「新居浜 二次会」の受け皿（2026-11-02・アクセス改善）。
+// 二次会セットの中身は site.json の宴会コース（コース一覧の「二次会セット」）をそのまま使う。
+import LandingPage from '../components/LandingPage.astro';
+import site from '../../data/site.json';
+
+const s = site.店舗情報;
+const h = site.営業時間;
+const b = site.宴会コース;
+const a = site.アクセス;
+const set = b.コース一覧.find((c: any) => c.名称.includes('二次会'))!;
+const hours = h.表示.map((x: any) => `${x.曜日} ${x.時間}`).join('／');
+
+const faqs: [string, string][] = [
+  ['二次会セットはいくらですか？', `${set.価格}です。${set.飲み放題}、${set.品数}。`],
+  ['何時から使えますか？', `二次会セットは21時以降限定です。${set.内容}`],
+  ['何人から使えますか？', '2名様より承ります（2名様の場合はおばんざいを一皿でご提供します）。'],
+  ['大人数の二次会もできますか？', `はい。${b.宴会最大人数}。大人数の場合はお席の準備があるので、お電話（${s.電話番号表示用}）でご相談ください。`],
+  ['予約は必要ですか？', `空いていればご予約なしでもご案内できますが、二次会は時間が決まっていることが多いので、ご予約がおすすめです。8名様まではネット予約（24時間受付）、当日や大人数はお電話でどうぞ。`],
+  ['何時まで営業していますか？', `${hours}。定休日は${h.定休日}です。`],
+  ['領収書は出せますか？', b.領収書対応],
+];
+---
+<LandingPage
+  title={`新居浜で二次会なら｜21時以降・飲み放題付き${set.価格}｜${s.店名}`}
+  description={`新居浜の二次会は「${s.店名}」へ。二次会セット${set.価格}（${set.飲み放題}・${set.品数}）。21時以降限定・2名様から。${b.宴会最大人数}。${hours}。`}
+  path="/nijikai/"
+  kicker="AFTER PARTY"
+  heading="二次会"
+  catchCopy={`21時以降は、二次会セット${set.価格}。`}
+  lead={`${set.飲み放題}に、${set.品数}。一次会のあとに、もう一軒。2名様から、大人数まで承ります。`}
+  badges={[`${set.価格}`, set.飲み放題, set.品数, '21時以降', '2名様〜']}
+  heroImage="/images/gallery-table.jpg"
+  points={[
+    { icon: 'glass', title: set.飲み放題, body: `${set.価格}で、${set.飲み放題}。時間を気にせず、もう一軒楽しめます。` },
+    { icon: 'utensils', title: set.品数, body: 'おつまみに、おばんざいの小鉢を3種お出しします（日によって変わります）。' },
+    { icon: 'group', title: '大人数でも', body: `${b.宴会最大人数}。掘りごたつ個室（8名様）もあります。` },
+    { icon: 'clock', title: '遅くまで営業', body: `${hours}。金・土は25時まで。` },
+    { icon: 'receipt', title: '領収書OK', body: b.領収書対応 },
+    { icon: 'calendar', title: 'ネット予約', body: '8名様までなら、空席がその場で分かるネット予約が使えます（24時間受付）。' },
+  ]}
+  facts={[
+    ['yen', '料金', `${set.価格}（${set.飲み放題}・${set.品数}）`],
+    ['clock', 'ご利用時間', '21時以降限定'],
+    ['group', '人数', `2名様〜。${b.宴会最大人数}`],
+    ['room', 'お席', b.個室],
+    ['clock', '営業時間', `${hours}（${h.定休日}定休）`],
+    ['pin', '場所', `${s.住所}。${a.最寄り}。`],
+  ]}
+  photos={[
+    { src: '/images/nikai-set.jpg', alt: '二次会セットのおばんざい小鉢' },
+    { src: '/images/gallery-table.jpg', alt: '半個室のテーブル席（6名様）' },
+    { src: '/images/gallery-private-room.jpg', alt: '掘りごたつの個室（8名様）' },
+  ]}
+  faqs={faqs}
+  related={[
+    { href: '/enkai', label: '宴会・忘年会' },
+    { href: '/hitori', label: 'ひとり飲み' },
+    { href: '/shucchou', label: '出張・ご宿泊の方へ' },
+  ]}
+/>
