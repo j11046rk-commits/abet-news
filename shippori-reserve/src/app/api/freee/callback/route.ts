@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiProfile } from "@/lib/auth";
-import { connectFreee, FREEE_REDIRECT_PATH, syncLabor } from "@/lib/freee";
+import { connectFreee, FREEE_REDIRECT_URI, syncLabor } from "@/lib/freee";
 import { shiftDate, todayBizDate } from "@/lib/time";
 
 /**
@@ -32,12 +32,12 @@ export async function GET(request: NextRequest) {
   if (!code || !state || !expected || state !== expected) return back("badstate");
 
   try {
-    await connectFreee(code, `${origin}${FREEE_REDIRECT_PATH}`);
+    await connectFreee(code, FREEE_REDIRECT_URI);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("freee_connect_failed", msg);
     // 原因を画面に出す（freee の状態コードとエラーの種類だけ。鍵やトークンは含まれない）
-    return back("error", msg.slice(0, 120));
+    return back("error", msg.slice(0, 200));
   }
 
   // 取り込みに失敗しても連携自体は済んでいる（毎朝の定期実行で取り直す）

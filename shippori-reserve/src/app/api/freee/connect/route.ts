@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { apiProfile } from "@/lib/auth";
-import { FREEE_REDIRECT_PATH, freeeAuthorizeUrl, freeeConfigured } from "@/lib/freee";
+import { FREEE_REDIRECT_URI, freeeAuthorizeUrl, freeeConfigured } from "@/lib/freee";
 
 /**
  * 設定画面の「freeeと連携」から来る入口。freee のログイン・許可画面へ送る。
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (!freeeConfigured()) return NextResponse.redirect(`${origin}/settings?freee=noconfig`, 303);
 
   const state = randomBytes(24).toString("hex");
-  const res = NextResponse.redirect(freeeAuthorizeUrl(`${origin}${FREEE_REDIRECT_PATH}`, state), 303);
+  const res = NextResponse.redirect(freeeAuthorizeUrl(FREEE_REDIRECT_URI, state), 303);
   res.cookies.set("freee_state", state, {
     httpOnly: true,
     secure: true,

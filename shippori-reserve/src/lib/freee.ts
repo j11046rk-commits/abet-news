@@ -25,6 +25,13 @@ const API = "https://api.freee.co.jp/hr/api/v1";
 const PROVIDER = "freee_hr";
 
 export const FREEE_REDIRECT_PATH = "/api/freee/callback";
+/**
+ * freee に登録した戻り先URLと一字一句同じ文字列。許可画面へ送るときと、
+ * コードをトークンに替えるときの両方で同じものを使わないと invalid_grant になる。
+ * アクセスされたホスト名から組み立てると、経路によって文字列がずれ得るので決め打ちにする。
+ */
+export const FREEE_REDIRECT_URI =
+  process.env.FREEE_REDIRECT_URI ?? `https://yoyaku.shipporitei.jp${FREEE_REDIRECT_PATH}`;
 
 export const freeeConfigured = (): boolean =>
   Boolean(process.env.FREEE_CLIENT_ID && process.env.FREEE_CLIENT_SECRET);
@@ -60,8 +67,8 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
   });
   if (!res.ok) {
     // freee が返すエラーの種類（invalid_client・invalid_grant など）だけを残す。鍵の中身は含まれない
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(`freee token ${res.status} ${body.error ?? ""}`.trim());
+    const body = (await res.json().catch(() => ({}))) as { error?: string; error_description?: string };
+    throw new Error(`freee token ${res.status} ${body.error ?? ""} ${body.error_description ?? ""}`.trim());
   }
   return (await res.json()) as TokenResponse;
 }
