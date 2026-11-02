@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fmtHours, perLaborHour, sumByDate, workMinutesOf } from "./labor.ts";
+import { fmtHours, laborTier, perLaborHour, sumByDate, workMinutesOf } from "./labor.ts";
 
 const t = (hhmm: string, day = "2026-10-23") => `${day}T${hhmm}:00+09:00`;
 
@@ -57,6 +57,13 @@ test("日付ごとに全員を合計し、期間外と重複は数えない", ()
   const m = sumByDate([a, b], "2026-10-01", "2026-10-31");
   assert.deepEqual(m.get("2026-10-23"), { workMin: 540, headcount: 2 });
   assert.equal(m.has("2026-09-30"), false);
+});
+
+test("色分け：5,500円以上=good・4,000円未満=low・その間=ok（境目は上の色）", () => {
+  assert.equal(laborTier(5500), "good");
+  assert.equal(laborTier(5499), "ok");
+  assert.equal(laborTier(4000), "ok");
+  assert.equal(laborTier(3999), "low");
 });
 
 test("人時売上＝売上÷時間", () => {

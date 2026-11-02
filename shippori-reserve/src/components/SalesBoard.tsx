@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { fmtYen, guestsPerCheck, hitOf, perGuest, shownYen } from "@/lib/sales";
-import { fmtHours, perLaborHour } from "@/lib/labor";
+import { fmtHours, LABOR_GOOD, LABOR_LOW, LABOR_TARGET, laborTier, perLaborHour } from "@/lib/labor";
 import { chipColors } from "@/lib/staff";
 
 export type SalesBoardDay = {
@@ -456,8 +456,12 @@ export default function SalesBoard({
         <section className="card">
           <div className="summary" style={{ margin: 0 }}>
             <div className="summary__item">
-              <span className="summary__num">{fmtYen(perLaborHour(laborSales, laborMin) ?? 0)}</span>
-              <span className="summary__label">人時売上</span>
+              <span
+                className={`summary__num salesline__ph--${laborTier(perLaborHour(laborSales, laborMin) ?? 0)}`}
+              >
+                {fmtYen(perLaborHour(laborSales, laborMin) ?? 0)}
+              </span>
+              <span className="summary__label">人時売上（目標 {fmtYen(LABOR_TARGET)}）</span>
             </div>
             <div className="summary__item">
               <span className="summary__num">{fmtHours(laborMin)}</span>
@@ -469,6 +473,10 @@ export default function SalesBoard({
             </div>
           </div>
           <p className="micro" style={{ margin: "0.5rem 0 0", lineHeight: 1.8 }}>
+            {(perLaborHour(laborSales, laborMin) ?? 0) >= LABOR_TARGET
+              ? "今月の人時売上は目標達成です。"
+              : `目標まであと ${fmtYen(LABOR_TARGET - (perLaborHour(laborSales, laborMin) ?? 0))}（1時間あたり）。`}
+            日ごとの色：緑＝{LABOR_GOOD.toLocaleString()}円以上、赤＝{LABOR_LOW.toLocaleString()}円未満（人が多すぎた日）。
             人時売上＝店内の売上÷全員の労働時間（freee人事労務の出退勤から休憩を除いた時間）。物販は含めません。
           </p>
         </section>
@@ -558,7 +566,7 @@ export default function SalesBoard({
                       {d.guests}名{pg != null ? `＠${pg.toLocaleString()}` : ""}
                     </span>
                   ) : null}
-                  {ph != null ? <span className="salescell__g">人時{ph.toLocaleString()}</span> : null}
+                  {ph != null ? <span className={`salescell__g salescell__ph--${laborTier(ph)}`}>人時{ph.toLocaleString()}</span> : null}
                 </>
               )}
               {/* 休業日に物販だけ売った日も、どこにも出ないということが無いように */}

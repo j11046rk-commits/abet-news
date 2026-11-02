@@ -29,7 +29,7 @@ import {
   getShiftPublication,
 } from "@/lib/queries";
 import { fmtYen, hitOf, perGuest, salesView, shownYen } from "@/lib/sales";
-import { perLaborHour } from "@/lib/labor";
+import { laborTier, perLaborHour } from "@/lib/labor";
 import {
   fmtMonthJa,
   fmtYm,
@@ -395,7 +395,7 @@ async function MonthList({
                     ) : null}
                     {/* 人時売上（店内の売上÷全員の労働時間）。枠の外に置いて、幅が足りない日は2段目へ流す */}
                     {salePerHour != null ? (
-                      <span className="salesline__guests" aria-label="人時売上">
+                      <span className={`salesline__ph salesline__ph--${laborTier(salePerHour)}`} aria-label="人時売上">
                         人時
                         <br />
                         {fmtYen(salePerHour)}

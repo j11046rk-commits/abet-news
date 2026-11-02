@@ -2554,3 +2554,8 @@ textarea.field:-webkit-autofill {
   display: grid;
   gap: 0.25rem;
 }
+
+/* 人時売上の色分け（店主決定 2026-11-02）：緑＝5,500円以上・赤＝4,000円未満・その間は普通の色 */
+.salesline__ph { white-space: nowrap; color: var(--text-dim); }
+.salesline__ph--good, .salescell__ph--good { color: var(--ok); font-weight: 600; }
+.salesline__ph--low, .salescell__ph--low { color: var(--seal); font-weight: 600; }

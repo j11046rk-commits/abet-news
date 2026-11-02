@@ -84,5 +84,20 @@ export function sumByDate(
 export const perLaborHour = (yen: number | null, workMin: number | null | undefined): number | null =>
   yen != null && workMin != null && workMin > 0 ? Math.round(yen / (workMin / 60)) : null;
 
+/*
+ * 人時売上の目標と色分け（店主決定 2026-11-02）。
+ * 9〜10月の実績は約4,500円。月の目標は約1割上の5,000円（人件費率25%の水準）。
+ *   🟢 good … 5,500円以上（人数ちょうど・よく回せた日）
+ *   🟡 ok   … 4,000〜5,500円
+ *   🔴 low  … 4,000円未満（人が多すぎた日。シフトを見直す候補）
+ */
+export const LABOR_TARGET = 5000;
+export const LABOR_GOOD = 5500;
+export const LABOR_LOW = 4000;
+
+export type LaborTier = "good" | "ok" | "low";
+export const laborTier = (perHour: number): LaborTier =>
+  perHour >= LABOR_GOOD ? "good" : perHour < LABOR_LOW ? "low" : "ok";
+
 /** 「12.5h」の形 */
 export const fmtHours = (workMin: number): string => `${Math.round((workMin / 60) * 10) / 10}h`;
