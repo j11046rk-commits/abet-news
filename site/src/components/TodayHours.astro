@@ -1,0 +1,126 @@
+---
+// 「本日の営業」（店主要望 2026-11-02：営業時間が探さないと出てこない。
+// 調べた人が一番知りたいのは「今日は何時まで？」）。
+//
+// ・初めに出る文字（JSなし・検索エンジン向け）：週の営業時間
+// ・ページが開いたら、予約システムの営業日（臨時休業・時間変更を含む）を読んで
+//   「営業中 24:00まで（L.O. 23:30）」「本日定休日（次は○/○ 18:00〜）」に置き換える
+// ・予約システムが読めなければ、site.json の週の営業時間から同じ表示を作る
+// 時刻は日本時間。深夜0〜4時は前日の営業として扱う（金土は25:00まで）。
+import site from '../../data/site.json';
+
+const h = site.営業時間;
+const weekly = h.表示.map((x: any) => `${x.曜日} ${x.時間.replace(/（.*?）/, '')}`).join('／');
+const apiBase = (() => {
+  try { return new URL(site.予約問い合わせ?.ネット予約URL || '').origin; } catch { return ''; }
+})();
+// 週の営業時間（予約システムが読めないときの控え）。曜日 0=日..6=土 → [開店分, 閉店分] / null=休み
+const DOW = { Su: 0, Mo: 1, Tu: 2, We: 3, Th: 4, Fr: 5, Sa: 6 } as Record<string, number>;
+const toMin = (t: string) => { const [a, b] = t.split(':').map(Number); return a * 60 + b; };
+const week: ([number, number] | null)[] = [null, null, null, null, null, null, null];
+for (const o of h.openingHours as any[]) for (const d of o.days) week[DOW[d]] = [toMin(o.opens), toMin(o.closes)];
+---
+<div class="today" id="today-hours" data-api={apiBase} data-week={JSON.stringify(week)}>
+  <span class="today__dot" aria-hidden="true"></span>
+  <span class="today__state">営業時間</span>
+  <span class="today__text">{weekly}（{h.定休日}定休）</span>
+  <a class="today__more" href="#access">詳しく</a>
+</div>
+
+<script is:inline>
+(function () {
+  var el = document.getElementById('today-hours');
+  if (!el) return;
+  var WD = ['日', '月', '火', '水', '木', '金', '土'];
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var hm = function (m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+  var md = function (iso) { var d = new Date(iso + 'T00:00:00Z'); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '(' + WD[d.getUTCDay()] + ')'; };
+  var addDay = function (iso, n) { var d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+  // いまの日本時間。深夜4時までは前日の営業
+  var j = new Date(Date.now() + 9 * 3600 * 1000);
+  var today = j.toISOString().slice(0, 10);
+  var nowMin = j.getUTCHours() * 60 + j.getUTCMinutes();
+  if (j.getUTCHours() < 4) { today = addDay(today, -1); nowMin += 1440; }
+
+  var week = []; try { week = JSON.parse(el.dataset.week || '[]'); } catch (e) {}
+  var fromWeek = function () {
+    var out = [];
+    for (var i = 0; i < 7; i++) {
+      var d = addDay(today, i), w = week[new Date(d + 'T00:00:00Z').getUTCDay()];
+      out.push(w ? { date: d, closed: false, open_min: w[0], close_min: w[1] } : { date: d, closed: true });
+    }
+    return out;
+  };
+
+  var show = function (days) {
+    var t = days[0];
+    if (!t || t.date !== today) return;
+    var next = null;
+    for (var i = 1; i < days.length; i++) if (!days[i].closed) { next = days[i]; break; }
+    var nextText = next ? '次の営業は ' + md(next.date) + ' ' + hm(next.open_min) + '〜' : '';
+    var state, text, cls;
+    if (t.closed) {
+      // 週の決まりでは営業日なのに休み＝臨時休業（予約システムの営業日設定から）
+      var usual = week[new Date(today + 'T00:00:00Z').getUTCDay()];
+      cls = 'closed'; state = usual ? '本日は臨時休業' : '本日定休日'; text = nextText;
+    } else if (nowMin < t.open_min) {
+      cls = 'soon'; state = nowMin >= t.open_min - 60 ? 'まもなく開店' : '本日営業';
+      text = hm(t.open_min) + '〜' + hm(t.close_min) + '（L.O. ' + hm(t.close_min - 30) + '）';
+    } else if (nowMin < t.close_min) {
+      cls = 'open'; state = '営業中';
+      text = hm(t.close_min) + 'まで（' + (nowMin < t.close_min - 30 ? 'L.O. ' + hm(t.close_min - 30) : 'ラストオーダー終了') + '）';
+    } else {
+      cls = 'closed'; state = '本日の営業は終了'; text = nextText;
+    }
+    if (t.event && !t.closed) text += '・' + t.event;
+    el.className = 'today today--' + cls;
+    el.querySelector('.today__state').textContent = state;
+    el.querySelector('.today__text').textContent = text;
+  };
+
+  show(fromWeek());
+  var api = el.dataset.api;
+  if (!api || !window.fetch) return;
+  var ctl = window.AbortController ? new AbortController() : null;
+  if (ctl) setTimeout(function () { ctl.abort(); }, 4000);
+  fetch(api + '/api/public/hours', ctl ? { signal: ctl.signal } : {})
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && Array.isArray(d.days) && d.days.length) show(d.days); })
+    .catch(function () {});
+})();
+</script>
+
+<style>
+  .today {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem 0.6rem;
+    margin: 0 auto 1.2rem;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    background: rgba(13, 18, 30, 0.62);
+    border: 1px solid rgba(230, 195, 145, 0.45);
+    backdrop-filter: blur(4px);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #eef1f8;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  }
+  .today__dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--gold); flex: none; }
+  .today__state { font-weight: 800; letter-spacing: 0.04em; color: var(--gold-soft); white-space: nowrap; }
+  .today__text { font-variant-numeric: tabular-nums; }
+  .today__more { font-size: 0.8rem; color: var(--gold-soft); text-decoration: underline; text-underline-offset: 0.2em; white-space: nowrap; }
+  .today--open { border-color: rgba(90, 200, 130, 0.6); }
+  .today--open .today__dot { background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6); animation: todayPulse 2s infinite; }
+  .today--open .today__state { color: #86efac; }
+  .today--closed .today__dot { background: #8b93a7; }
+  .today--closed .today__state { color: #cbd2e0; }
+  @keyframes todayPulse {
+    0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+    70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+  }
+</style>

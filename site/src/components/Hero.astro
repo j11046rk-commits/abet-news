@@ -2,6 +2,7 @@
 import site from '../../data/site.json';
 import { withBase } from '../lib/text.js';
 import Icon from './Icon.astro';
+import TodayHours from './TodayHours.astro';
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 // 一番大きいボタンはネット予約（店主指示 2026-10-08）。URLが無ければ従来の電話ボタンに戻る
@@ -39,6 +40,8 @@ const embers = Array.from({ length: 14 }, () => ({
     </h1>
     <p class="hero__catch">{s.キャッチコピー}</p>
     <p class="hero__sub">{s.サブキャッチ}</p>
+    {/* 本日の営業（何時までか）を最初の画面に（店主要望 2026-11-02） */}
+    <div class="hero__today"><TodayHours /></div>
     {badges.length > 0 && (
       <ul class="hero__badges" aria-label="お店のポイント">
         {badges.map((b, i) => <li class="hero__badge" style={`--i:${i}`}>{b}</li>)}
@@ -262,6 +265,7 @@ const embers = Array.from({ length: 14 }, () => ({
   .hero__roman { animation-delay: 0.05s; }
   .hero__catch { animation-delay: 0.85s; }
   .hero__sub { animation-delay: 1s; }
+  .hero__today { animation: heroIn 0.9s cubic-bezier(0.2, 0.65, 0.2, 1) both; animation-delay: 1.05s; }
   .hero__badge { animation-delay: calc(1.1s + var(--i, 0) * 0.07s); }
   .hero__cta { animation-delay: 1.35s; }
   .hero__tel { animation-delay: 1.5s; }
