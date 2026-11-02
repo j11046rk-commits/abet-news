@@ -28,7 +28,7 @@ const FREEE_MSG: Record<string, string> = {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ freee?: string }>;
+  searchParams: Promise<{ freee?: string; why?: string }>;
 }) {
   const me = await requireProfile();
   const sp = await searchParams;
@@ -124,7 +124,13 @@ export default async function SettingsPage({
           <>
             <h2 className="section-title">freee人事労務（人時売上）</h2>
             <section className="card stack">
-              {freeeMsg ? <p className="notice">{freeeMsg}</p> : null}
+              {freeeMsg ? (
+                <p className="notice">
+                  {freeeMsg}
+                  {/* 原因（freee の状態コードとエラーの種類）。問い合わせのときにこの文字を伝えてもらう */}
+                  {sp.why ? <span className="micro" style={{ display: "block", marginTop: "0.3rem" }}>原因：{sp.why}</span> : null}
+                </p>
+              ) : null}
               {freee.connected ? (
                 <dl className="kv">
                   <dt>連携先</dt>

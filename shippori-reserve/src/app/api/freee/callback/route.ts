@@ -10,14 +10,21 @@ import { shiftDate, todayBizDate } from "@/lib/time";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const origin = url.origin;
-  const back = (q: string) => {
-    const res = NextResponse.redirect(`${origin}/settings?freee=${q}`, 303);
+  const back = (q: string, why?: string) => {
+    const res = NextResponse.redirect(
+      `${origin}/settings?freee=${q}${why ? `&why=${encodeURIComponent(why)}` : ""}`,
+      303,
+    );
     res.cookies.delete({ name: "freee_state", path: "/api/freee" });
     return res;
   };
 
   const auth = await apiProfile("settings.write");
   if (!auth.ok) return back("forbidden");
+
+  // freee の画面で「許可しない」を押した・freee 側で弾かれたときは error が付いて戻る
+  const denied = url.searchParams.get("error");
+  if (denied) return back("error", `freee: ${denied}`.slice(0, 120));
 
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
@@ -27,8 +34,10 @@ export async function GET(request: NextRequest) {
   try {
     await connectFreee(code, `${origin}${FREEE_REDIRECT_PATH}`);
   } catch (e) {
-    console.error("freee_connect_failed", e instanceof Error ? e.message : e);
-    return back("error");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("freee_connect_failed", msg);
+    // 原因を画面に出す（freee の状態コードとエラーの種類だけ。鍵やトークンは含まれない）
+    return back("error", msg.slice(0, 120));
   }
 
   // 取り込みに失敗しても連携自体は済んでいる（毎朝の定期実行で取り直す）
@@ -36,8 +45,9 @@ export async function GET(request: NextRequest) {
     const today = todayBizDate();
     await syncLabor(shiftDate(today, -90), shiftDate(today, -1));
   } catch (e) {
-    console.error("freee_initial_sync_failed", e instanceof Error ? e.message : e);
-    return back("connected_nosync");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("freee_initial_sync_failed", msg);
+    return back("connected_nosync", msg.slice(0, 120));
   }
   return back("ok");
 }

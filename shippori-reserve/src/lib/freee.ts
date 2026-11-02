@@ -58,16 +58,41 @@ async function tokenRequest(body: Record<string, string>): Promise<TokenResponse
     }),
     signal: AbortSignal.timeout(15000),
   });
-  if (!res.ok) throw new Error(`freee token ${res.status}`);
+  if (!res.ok) {
+    // freee が返すエラーの種類（invalid_client・invalid_grant など）だけを残す。鍵の中身は含まれない
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(`freee token ${res.status} ${body.error ?? ""}`.trim());
+  }
   return (await res.json()) as TokenResponse;
 }
 
+/*
+ * ★給与は絶対に読まない（店主指示 2026-11-02：各スタッフの給与が他のスタッフに見えないこと）。
+ *
+ * 呼んでよい freee の口を、ここで決め打ちにする。給与明細・基本給・手当などの口は
+ * 一覧に無いので、誰かがうっかりコードを足しても、ここで止まって呼ばれない。
+ * 取り込むのも「その日の全員の労働時間の合計」と「出勤した人数」だけで、
+ * 誰が何時間働いたか・時給・給与は予約システムのどこにも保存しない。
+ */
+const ALLOWED_PATHS = [
+  /^\/users\/me$/,
+  /^\/companies\/\d+\/employees\?/,
+  /^\/employees\/\d+\/work_record_summaries\/\d{4}\/\d{1,2}\?/,
+];
+
 async function apiGet<T>(path: string, accessToken: string): Promise<T> {
+  if (!ALLOWED_PATHS.some((re) => re.test(path))) {
+    throw new Error(`freee の許可していない口は呼びません: ${path.split("?")[0]}`);
+  }
   const res = await fetch(`${API}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(15000),
   });
-  if (!res.ok) throw new Error(`freee GET ${path.split("?")[0]} ${res.status}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { errors?: { type?: string }[]; message?: string };
+    const why = body.errors?.[0]?.type ?? body.message ?? "";
+    throw new Error(`freee GET ${path.split("?")[0].replace(/\d+/g, "#")} ${res.status} ${why}`.trim());
+  }
   return (await res.json()) as T;
 }
 
@@ -79,8 +104,11 @@ export async function connectFreee(code: string, redirectUri: string): Promise<v
 
   // 事業所。トークンに付いていればそれ、無ければ所属する事業所の最初の1つ
   const me = await apiGet<{ companies: { id: number; name: string }[] }>("/users/me", tok.access_token);
+  // 事業所。freee で選んだもの（トークンに付く）→ 1つしか無ければそれ → 名前に「しっぽり」を含むものが1つならそれ
+  const shippori = me.companies.filter((c) => c.name.includes("しっぽり"));
   const company =
-    me.companies.find((c) => c.id === tok.company_id) ?? (me.companies.length === 1 ? me.companies[0] : null);
+    me.companies.find((c) => c.id === tok.company_id) ??
+    (me.companies.length === 1 ? me.companies[0] : shippori.length === 1 ? shippori[0] : null);
   if (!company) throw new Error("freee の事業所を決められませんでした");
 
   const admin = createAdminClient();
