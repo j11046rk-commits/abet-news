@@ -25,12 +25,36 @@ const t = ga4.totals;
 const p = ga4.prev;
 const ex = ga4.extra;
 
+// 期間（店主要望 2026-11-02「直近28日間なのか分かりにくい」）。
+// GA4は「28日前〜昨日」で取っているので、取得した日の前日を終わりの日として日付で出す。
+const md = (dt) => `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
+const jstGen = new Date(new Date(ga4.generatedAt).getTime() + 9 * 3600 * 1000);
+const endDay = new Date(Date.UTC(jstGen.getUTCFullYear(), jstGen.getUTCMonth(), jstGen.getUTCDate() - 1));
+const dayAdd = (dt, n) => new Date(dt.getTime() + n * 86400 * 1000);
+const periodLabel = `${md(dayAdd(endDay, -27))}〜${md(endDay)}`;
+const prevLabel = `${md(dayAdd(endDay, -55))}〜${md(dayAdd(endDay, -28))}`;
+
+// 見出しは普段の言葉で。カッコ内がGA4の用語
 const kpis = [
-  { label: 'ユーザー数', value: nf.format(t.users), sub: `新規 ${nf.format(ex.newUsers)}`, d: delta(t.users, p.users), accent: 'a' },
-  { label: 'セッション', value: nf.format(t.sessions), sub: `1訪問 ${ex.viewsPerSession.toFixed(1)}ページ`, d: delta(t.sessions, p.sessions), accent: 'b' },
-  { label: '表示回数', value: nf.format(t.pageviews), sub: 'ページビュー', d: delta(t.pageviews, p.pageviews), accent: 'c' },
-  { label: 'エンゲージ率', value: pct1(ex.engagementRate), sub: `平均滞在 ${dur(ex.avgSessionDuration)}`, d: { kind: 'none' }, accent: 'd' },
+  { label: '訪れた人数（ユーザー）', value: nf.format(t.users), sub: `うち初めての人 ${nf.format(ex.newUsers)}`, d: delta(t.users, p.users), accent: 'a' },
+  { label: '訪問回数（セッション）', value: nf.format(t.sessions), sub: `1回の訪問で ${ex.viewsPerSession.toFixed(1)}ページ`, d: delta(t.sessions, p.sessions), accent: 'b' },
+  { label: '見られたページ数（表示回数）', value: nf.format(t.pageviews), sub: 'ページが開かれた回数', d: delta(t.pageviews, p.pageviews), accent: 'c' },
+  { label: 'しっかり見た割合（エンゲージ率）', value: pct1(ex.engagementRate), sub: `平均 ${dur(ex.avgSessionDuration)} 見ている`, d: { kind: 'none' }, accent: 'd' },
 ];
+
+// 流入チャネルの日本語名（GA4の英語名 → 何のことか分かる言葉）
+const CHANNEL_JA = {
+  'Organic Search': '検索（Google・Yahoo等）',
+  Direct: '直接（ブックマーク・URL・LINE内など）',
+  'Organic Social': 'SNS（Instagram等）',
+  'AI Assistant': 'AI（ChatGPT等）',
+  Referral: '他のサイトのリンク',
+  'Paid Search': '検索広告',
+  'Paid Social': 'SNS広告',
+  Email: 'メール',
+  'Organic Maps': '地図アプリ',
+  Unassigned: '不明',
+};
 
 // アクション（HPからのCV導線）
 const actionStyle = {
@@ -225,6 +249,13 @@ const ICONS = {
       .bar-fill { display: block; min-width: 2px; height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--g1), var(--g2)); }
       .bar-row .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
       /* 3カラムに並べる細い帯（何日前・時間帯・曜日）はラベル幅を詰める */
+      .bar-row--wide { grid-template-columns: minmax(0, 168px) 1fr 74px; }
+      .bar-row--wide > span:first-child { font-size: 12.5px; line-height: 1.35; }
+      .bar-row .n small { color: var(--muted); font-size: 11px; opacity: .8; }
+      .note-s { margin: 10px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+      .period-note { margin: 4px 0 18px; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.7;
+        color: #cdd5ee; background: var(--glass2); border: 1px solid var(--line); }
+      .period-note b { color: #fff; }
       .bar-row--slim { grid-template-columns: 68px 1fr 34px; margin: 8px 0; font-size: 12.5px; }
       @media (max-width: 860px) { .panels3 { grid-template-columns: 1fr !important; } }
 
@@ -247,13 +278,19 @@ const ICONS = {
             <div class="crumb">しっぽり亭 — shipporitei.jp</div>
           </div>
         </div>
-        <span class="pill">直近28日間</span>
+        <span class="pill">期間 {periodLabel}（直近28日）</span>
         <span class="pill"><span class="live">●</span> 自動更新</span>
         <div class="meta">
           <div><span class="dotpulse"></span>最終更新 {updated}</div>
           <div>GA4 プロパティ {ga4.propertyId}</div>
         </div>
       </header>
+
+      <!-- 期間の説明。数字がいつの分かを最初に言う -->
+      <p class="period-note">
+        このページの数字は、すべて <b>{periodLabel} の28日間</b> の合計です。
+        ▲▼ は、その前の28日間（{prevLabel}）と比べた増減です。
+      </p>
 
       <!-- KPI -->
       <div class="grid kpis">
@@ -272,7 +309,7 @@ const ICONS = {
       </div>
 
       <!-- アクション（HPからのコンバージョン） -->
-      <div class="sec-title">HPからのアクション（コンバージョン）</div>
+      <div class="sec-title">HPから押されたボタン（{periodLabel}）</div>
       <div class="grid acts">
         {actions.map((a) => {
           const st = actionStyle[a.key] || { color: 'var(--g2)', glow: 'rgba(34,211,238,.4)' };
@@ -289,7 +326,7 @@ const ICONS = {
               <div class="meta-a">
                 <div class="alabel">{a.label}</div>
                 <div class="acount" style={`color:${st.color}`}>{nf.format(a.count)}</div>
-                <div class="arate">CVR <b>{pct0(a.rate)}</b> <span class="muted">/ 対セッション</span></div>
+                <div class="arate">訪問のうち <b>{pct0(a.rate)}</b> が押した</div>
               </div>
             </div>
           );
@@ -297,10 +334,10 @@ const ICONS = {
       </div>
 
       <!-- 推移 + 流入 -->
-      <div class="sec-title">トラフィック</div>
+      <div class="sec-title">アクセスの中身（{periodLabel}）</div>
       <div class="grid panels">
         <div class="card pad">
-          <h2 class="h"><span class="d"></span>日別セッション推移</h2>
+          <h2 class="h"><span class="d"></span>日ごとの訪問回数</h2>
           {daily.length === 0 ? <div class="empty">まだデータがありません。</div> : (
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="日別セッション推移">
               <defs>
@@ -327,15 +364,16 @@ const ICONS = {
         </div>
 
         <div class="card pad">
-          <h2 class="h"><span class="d"></span>流入チャネル</h2>
+          <h2 class="h"><span class="d"></span>どこから来たか（流入チャネル）</h2>
           {ga4.channels.length === 0 ? <div class="empty">データなし</div> : ga4.channels.map((c) => (
-            <div class="bar-row">
-              <span>{c.name}</span>
+            <div class="bar-row bar-row--wide">
+              <span>{CHANNEL_JA[c.name] || c.name}</span>
               <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((c.sessions / chTotal) * 100)}%`}></span></span>
-              <span class="n">{nf.format(c.sessions)}</span>
+              <span class="n">{nf.format(c.sessions)}<small> {pct0(c.sessions / chTotal)}</small></span>
             </div>
           ))}
-          <h2 class="h" style="margin-top:22px;"><span class="d"></span>デバイス</h2>
+          <p class="note-s">数字は訪問回数。「直接」にはブックマークやURLの入力のほか、LINEやInstagramのアプリ内から開いた分も入ることがあります。</p>
+          <h2 class="h" style="margin-top:22px;"><span class="d"></span>見ている端末（デバイス）</h2>
           {ga4.devices.map((d) => (
             <div class="bar-row">
               <span>{deviceLabel[d.name] || d.name}</span>
