@@ -65,7 +65,8 @@ for (const o of h.openingHours as any[]) for (const d of o.days) week[DOW[d]] = 
       var usual = week[new Date(today + 'T00:00:00Z').getUTCDay()];
       cls = 'closed'; state = usual ? '本日は臨時休業' : '本日定休日'; text = nextText;
     } else if (nowMin < t.open_min) {
-      cls = 'soon'; state = nowMin >= t.open_min - 60 ? 'まもなく開店' : '本日営業';
+      // 当日（朝4時〜）で開店前は「開店準備中」、開店1時間前からは「まもなく開店」（店主指定 2026-11-02）
+      cls = 'soon'; state = nowMin >= t.open_min - 60 ? 'まもなく開店' : '開店準備中';
       text = hm(t.open_min) + '〜' + hm(t.close_min) + '（L.O. ' + hm(t.close_min - 30) + '）';
     } else if (nowMin < t.close_min) {
       cls = 'open'; state = '営業中';
