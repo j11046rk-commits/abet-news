@@ -3,9 +3,8 @@ import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
 import { requireProfile } from "@/lib/auth";
 import { can, ROLE_LABEL, TOTAL_SEATS } from "@/lib/constants";
-import { getCourses, getSeatUnits, getSettings } from "@/lib/queries";
+import { getCourses, getLaborStatus, getSeatUnits, getSettings } from "@/lib/queries";
 import { minutesToLabel } from "@/lib/time";
-import { freeeConfigured, freeeStatus } from "@/lib/freee";
 
 export const dynamic = "force-dynamic";
 
@@ -14,27 +13,11 @@ export const dynamic = "force-dynamic";
  * Phase 1 では店舗の既定値は「見えること」までにしてある。
  * 画面から書き換えられるようにするのは、運用が固まってからでよい（設計 §S11）。
  */
-/** freee連携から戻ったときの一言（?freee=…） */
-const FREEE_MSG: Record<string, string> = {
-  ok: "freeeと連携し、直近90日の勤怠を取り込みました。",
-  synced: "勤怠を取り込み直しました。",
-  connected_nosync: "連携はできましたが、勤怠の取り込みに失敗しました。少し待って「今すぐ取り込む」を押してください。",
-  error: "freeeとの連携・取り込みに失敗しました。時間をおいてもう一度お試しください。",
-  badstate: "連携の手続きが途中で切れました。もう一度「freeeと連携」からやり直してください。",
-  forbidden: "この操作はオーナー・店長だけができます。",
-  noconfig: "freeeのアプリ情報（FREEE_CLIENT_ID / FREEE_CLIENT_SECRET）がまだ設定されていません。",
-};
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ freee?: string; why?: string }>;
-}) {
+export default async function SettingsPage() {
   const me = await requireProfile();
-  const sp = await searchParams;
   const manageFreee = can(me.role, "settings.write");
-  const freee = manageFreee ? await freeeStatus() : null;
-  const freeeMsg = sp.freee ? (FREEE_MSG[sp.freee] ?? null) : null;
+  const laborStatus = manageFreee ? await getLaborStatus() : null;
   const [settings, courses, seats] = await Promise.all([
     getSettings(),
     getCourses(),
@@ -119,55 +102,24 @@ export default async function SettingsPage({
           </p>
         </div>
 
-        {/* 人時売上の材料（全員の労働時間）を freee人事労務 から取り込む（店主要望 2026-10-28） */}
-        {freee ? (
+        {/* 人時売上の材料（全員の労働時間の合計）。店のMac（週次レポート）が freee人事労務 から
+            毎日取り込んで /api/labor/ingest へ送る（2026-11-02〜）。ここでは届いている状況だけ見せる */}
+        {laborStatus ? (
           <>
-            <h2 className="section-title">freee人事労務（人時売上）</h2>
+            <h2 className="section-title">人時売上（freee人事労務）</h2>
             <section className="card stack">
-              {freeeMsg ? (
-                <p className="notice">
-                  {freeeMsg}
-                  {/* 原因（freee の状態コードとエラーの種類）。問い合わせのときにこの文字を伝えてもらう */}
-                  {sp.why ? <span className="micro" style={{ display: "block", marginTop: "0.3rem" }}>原因：{sp.why}</span> : null}
-                </p>
-              ) : null}
-              {freee.connected ? (
-                <dl className="kv">
-                  <dt>連携先</dt>
-                  <dd>{freee.companyName ?? "—"}</dd>
-                  <dt>最終取り込み</dt>
-                  <dd>
-                    {freee.lastSyncAt
-                      ? new Date(freee.lastSyncAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-                      : "まだ"}
-                  </dd>
-                  {freee.lastError ? (
-                    <>
-                      <dt>エラー</dt>
-                      <dd className="err">{freee.lastError}</dd>
-                    </>
-                  ) : null}
-                </dl>
-              ) : (
-                <p className="micro">
-                  freee人事労務の勤怠（出退勤）から全員の労働時間を毎朝取り込み、暦と売上タブに
-                  「人時売上（店内の売上÷労働時間）」を出します。
-                </p>
-              )}
-              {freeeConfigured() ? (
-                <a className="btn btn-block" href="/api/freee/connect">
-                  {freee.connected ? "freeeと連携し直す" : "freeeと連携"}
-                </a>
-              ) : (
-                <p className="micro">freeeのアプリ登録（FREEE_CLIENT_ID / FREEE_CLIENT_SECRET）がまだです。</p>
-              )}
-              {freee.connected ? (
-                <form method="post" action="/api/freee/sync">
-                  <button type="submit" className="btn btn-block">
-                    今すぐ取り込む（直近40日）
-                  </button>
-                </form>
-              ) : null}
+              <dl className="kv">
+                <dt>取り込み</dt>
+                <dd>店のMac（週次レポート）が毎日 freee の勤怠から取り込み</dd>
+                <dt>最新の日</dt>
+                <dd>{laborStatus.latest ?? "まだ届いていません"}</dd>
+                <dt>取り込み済み</dt>
+                <dd>{laborStatus.days}日ぶん</dd>
+              </dl>
+              <p className="micro">
+                取り込むのは「その日の全員の労働時間の合計」と「出勤した人数」だけです。
+                人ごとの時間・時給・給与は予約システムに保存しません。
+              </p>
             </section>
           </>
         ) : null}

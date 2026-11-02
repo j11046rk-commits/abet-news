@@ -326,6 +326,16 @@ export async function getMonthLabor(ym: string): Promise<Map<string, { workMin: 
   );
 }
 
+/** 労働時間の取り込み状況（設定画面の表示用）。最新の日と、取り込み済みの日数 */
+export async function getLaborStatus(): Promise<{ latest: string | null; days: number }> {
+  const supabase = await createClient();
+  const [{ data }, { count }] = await Promise.all([
+    supabase.from("labor_daily").select("biz_date").order("biz_date", { ascending: false }).limit(1),
+    supabase.from("labor_daily").select("biz_date", { count: "exact", head: true }),
+  ]);
+  return { latest: (data?.[0]?.biz_date as string | undefined) ?? null, days: count ?? 0 };
+}
+
 /** 月ぶんのシフト（日付 → profile_id の配列） */
 export async function getMonthShifts(ym: string): Promise<Map<string, string[]>> {
   return (await getMonthShiftRows(ym)).byDate;
