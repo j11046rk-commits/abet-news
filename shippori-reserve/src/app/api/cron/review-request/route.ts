@@ -14,7 +14,7 @@ import { shiftDate, todayBizDate } from "@/lib/time";
 /**
  * 来店の翌日、Googleマップの口コミのお願いをLINEで送る（毎日11:00・店主要望 2026-11-02）。
  *
- * 誰に送るかは lib/review-request.ts（会計済の人だけ・180日に1回・ブロックした人は除く）。
+ * 誰に送るかは lib/review-request.ts（来店した人だけ・180日に1回・ブロックした人は除く）。
  * 口コミ用のリンク（settings.review_url）が入るまでは何もしない。
  * 予約の控え・リマインドのための通数（RESERVED_FOR_BOOKINGS）は残す。
  */
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     .from("reservations")
     .select("id, status, line_user_id")
     .eq("biz_date", yesterday)
-    .eq("status", "completed")
+    .in("status", ["completed", "seated"])
     .not("line_user_id", "is", null)
     .returns<ReviewCandidate[]>();
   if (error) {
