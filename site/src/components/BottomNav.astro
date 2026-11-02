@@ -7,7 +7,8 @@ import site from '../../data/site.json';
 import Icon from './Icon.astro';
 import { withBase } from '../lib/text.js';
 
-interface Props { page?: 'home' | 'recruit' | 'enkai'; }
+// sub＝そのほかのサブページ（トップ宛てのリンクにする）
+interface Props { page?: 'home' | 'recruit' | 'enkai' | 'sub'; }
 const { page = 'home' } = Astro.props;
 const home = page === 'home' ? '' : withBase('/');
 const recruitOpen = site.求人?.公開 === true;
