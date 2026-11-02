@@ -51,6 +51,8 @@ export type Profile = {
   default_end_min: number | null;
   /** 普段お休みの曜日（0=日 … 6=土） */
   off_weekdays: number[];
+  /** 名前チップに出す短い名前。null なら姓（同じ姓の人を見分けるため・0060） */
+  short_name?: string | null;
 };
 
 /** シフト1日ぶんの時間。start が null ＝ その人の基本を使う */

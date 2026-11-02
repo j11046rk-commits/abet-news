@@ -8,7 +8,7 @@ import ReservationCard from "@/components/ReservationCard";
 import { attentionReason } from "@/lib/attention";
 import { requireProfile } from "@/lib/auth";
 import { ACTIVE_STATUSES, TOTAL_SEATS, can, worksShifts } from "@/lib/constants";
-import { chipColors, surname } from "@/lib/staff";
+import { chipColors, chipName } from "@/lib/staff";
 import {
   getAllProfiles,
   getCourses,
@@ -64,7 +64,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     .filter(({ p }) => shiftIds.includes(p.id))
     .map(({ p, i }) => ({
       id: p.id,
-      name: surname(p.display_name),
+      name: chipName(p),
       colorIndex: i,
       def: defOf(p),
     }));
@@ -76,7 +76,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
     .filter(({ p }) => p.is_active && worksShifts(p.role))
     .map(({ p, i }) => ({
       id: p.id,
-      name: surname(p.display_name),
+      name: chipName(p),
       colorIndex: i,
       def: defOf(p),
     }));

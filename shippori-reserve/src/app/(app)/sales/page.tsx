@@ -20,7 +20,7 @@ import {
 } from "@/lib/queries";
 import { fmtYen, hitOf, salesView } from "@/lib/sales";
 import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
-import { surname } from "@/lib/staff";
+import { chipName } from "@/lib/staff";
 import {
   fmtMonthJa,
   fmtYm,
@@ -138,7 +138,7 @@ export default async function SalesPage({
     }
   }
   const contrib = shiftEligible
-    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i, stars: stars.get(p.id) ?? 0 }))
+    .map(({ p, i }) => ({ id: p.id, name: chipName(p), colorIndex: i, stars: stars.get(p.id) ?? 0 }))
     .sort((a, b) => b.stars - a.stars);
 
   return (

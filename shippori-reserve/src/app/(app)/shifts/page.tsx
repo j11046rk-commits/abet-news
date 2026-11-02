@@ -2,7 +2,7 @@ import Link from "next/link";
 import ShiftBoard, { type BoardDay, type BoardStaff } from "@/components/ShiftBoard";
 import { requireProfile } from "@/lib/auth";
 import { can, worksShifts } from "@/lib/constants";
-import { surname } from "@/lib/staff";
+import { chipName } from "@/lib/staff";
 import {
   deriveBusinessDay,
   getAllProfiles,
@@ -76,7 +76,7 @@ export default async function ShiftsPage({
   const staff: BoardStaff[] = profiles
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => p.is_active && worksShifts(p.role))
-    .map(({ p, i }) => ({ id: p.id, name: surname(p.display_name), colorIndex: i }));
+    .map(({ p, i }) => ({ id: p.id, name: chipName(p), colorIndex: i }));
 
   const manager = profiles.find((p) => p.role === "manager" && p.is_active);
 

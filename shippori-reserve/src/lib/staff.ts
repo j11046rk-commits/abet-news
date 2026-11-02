@@ -12,6 +12,13 @@ export const staffHue = (index: number): number => (index * 40 + 15) % 360;
 /** チップに載せる短い名前。「安藤 正」→「安藤」 */
 export const surname = (name: string): string => name.split(/[\s　]/)[0];
 
+/**
+ * スタッフの名前チップの表示名。決めてあればそれ（古賀 杏奈 →「杏奈」）、無ければ姓。
+ * 同じ姓の人がいても見分けられるように（店主要望 2026-11-02）。
+ */
+export const chipName = (p: { display_name: string; short_name?: string | null }): string =>
+  p.short_name?.trim() || surname(p.display_name);
+
 /** 濃紺の地の上で読める、控えめな色チップ */
 export const chipColors = (index: number) => {
   const h = staffHue(index);

@@ -9,7 +9,7 @@ import { requirePermission } from "@/lib/auth";
 import { SOURCE_SHORT } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
 import { computeSeatUsage, isSeatFull, seatKind, seatShort } from "@/lib/seats";
-import { chipColors, surname } from "@/lib/staff";
+import { chipColors, chipName } from "@/lib/staff";
 import {
   deriveBusinessDay,
   getAllProfiles,
@@ -173,6 +173,8 @@ async function MonthList({
   const shiftMap = shiftsPublishedAt ? shiftMapRaw : new Map<string, string[]>();
 
   const names = new Map(profiles.map((p) => [p.id, p.display_name]));
+  // 名前チップの表示名（決めてあればそれ・無ければ姓）
+  const chips = new Map(profiles.map((p) => [p.id, chipName(p)]));
   const colorIndex = new Map(profiles.map((p, i) => [p.id, i]));
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
 
@@ -292,7 +294,7 @@ async function MonthList({
                     ? null
                     : shiftIds.map((id) => (
                         <span key={id} className="shiftchip" style={chipColors(colorIndex.get(id) ?? 0)}>
-                          {surname(names.get(id) ?? "?")}
+                          {chips.get(id) ?? "?"}
                         </span>
                       ))}
 
@@ -337,7 +339,7 @@ async function MonthList({
                   <ShiftTimeBar
                     entries={shiftIds.map((id): ShiftBarEntry => {
                       const t = resolveShiftTime(todayShifts.times[id] ?? null, defMap.get(id) ?? null);
-                      const nm = surname(names.get(id) ?? "?");
+                      const nm = chips.get(id) ?? "?";
                       const ci = colorIndex.get(id) ?? 0;
                       if (!t) return { name: nm, colorIndex: ci, start: 1020, end: 1500, wholeDay: true };
                       return { name: nm, colorIndex: ci, start: t.start, end: t.end ?? day.close_min };
