@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const me = await requireProfile();
+  // オーナー・店長だけに見せる欄（人時売上の取り込み状況・HPのダッシュボード）
   const manageFreee = can(me.role, "settings.write");
   const laborStatus = manageFreee ? await getLaborStatus() : null;
   const [settings, courses, seats] = await Promise.all([
@@ -90,6 +91,29 @@ export default async function SettingsPage() {
             ))}
           </dl>
         </section>
+
+        {/* HPのアクセス管理ダッシュボード（shipporitei.jp/dashboard）への入口（店主要望 2026-11-02）。
+            ダッシュボード側に合言葉のロックがあるので、ここはリンクを置くだけ。オーナー・店長にだけ見せる */}
+        {manageFreee ? (
+          <>
+            <h2 className="section-title">ホームページ</h2>
+            <div className="card">
+              <a
+                href="https://shipporitei.jp/dashboard/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn"
+                style={{ width: "100%", textAlign: "center" }}
+              >
+                アクセス管理ダッシュボードを開く
+              </a>
+              <p className="micro" style={{ marginTop: "0.5rem" }}>
+                ホームページの訪問数・どこから来たか・押されたボタン、ネット予約の集計が見られます（直近28日）。
+                初回だけ合言葉の入力があります。
+              </p>
+            </div>
+          </>
+        ) : null}
 
         <h2 className="section-title">タブレット</h2>
         <div className="card">
