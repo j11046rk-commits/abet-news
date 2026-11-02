@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { LABOR_FROM } from "@/lib/labor";
 import {
   CLOSED_WEEKDAYS,
   DEFAULT_CLOSE_MIN,
@@ -318,7 +319,8 @@ export async function getMonthLabor(ym: string): Promise<Map<string, { workMin: 
   const { data, error } = await supabase
     .from("labor_daily")
     .select("biz_date, work_min, headcount")
-    .gte("biz_date", from)
+    // 出し始める日より前は使わない（8月までは外注の時間が freee に無い・lib/labor.ts）
+    .gte("biz_date", from > LABOR_FROM ? from : LABOR_FROM)
     .lte("biz_date", to);
   warnQuery("getMonthLabor", error);
   return new Map(
