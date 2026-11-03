@@ -1,0 +1,72 @@
+---
+// 季節のコース（忘年会・新年会プランなど）。site.json の「季節プラン」から出す（2026-11-03）。
+// トップの宴会欄と /enkai の両方に置く。公開=false なら何も出さない。
+import site from '../../data/site.json';
+import Icon from './Icon.astro';
+import { withBase } from '../lib/text.js';
+
+const sp = (site as any).季節プラン;
+const s = site.店舗情報;
+const tel = s.電話番号.replace(/-/g, '');
+const lineURL = (site.予約問い合わせ.lineURL || '').trim();
+---
+{sp?.公開 && (
+  <section class="sp" id="plan" aria-labelledby="sp-title">
+    <p class="sp__kicker">SEASON PLAN</p>
+    <h3 class="sp__title" id="sp-title">{sp.見出し}</h3>
+    <p class="sp__lead">{sp.リード}</p>
+    <div class="sp__plans">
+      {sp.プラン.map((p: any) => (
+        <div class="sp__plan">
+          <span class="sp__name">{p.名称}</span>
+          <span class="sp__price">{p.価格}</span>
+        </div>
+      ))}
+    </div>
+    <p class="sp__drink"><Icon name="beer" size={18} /> {sp.飲み放題}</p>
+    <p class="sp__cond">{sp.条件}</p>
+    {sp.チラシ画像 && (
+      <a class="sp__flyer" href={withBase(sp.チラシ画像)} target="_blank" rel="noopener">
+        <img src={withBase(sp.チラシ画像)} alt={sp.チラシalt} loading="lazy" decoding="async" width="1400" height="881" />
+      </a>
+    )}
+    <div class="sp__cta">
+      <a class="btn btn--primary" href={`tel:${tel}`}>
+        <Icon name="phone" size={18} /> <span>電話で予約</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+      </a>
+      {lineURL && (
+        <a class="btn btn--ghost" href={lineURL} target="_blank" rel="noopener noreferrer">
+          <Icon name="line" size={18} /> <span>LINEで予約・相談</span>
+        </a>
+      )}
+    </div>
+  </section>
+)}
+
+<style>
+  .sp {
+    margin: 0 auto 2rem;
+    max-width: 52rem;
+    padding: clamp(1.2rem, 4vw, 1.8rem);
+    border-radius: var(--radius);
+    border: 1px solid var(--gold);
+    background: linear-gradient(180deg, rgba(210, 162, 92, 0.1), rgba(210, 162, 92, 0.03));
+    text-align: center;
+  }
+  .sp__kicker { margin: 0; font-size: 0.72rem; letter-spacing: 0.34em; color: var(--gold); }
+  .sp__title { margin: 0.3rem 0 0; font-family: var(--font-serif); font-size: clamp(1.4rem, 5vw, 1.9rem); color: var(--gold-soft); }
+  .sp__lead { margin: 0.5rem 0 1rem; color: var(--text-dim); }
+  .sp__plans { display: grid; gap: 0.6rem; }
+  @media (min-width: 640px) { .sp__plans { grid-template-columns: repeat(3, 1fr); } }
+  .sp__plan {
+    display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 0.6rem;
+    border-radius: var(--radius); background: var(--bg-3); border: 1px solid var(--line);
+  }
+  .sp__name { font-weight: 700; }
+  .sp__price { font-family: var(--font-serif); font-size: 1.45rem; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+  .sp__drink { margin: 1rem 0 0; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--gold-soft); }
+  .sp__cond { margin: 0.3rem 0 0; font-size: 0.88rem; color: var(--text-dim); }
+  .sp__flyer { display: block; margin: 1.1rem auto 0; max-width: 40rem; }
+  .sp__flyer img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+  .sp__cta { margin-top: 1.1rem; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; }
+</style>
