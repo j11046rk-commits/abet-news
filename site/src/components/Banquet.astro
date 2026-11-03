@@ -3,6 +3,7 @@ import site from '../../data/site.json';
 import { withBase } from '../lib/text.js';
 import { isTBC, tbcHint } from '../lib/text.js';
 import Icon from './Icon.astro';
+import SeasonPlans from './SeasonPlans.astro';
 const b = site.宴会コース;
 const tel = site.店舗情報.電話番号.replace(/-/g, '');
 const telDisp = site.店舗情報.電話番号表示用;
@@ -26,6 +27,9 @@ const facts = [
       <h2 class="section__title" id="banquet-title">{b.見出し}</h2>
       <p class="section__lead">{b.リード}</p>
     </div>
+
+    <!-- 季節のコース（忘年会・新年会プランなど・site.json 季節プラン） -->
+    <SeasonPlans />
 
     <!-- 幹事チェック表 -->
     <ul class="facts" aria-label="宴会の基本情報">

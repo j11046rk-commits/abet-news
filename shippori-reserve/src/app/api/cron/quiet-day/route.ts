@@ -45,6 +45,8 @@ import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 const QUIET_MAX_HEADS = 4;
 /** 前回の配信からこれだけ空ける（日）。変えたいときはここを直す（店主指定 2026-08） */
 const GAP_DAYS = 7;
+/** 店主が手で送る告知（kind='manual'）の前後この日数は、自動のクーポンを送らない（店主指示 2026-11-03） */
+const MANUAL_GAP_DAYS = 3;
 /** ひと月の配信の上限（店主指定 2026-08）。7日間隔だけだと月初から刻んだ月に5回入る */
 const MONTHLY_CAP = 4;
 
@@ -111,6 +113,23 @@ export async function GET(request: Request) {
     .maybeSingle<{ sent_at: string }>();
   if (last && Date.now() - new Date(last.sent_at).getTime() < GAP_DAYS * 86400_000) {
     return NextResponse.json({ ok: true, skipped: "too-soon", last: last.sent_at });
+  }
+
+  /*
+   * ⑤-2 店主が手で送る告知（忘年会・新年会プランなど）の前後3日は送らない（店主指示 2026-11-03）。
+   *   毎日のように届くとブロックされる。手で送る日は line_broadcasts に kind='manual' で
+   *   予定日（sent_at）を入れておく——まだ先の日付でも、その3日前から止まる。
+   */
+  const { data: nearManual } = await admin
+    .from("line_broadcasts")
+    .select("sent_at, note")
+    .neq("kind", "quiet_day")
+    .gte("sent_at", new Date(Date.now() - MANUAL_GAP_DAYS * 86400_000).toISOString())
+    .lte("sent_at", new Date(Date.now() + MANUAL_GAP_DAYS * 86400_000).toISOString())
+    .limit(1)
+    .maybeSingle<{ sent_at: string; note: string | null }>();
+  if (nearManual) {
+    return NextResponse.json({ ok: true, skipped: "near-manual-broadcast", manual: nearManual.sent_at });
   }
 
   // ⑥ 月4回まで。月の区切りは日本時間の暦月で数える
