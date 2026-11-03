@@ -8,6 +8,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import BottomNav from '../components/BottomNav.astro';
 import Icon from '../components/Icon.astro';
+import SeasonPlans from '../components/SeasonPlans.astro';
 import site from '../../data/site.json';
 import { withBase } from '../lib/text.js';
 
@@ -85,6 +86,7 @@ const faqLd = {
 
     <section class="section">
       <div class="container">
+        <SeasonPlans />
         <div class="section__head">
           <p class="section__kicker">COURSE</p>
           <h2 class="section__title">コース・プラン</h2>
