@@ -42,7 +42,7 @@ export const GET: APIRoute = ({ site: base }) => {
     `- 請求書: ${b.請求書対応}`,
     `- 詳細: ${url('/enkai')}`,
     '',
-    ...(site.季節プラン?.公開
+    ...(site.季節プラン?.公開 && new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10) <= (site.季節プラン.掲載期限 ?? '9999-12-31')
       ? [
           `## ${site.季節プラン.見出し}`,
           ...site.季節プラン.プラン.map((p: any) => `- ${p.名称}: ${p.価格}`),
