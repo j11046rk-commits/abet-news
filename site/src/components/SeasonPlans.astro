@@ -5,12 +5,15 @@ import site from '../../data/site.json';
 import Icon from './Icon.astro';
 import { withBase } from '../lib/text.js';
 
-const sp = (site as any).季節プラン;
+const raw = (site as any).季節プラン;
+// 掲載期限（日本時間のその日いっぱい）を過ぎたら出さない。サイトは毎時ビルドし直すので翌日には消える
+const jstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const sp = raw && raw.公開 && (!raw.掲載期限 || jstToday <= raw.掲載期限) ? raw : null;
 const s = site.店舗情報;
 const tel = s.電話番号.replace(/-/g, '');
 const lineURL = (site.予約問い合わせ.lineURL || '').trim();
 ---
-{sp?.公開 && (
+{sp && (
   <section class="sp" id="plan" aria-labelledby="sp-title">
     <p class="sp__kicker">SEASON PLAN</p>
     <h3 class="sp__title" id="sp-title">{sp.見出し}</h3>
@@ -19,7 +22,8 @@ const lineURL = (site.予約問い合わせ.lineURL || '').trim();
       {sp.プラン.map((p: any) => (
         <div class="sp__plan">
           <span class="sp__name">{p.名称}</span>
-          <span class="sp__price">{p.価格}</span>
+          <span class="sp__price">{p.価格.split('（')[0]}</span>
+          <span class="sp__unit">{p.価格.includes('（') ? p.価格.slice(p.価格.indexOf('（')) : ''}</span>
         </div>
       ))}
     </div>
@@ -64,6 +68,7 @@ const lineURL = (site.予約問い合わせ.lineURL || '').trim();
   }
   .sp__name { font-weight: 700; }
   .sp__price { font-family: var(--font-serif); font-size: 1.45rem; color: var(--gold-soft); font-variant-numeric: tabular-nums; }
+  .sp__unit { font-size: 0.78rem; color: var(--text-dim); }
   .sp__drink { margin: 1rem 0 0; display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--gold-soft); }
   .sp__cond { margin: 0.3rem 0 0; font-size: 0.88rem; color: var(--text-dim); }
   .sp__flyer { display: block; margin: 1.1rem auto 0; max-width: 40rem; }
