@@ -59,16 +59,16 @@ export async function POST(request: Request) {
   // それを本物と同じに扱うと、ボットが来るたびにLINEが鳴る。
   let lineNotified = false;
   if (result.ok && result.reference !== BOT_REFERENCE) {
-    await notifyLine(body, result.seat_note);
+    await notifyLine(body, result.seat_note, result.course_label);
     // LINEで予約されたお客様には、ご本人にも控えを送る
-    lineNotified = await notifyCustomer(result.line_user_id, body, result.reference);
+    lineNotified = await notifyCustomer(result.line_user_id, body, result.reference, result.course_label);
   }
 
   // LINEのIDは画面に返さない。ご本人のIDとはいえ、要らないものを外に出さない。
   // 代わりに「LINEの予約として通ったか」「控えが実際に送れたか」だけを返す——
   // 画面はこれを見て文言を選ぶ。送れていないのに「お送りしました」と出さないため。
   if (result.ok) {
-    const { line_user_id: _omit, ...safe } = result;
+    const { line_user_id: _omit, course_label: _c, ...safe } = result;
     return NextResponse.json(
       { ...safe, via_line: !!result.line_user_id, line_notified: lineNotified },
       { status: 200 },
@@ -90,6 +90,7 @@ async function notifyCustomer(
   lineUserId: string | undefined,
   body: NetBookingInput,
   reference: string,
+  courseLabel?: string,
 ): Promise<boolean> {
   if (!lineUserId) return false;
   try {
@@ -106,6 +107,7 @@ async function notifyCustomer(
         "",
         when,
         `${Number(body?.party) || "?"}名様`,
+        ...(courseLabel ? [`コース：${courseLabel}`] : []),
         `予約番号 ${reference}`,
         "",
         "ご変更・キャンセルは、このトークにそのままご連絡ください。",
@@ -131,7 +133,7 @@ async function notifyCustomer(
  * 通知が失敗しても予約は成立させる。await するのは、返事を返した後だと
  * Vercelの関数が途中で止められて送信が消えるため。上限3秒で必ず抜ける。
  */
-async function notifyLine(body: NetBookingInput, seatNote: string): Promise<void> {
+async function notifyLine(body: NetBookingInput, seatNote: string, courseLabel?: string): Promise<void> {
   try {
     const date = String(body?.date ?? "");
     const min = Number(body?.start_min);
@@ -147,6 +149,7 @@ async function notifyLine(body: NetBookingInput, seatNote: string): Promise<void
         when,
         `${surname(String(body?.name ?? "お客様"))}様 ${Number(body?.party) || "?"}名`,
         seatNote && seatNote !== "指定なし" ? seatNote : "",
+        courseLabel ? `🍲 ${courseLabel}` : "",
         "",
         `${app}/day/${date}`,
       ]

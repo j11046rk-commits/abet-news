@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants";
 import { computeSeatUsage, COUNTER_NAME, NO_SEAT, unitOfSeatKey } from "@/lib/seats";
 import { verifyLineIdToken } from "@/lib/line-login";
+import { courseBlockReason, type NetCourse } from "@/lib/net-course";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
 import { pushLine, pushLineUser } from "@/lib/line";
@@ -535,6 +536,10 @@ export type NetBookingInput = {
    * **中身は信じない**——サーバーでLINEに検証してもらってから使う。
    */
   line_id_token?: string;
+  /** 選んだコース（任意・2026-11-03〜）。空なら席のみ */
+  course_id?: string;
+  /** コースに飲み放題を付けるか */
+  drink_plan?: boolean;
 };
 
 export type NetBookingResult =
@@ -545,6 +550,8 @@ export type NetBookingResult =
       cancel_token?: string;
       /** 確かめられたLINEのID。ご本人への連絡にだけ使う（画面には返さない） */
       line_user_id?: string;
+      /** 選ばれたコース（店への通知・ご本人の控えに載せる） */
+      course_label?: string;
     }
   | { ok: false; error: string; code?: "RETRY" | "REJECT" | "SMS" };
 
@@ -673,6 +680,27 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   }
 
   /*
+   * コース（任意）。選べる条件は画面と同じ関数（lib/net-course）で見直す。
+   * 画面の表示を信じない——前日を過ぎた・人数を減らした・期間が終わった、を
+   * ここで必ず弾く（店主指定：前日までのご予約に限る）。
+   */
+  let course: NetCourse | null = null;
+  const courseId = (input.course_id ?? "").trim();
+  if (courseId) {
+    const { data: c } = await admin
+      .from("courses")
+      .select("id, name, price_yen, min_party, note, net_until, is_active")
+      .eq("id", courseId)
+      .maybeSingle<NetCourse & { is_active: boolean }>();
+    if (!c || !c.is_active || !c.net_until) {
+      return { ok: false, error: "そのコースは選べなくなりました。選び直してください。", code: "RETRY" };
+    }
+    const why = courseBlockReason(c, input.date, party, today);
+    if (why) return { ok: false, error: `コースを選び直してください（${why}）。`, code: "RETRY" };
+    course = c;
+  }
+
+  /*
    * LINEの身分証を確かめる（あれば）。席・時間の検査を全部通ってから。
    *
    * ★確かめられた人には、SMSを送らない。
@@ -789,6 +817,21 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
   const reference = row.reference as string;
 
   /*
+   * コースは予約の行に後から書き込む（net_reserve の引数を増やさない）。
+   * 書き込めなくても予約は成立しているので失敗にはしない——ただし店に
+   * 伝わらないと困るので、ログと通知（course_label）で拾えるようにする。
+   */
+  let courseLabel: string | undefined;
+  if (course) {
+    courseLabel = `${course.name}${input.drink_plan ? "＋100分飲み放題" : ""}`;
+    const { error: cErr } = await admin
+      .from("reservations")
+      .update({ course_id: course.id, drink_plan: !!input.drink_plan })
+      .eq("reference", reference);
+    if (cErr) console.error("net_course_update_failed", cErr.message);
+  }
+
+  /*
    * キャンセル用の合言葉を取ってくる。
    *
    * 予約番号（R-2608-0038）は月ごとの連番なので、秘密にならない。
@@ -817,6 +860,7 @@ export async function createNetReservation(input: NetBookingInput): Promise<NetB
     seat_note: seatNote,
     cancel_token: cancelToken,
     line_user_id: identity?.userId,
+    course_label: courseLabel,
   };
 }
 
@@ -1003,4 +1047,22 @@ async function notifyCancelled(r: CancelRow): Promise<void> {
   } catch {
     // 通知が落ちても、キャンセルそのものは済んでいる
   }
+}
+
+/** ネット予約で選べるコース（期間内のもの）。予約画面に渡す */
+export async function listNetCourses(): Promise<NetCourse[]> {
+  const { data, error } = await createAdminClient()
+    .from("courses")
+    .select("id, name, price_yen, min_party, note, net_until")
+    .eq("is_active", true)
+    .not("net_until", "is", null)
+    .gte("net_until", todayBizDate())
+    .order("sort_order")
+    .returns<NetCourse[]>();
+  if (error) {
+    // コースの一覧が読めなくても、席の予約はできるようにする
+    console.error("net_courses_failed", error.message);
+    return [];
+  }
+  return data ?? [];
 }

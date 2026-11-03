@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { minutesToLabel, WEEKDAY_JA } from "@/lib/time";
 import { startLineLogin, useLiff } from "@/lib/use-liff";
+import { courseBlockReason, NET_COURSE_DRINK_YEN, type NetCourse } from "@/lib/net-course";
 
 /**
  * お客様向けネット予約（ログイン不要）。
@@ -39,6 +40,12 @@ type DayInfo = {
   seats: Seat[];
 };
 
+/** 今日の営業日（日本時間・朝4時までは前日）。コースの「前日まで」の判定に使う */
+const bizToday = () => {
+  const j = new Date(Date.now() + 9 * 3600 * 1000);
+  if (j.getUTCHours() < 4) j.setUTCDate(j.getUTCDate() - 1);
+  return j.toISOString().slice(0, 10);
+};
 const ymOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const addMonths = (ym: string, n: number) => {
   const [y, m] = ym.split("-").map(Number);
@@ -67,7 +74,7 @@ function track(event: string, params: Record<string, string | number>): void {
   if (typeof g === "function") g("event", event, params);
 }
 
-export default function NetBooking() {
+export default function NetBooking({ courses = [] }: { courses?: NetCourse[] }) {
   const thisYm = ymOf(new Date());
   const maxYm = addMonths(thisYm, 2);
 
@@ -85,6 +92,9 @@ export default function NetBooking() {
   const [kana, setKana] = useState("");
   const [phone, setPhone] = useState("");
   const [memo, setMemo] = useState("");
+  /** 選んだコース（空＝席のみ）と飲み放題（2026-11-03〜・忘年会・新年会プラン） */
+  const [courseId, setCourseId] = useState("");
+  const [drink, setDrink] = useState(false);
   const [website, setWebsite] = useState(""); // ハニーポット（見えない欄）
 
   const [step, setStep] = useState<"pick" | "confirm" | "done">("pick");
@@ -103,7 +113,7 @@ export default function NetBooking() {
     try {
       sessionStorage.setItem(
         DRAFT_KEY,
-        JSON.stringify({ at: Date.now(), party, ym, date, min, seat, sei, mei, kana, phone, memo }),
+        JSON.stringify({ at: Date.now(), party, ym, date, min, seat, sei, mei, kana, phone, memo, courseId, drink }),
       );
     } catch {
       // プライベートモード等で書けなくても、予約そのものは続けられる
@@ -126,6 +136,8 @@ export default function NetBooking() {
       if (typeof d.kana === "string") setKana(d.kana);
       if (typeof d.phone === "string") setPhone(d.phone);
       if (typeof d.memo === "string") setMemo(d.memo);
+      if (typeof d.courseId === "string") setCourseId(d.courseId);
+      if (typeof d.drink === "boolean") setDrink(d.drink);
       /*
        * 復元しただけでは、その日の空き情報（dayInfo）が無い。取り直さないと、
        * LINEの認証が切れていたときに「SMSが要る日か」が分からず、
@@ -306,6 +318,15 @@ export default function NetBooking() {
   // 「SMSで確認してください」と言われるのに入力欄が出ない行き止まりになる
   const smsRequired = forceSms || (dayInfo?.sms_required === true && !liff.ready);
   const seatDone = isEvent || seat !== null;
+  const pickedCourse = courses.find((c) => c.id === courseId) ?? null;
+  // 人数・日付を変えてコースの条件から外れたら、選択を外す（選べないコースのまま確認へ進ませない）
+  useEffect(() => {
+    if (pickedCourse && courseBlockReason(pickedCourse, date, party, bizToday())) {
+      setCourseId("");
+      setDrink(false);
+    }
+  }, [pickedCourse, date, party]);
+
   const canConfirm =
     date !== null &&
     min !== null &&
@@ -335,6 +356,8 @@ export default function NetBooking() {
           kana,
           phone,
           memo,
+          course_id: courseId || undefined,
+          drink_plan: courseId ? drink : undefined,
           sms_code: smsCode,
           line_id_token: liff.idToken ?? undefined,
           website,
@@ -552,6 +575,16 @@ export default function NetBooking() {
           <div><dt>お席</dt><dd>{isEvent ? "自由席（イベント営業）" : seat?.label}</dd></div>
           <div><dt>お名前</dt><dd>{fullName}{kana.trim() ? `（${kana.trim()}）` : ""} 様</dd></div>
           <div><dt>電話番号</dt><dd>{phone}</dd></div>
+          {pickedCourse && (
+            <div>
+              <dt>コース</dt>
+              <dd>
+                {pickedCourse.name}
+                {pickedCourse.price_yen != null ? `（${pickedCourse.price_yen.toLocaleString()}円・税込／おひとり）` : ""}
+                {drink ? `＋100分飲み放題（${NET_COURSE_DRINK_YEN.toLocaleString()}円・税込／おひとり）` : ""}
+              </dd>
+            </div>
+          )}
           {memo.trim() && <div><dt>ご要望</dt><dd>{memo.trim()}</dd></div>}
         </dl>
         <p className="net__fineprint">
@@ -876,6 +909,38 @@ export default function NetBooking() {
           </>
         )}
       </section>
+
+      {courses.length > 0 && (
+        <section className="net__card">
+          <h2 className="net__step-title">コース（任意）</h2>
+          <p className="net__hint">
+            コースは前日までのご予約で選べます。当日のご注文でよければ「席のみ」のままで大丈夫です。
+          </p>
+          <div className="net__courses">
+            <label className={`net__course${courseId === "" ? " net__course--on" : ""}`}>
+              <input type="radio" name="net-course" checked={courseId === ""} onChange={() => { setCourseId(""); setDrink(false); }} />
+              <span className="net__course-name">席のみ（お料理は当日ご注文）</span>
+            </label>
+            {courses.map((c) => {
+              const why = courseBlockReason(c, date, party, bizToday());
+              return (
+                <label key={c.id} className={`net__course${courseId === c.id ? " net__course--on" : ""}${why ? " net__course--off" : ""}`}>
+                  <input type="radio" name="net-course" checked={courseId === c.id} disabled={!!why} onChange={() => setCourseId(c.id)} />
+                  <span className="net__course-name">{c.name}</span>
+                  {c.price_yen != null && <span className="net__course-price">{c.price_yen.toLocaleString()}円（税込）／おひとり</span>}
+                  {why && <span className="net__course-why">{why}</span>}
+                </label>
+              );
+            })}
+          </div>
+          {courseId && (
+            <label className="net__drink">
+              <input type="checkbox" checked={drink} onChange={(e) => setDrink(e.target.checked)} />
+              100分飲み放題を付ける（＋{NET_COURSE_DRINK_YEN.toLocaleString()}円・税込／おひとり）
+            </label>
+          )}
+        </section>
+      )}
 
       <section className="net__card" ref={formRef}>
         <h2 className="net__step-title"><span className="net__no">5</span>お客様情報</h2>
