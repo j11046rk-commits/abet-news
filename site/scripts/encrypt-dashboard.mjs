@@ -81,8 +81,8 @@ const gate = `<!doctype html>
   <form class="box" id="f">
     <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
     <h1>アクセス管理ダッシュボード</h1>
-    <p>閲覧には合言葉が必要です</p>
-    <input id="pw" type="password" autocomplete="current-password" placeholder="パスワード" />
+    <p>閲覧には合言葉が必要です<br />（予約管理システムのパスワードとは別のものです）</p>
+    <input id="pw" type="password" name="dashboard-word" autocomplete="off" data-lpignore="true" data-1p-ignore placeholder="合言葉" />
     <label class="remember"><input id="rm" type="checkbox" checked /> このブラウザに記憶する（次回から自動）</label>
     <button id="b" type="submit">表示する</button>
     <div class="err" id="e"></div>
