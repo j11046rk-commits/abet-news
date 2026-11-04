@@ -1,0 +1,32 @@
+# その日のアクセスの内訳（流入元・入口ページ・時間帯）をログに出す単発実行ツール。
+# 開発環境からはGA4に直接届かないため、Actions（シークレットあり）で取得する。
+# 出すのは集計値だけ（鍵やIDはログに出さない）。
+name: ga4-day
+on:
+  workflow_dispatch:
+    inputs:
+      day:
+        description: "調べる日（YYYY-MM-DD・空なら今日）"
+        required: false
+      compare_from:
+        description: "比べ始める日（空なら14日前）"
+        required: false
+permissions:
+  contents: read
+jobs:
+  day:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - env:
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          GA4_SA_KEY: ${{ secrets.GA4_SA_KEY }}
+          DAY: ${{ inputs.day }}
+          COMPARE_FROM: ${{ inputs.compare_from }}
+        run: node scripts/ga4-day.mjs
