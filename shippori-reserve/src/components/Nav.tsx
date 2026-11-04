@@ -19,8 +19,12 @@ const TABS = [
   { href: "/settings", label: "設定", icon: "⚙" },
 ];
 
-export default function Nav() {
+export default function Nav({ haccp = false }: { haccp?: boolean }) {
   const pathname = usePathname();
+  // 衛生管理（2026-11・店主要望）。記録する人（オーナー・店長・スタッフ）にだけ出す
+  const tabs = haccp
+    ? [...TABS.slice(0, 3), { href: "/haccp", label: "衛生", icon: "✓" }, TABS[3]]
+    : TABS;
 
   const isCurrent = (href: string) =>
     href === "/"
@@ -33,7 +37,7 @@ export default function Nav() {
 
   return (
     <nav className="tabbar" aria-label="メインナビゲーション">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <Link
           key={t.href}
           href={t.href}

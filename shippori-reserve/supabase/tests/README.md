@@ -46,3 +46,12 @@ psql -d shippori -f supabase/tests/01-rls-and-constraints.sql
 `00-local-shim.sql` は要りません（`auth` スキーマは既にあります）。
 ただし `01-...sql` はセッション変数でユーザーを装う作りなので、そのままでは通りません。
 本番同等の確認は、実際にスタッフのアカウントでログインして画面から触るのが確実です。
+
+## 衛生管理（0063）
+
+```bash
+psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/02-haccp.sql
+```
+
+1つのトランザクションで流して最後に巻き戻すので、何も残りません。
+「PASS:」が並び、最後に `ALL HACCP TESTS PASSED` が出れば合格。外れると `FAIL:` で止まります。

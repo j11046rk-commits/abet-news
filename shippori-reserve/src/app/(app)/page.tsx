@@ -6,7 +6,9 @@ import Link from "next/link";
 import NoteLine from "@/components/NoteLine";
 import ScrollTo from "@/components/ScrollTo";
 import { requirePermission } from "@/lib/auth";
-import { SOURCE_SHORT } from "@/lib/constants";
+import { can, SOURCE_SHORT } from "@/lib/constants";
+import { getDaysHaccp, getPlans } from "@/lib/haccp-data";
+import { planForDate, type DayHaccp } from "@/lib/haccp";
 import { isHoliday } from "@/lib/holidays";
 import { computeSeatUsage, isSeatFull, seatKind, seatShort } from "@/lib/seats";
 import { chipColors, chipName } from "@/lib/staff";
@@ -67,7 +69,7 @@ export default async function MonthPage({
 }: {
   searchParams: Promise<{ m?: string; d?: string }>;
 }) {
-  await requirePermission("reservation.read");
+  const me = await requirePermission("reservation.read");
   const sp = await searchParams;
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
@@ -102,7 +104,7 @@ export default async function MonthPage({
       </header>
 
       <Suspense fallback={<MonthSkeleton />}>
-        <MonthList ym={ym} focus={focus} today={today} />
+        <MonthList ym={ym} focus={focus} today={today} haccp={can(me.role, "haccp.record")} />
       </Suspense>
     </>
   );
@@ -123,10 +125,12 @@ async function MonthList({
   ym,
   focus,
   today,
+  haccp,
 }: {
   ym: string;
   focus: string | null;
   today: string;
+  haccp: boolean;
 }) {
   const [summaries, resvMap, shiftMapRaw, shiftsPublishedAt, profiles, seatUnits, courses, settings, salesMap, weatherMap, lineMap, couponDates, laborMap] =
     await Promise.all([
@@ -179,6 +183,16 @@ async function MonthList({
   const courseNames = new Map(courses.map((c) => [c.id, c.name]));
 
   const { from, to } = monthRange(ym);
+
+  /*
+   * 衛生管理（店主要望 2026-11-04）：暦で毎日チェックできるように。
+   * 過ぎた日で記録が揃っていなければ「衛生 未記録」のアラートを出す。
+   * 記録する人（オーナー・店長・スタッフ）にだけ出す。
+   */
+  const hcPlans = haccp ? await getPlans() : [];
+  const hcMap: Map<string, DayHaccp> | null = haccp ? await getDaysHaccp(from, to, today, { plans: hcPlans }) : null;
+  const hcAlertDays = hcMap ? [...hcMap.entries()].filter(([, s]) => s.alert).map(([d]) => d) : [];
+  const hcNoPlan = haccp && !planForDate(hcPlans, today);
   const dates: string[] = [];
   for (let d = from; d <= to; d = shiftDate(d, 1)) dates.push(d);
 
@@ -212,6 +226,17 @@ async function MonthList({
   return (
     <>
       <div className="wrap" style={{ paddingTop: "0.4rem" }}>
+        {hcAlertDays.length > 0 ? (
+          <Link className="hc-alert" href={`/haccp?d=${hcAlertDays[hcAlertDays.length - 1]}`} role="alert">
+            ⚠ 衛生チェックが済んでいない日が{hcAlertDays.length}日あります（
+            {hcAlertDays.map((d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}`).join("・")}）
+          </Link>
+        ) : null}
+        {hcNoPlan ? (
+          <Link className="notice" href="/haccp/plan" style={{ display: "block", marginBottom: "0.5rem" }}>
+            衛生管理計画がまだ確定していません（確定すると、暦に毎日の衛生チェックが出ます）
+          </Link>
+        ) : null}
         <LineFollowersKpi
           latest={lineLatest}
           monthGain={lineMonthGain}
@@ -281,6 +306,29 @@ async function MonthList({
               <div className="mrow__body">
                 <div className="mrow__top">
                   {day.is_closed ? <span className="badge badge--closed">休</span> : null}
+                  {(() => {
+                    // 衛生チェック：過ぎた日の未記録はアラート、今日は進み具合、済んだ日は✓
+                    const h = hcMap?.get(date);
+                    if (!h || h.state === "noplan" || h.state === "future" || h.state === "closed") return null;
+                    const extra = h.open > 0 ? `・対応中${h.open}` : "";
+                    if (h.alert)
+                      return (
+                        <Link href={`/haccp?d=${date}`} className="badge badge--hc-alert">
+                          ⚠ 衛生{h.state === "none" ? "未記録" : `残${h.required - h.filled}`}{extra}
+                        </Link>
+                      );
+                    if (date === today && h.state !== "complete")
+                      return (
+                        <Link href="/haccp" className="badge badge--hc-today">
+                          衛生 {h.filled}/{h.required}{extra}
+                        </Link>
+                      );
+                    return (
+                      <Link href={`/haccp?d=${date}`} className={`badge ${h.open > 0 ? "badge--hc-alert" : "badge--hc-ok"}`}>
+                        衛生✓{extra}
+                      </Link>
+                    );
+                  })()}
                   {/* 静かな日のクーポンを配信した日。当日限定の受付可否をレジで画面から判定できるように */}
                   {couponDates.has(date) ? (
                     <span className="badge badge--coupon">🎫 クーポン配信日</span>

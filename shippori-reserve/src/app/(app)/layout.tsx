@@ -1,10 +1,11 @@
 import Nav from "@/components/Nav";
 import BrandBar from "@/components/BrandBar";
 import { requireProfile } from "@/lib/auth";
+import { can } from "@/lib/constants";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // 未ログイン・停止中・初回パスワード未変更はここで弾かれる。
-  await requireProfile();
+  const me = await requireProfile();
 
   return (
     <div className="app">
@@ -16,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       */}
       <BrandBar />
       {children}
-      <Nav />
+      <Nav haccp={can(me.role, "haccp.record")} />
     </div>
   );
 }

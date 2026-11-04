@@ -33,7 +33,10 @@ export type PermissionCode =
   | "audit.read"
   | "shift.write"
   | "shiftrequest.write"
-  | "sales.write";
+  | "sales.write"
+  | "haccp.record"
+  | "haccp.manage"
+  | "haccp.approve";
 
 export type Profile = {
   id: string;

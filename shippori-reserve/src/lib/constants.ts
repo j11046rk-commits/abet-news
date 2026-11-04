@@ -106,14 +106,16 @@ const ALL_PERMISSIONS: PermissionCode[] = [
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
   // オーナー・店長＝確定シフトを組む側（shift.write）。
   // 一般スタッフ＝希望を出す側（shiftrequest.write）。店長は提出しない（店主指定）。
-  owner: ALL_PERMISSIONS,
-  manager: ALL_PERMISSIONS.filter((p) => p !== "account.write"),
+  // 衛生管理：記録＝オーナー・店長・スタッフ／確認・改善対応・計画の下書き＝オーナー・店長／承認＝オーナー（0063）
+  owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve"],
+  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage"],
   staff: [
     "reservation.read",
     "reservation.write",
     "reservation.override",
     "stats.read",
     "shiftrequest.write",
+    "haccp.record",
   ],
   // 事務＝予約対応と数字の閲覧はスタッフと同じ。シフト関連だけ持たない
   jimu: [
