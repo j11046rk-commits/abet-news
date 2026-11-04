@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import LoginForm from "./LoginForm";
 
-export const metadata: Metadata = { title: "しっぽり亭 予約管理" };
+export const metadata: Metadata = { title: "しっぽり亭店舗管理" };
 
 const MESSAGES: Record<string, string> = {
   noprofile: "このアカウントは登録されていません。オーナーにお問い合わせください。",
@@ -23,7 +23,7 @@ export default async function LoginPage({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-mark.png" alt="" className="gate__logo" />
           <h1 className="gate__title">
-            しっぽり亭 予約管理
+            しっぽり亭店舗管理
             <span className="brand-dot" aria-hidden>
               .
             </span>

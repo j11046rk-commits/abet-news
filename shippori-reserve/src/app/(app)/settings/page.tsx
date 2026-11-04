@@ -92,28 +92,18 @@ export default async function SettingsPage() {
           </dl>
         </section>
 
-        {/* HPのアクセス管理ダッシュボード（shipporitei.jp/dashboard）への入口（店主要望 2026-11-02）。
-            ダッシュボード側に合言葉のロックがあるので、ここはリンクを置くだけ。オーナー・店長にだけ見せる */}
-        {manageFreee ? (
-          <>
-            <h2 className="section-title">ホームページ</h2>
-            <div className="card">
-              <a
-                href="https://shipporitei.jp/dashboard/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn"
-                style={{ width: "100%", textAlign: "center" }}
-              >
-                アクセス管理ダッシュボードを開く
-              </a>
-              <p className="micro" style={{ marginTop: "0.5rem" }}>
-                ホームページの訪問数・どこから来たか・押されたボタン、ネット予約の集計が見られます（直近28日）。
-                初回だけ合言葉の入力があります。
-              </p>
-            </div>
-          </>
-        ) : null}
+        {/* HPのアクセス管理ダッシュボードへの入口（店主要望 2026-11-02）。
+            2026-11-04〜 合言葉をやめ、このアプリにログインしている人なら誰でも見られる（/hp-dashboard） */}
+        <h2 className="section-title">ホームページ</h2>
+        <div className="card">
+          <a href="/hp-dashboard" className="btn" style={{ width: "100%", textAlign: "center" }}>
+            アクセス管理ダッシュボードを開く
+          </a>
+          <p className="micro" style={{ marginTop: "0.5rem" }}>
+            ホームページの訪問数・どこから来たか・押されたボタン、ネット予約の集計が見られます（直近28日・1時間ごとに更新）。
+            合言葉は要りません。
+          </p>
+        </div>
 
         <h2 className="section-title">タブレット</h2>
         <div className="card">

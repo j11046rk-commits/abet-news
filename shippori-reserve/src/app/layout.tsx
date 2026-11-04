@@ -3,8 +3,8 @@ import "./globals.css";
 import ServiceWorker from "@/components/ServiceWorker";
 
 export const metadata: Metadata = {
-  title: "しっぽり亭 予約管理",
-  description: "しっぽり亭 店舗予約管理",
+  title: "しっぽり亭店舗管理",
+  description: "しっぽり亭 店舗管理アプリ（予約・シフト・売上）",
   // 予約データには氏名と電話番号が入る。検索エンジンに拾わせない。
   robots: { index: false, follow: false },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   // iOS は manifest の standalone を読まないので、こちらでも宣言する
   appleWebApp: {
     capable: true,
-    title: "しっぽり管理",
+    title: "しっぽり亭店舗管理",
     statusBarStyle: "black-translucent",
   },
 };

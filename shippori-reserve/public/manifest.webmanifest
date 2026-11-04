@@ -1,7 +1,7 @@
 {
-  "name": "しっぽり亭 予約管理",
-  "short_name": "しっぽり管理",
-  "description": "しっぽり亭 店舗予約管理",
+  "name": "しっぽり亭店舗管理",
+  "short_name": "しっぽり亭店舗管理",
+  "description": "しっぽり亭 店舗管理アプリ（予約・シフト・売上）",
   "start_url": "/login",
   "scope": "/",
   "display": "standalone",

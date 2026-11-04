@@ -1,4 +1,5 @@
 import Nav from "@/components/Nav";
+import BrandBar from "@/components/BrandBar";
 import { requireProfile } from "@/lib/auth";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         60秒ごとにサーバーで描き直していた。席ボードに至っては自前で15秒ごとに
         取り直しているので、その上から丸ごと描き直す二重の無駄になっていた。
       */}
+      <BrandBar />
       {children}
       <Nav />
     </div>

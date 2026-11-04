@@ -30,6 +30,8 @@
   --tabbar-h: 3.75rem;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* どの画面でも一番上に出すアプリ名の帯（BrandBar）の高さ。ノッチぶんはここが持つ */
+  --brand-h: calc(1.65rem + var(--safe-t));
 }
 
 * {
@@ -98,7 +100,7 @@ textarea {
 
 .appbar {
   position: sticky;
-  top: 0;
+  top: var(--brand-h);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -107,10 +109,28 @@ textarea {
     ホーム画面から起動(PWA)するとステータスバーの下に潜るので、ノッチぶんを上に足す。
     足すのはここだけ（.app 側にも入れていて、上の余白が二重になっていた）。
   */
-  padding: calc(0.55rem + var(--safe-t)) 1rem 0.55rem;
+  padding: 0.55rem 1rem;
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
+}
+
+/* アプリ名の帯（店主指定 2026-11-04：どのタブでも「しっぽり亭店舗管理アプリ」） */
+.brandbar {
+  position: sticky;
+  top: 0;
+  z-index: 21;
+  height: var(--brand-h);
+  padding: var(--safe-t) 1rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--gold-soft);
+  font-family: var(--font-serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
 }
 
 .appbar__title {
