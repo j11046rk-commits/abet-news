@@ -11,7 +11,9 @@ import {
 } from "@/lib/queries";
 import { can, SOURCES, STATUSES } from "@/lib/constants";
 import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
-import { minutesToIso } from "@/lib/time";
+import { fmtDateJa, minutesToIso, minutesToLabel } from "@/lib/time";
+import { pushLine } from "@/lib/line";
+import { surname } from "@/lib/staff";
 import type { Reservation, ReservationSource, ReservationStatus } from "@/lib/types";
 
 export type ReservationInput = {
@@ -183,10 +185,49 @@ export async function createReservation(input: ReservationInput): Promise<Action
     };
   }
 
+  // 店長LINEへ知らせる（店長会議 2026-11-04：現場にいない人が入れた予約にも気づけるように）
+  await notifyManualBooking(input, me.display_name);
+
   revalidatePath("/");
   revalidatePath("/reservations");
   revalidatePath("/day/[date]", "page");
   return { ok: true, id: data.id };
+}
+
+/**
+ * 手入力の予約も、ネット予約と同じく店長LINEに1通知らせる。
+ * 中身もネット予約の通知に揃える（日時・お名前の姓・人数・席・コース）。電話番号やメモは送らない。
+ * 誰が受けたか（受付者・流入元）を添える。送れなくても予約の登録には影響させない。
+ */
+async function notifyManualBooking(input: ReservationInput, registrar: string): Promise<void> {
+  try {
+    const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
+    let course = "";
+    if (input.course_id) {
+      const supabase = await createClient();
+      const { data } = await supabase.from("courses").select("name").eq("id", input.course_id).maybeSingle<{ name: string }>();
+      if (data?.name) course = `🍲 ${data.name}${input.drink_plan ? "＋飲み放題" : ""}`;
+    }
+    const source = SOURCES.find((s) => s.value === input.source)?.label ?? "";
+    const seat = (input.seat_note ?? "").trim();
+    await pushLine(
+      [
+        "🔔 予約が入りました（スタッフ入力）",
+        "",
+        `${fmtDateJa(`${input.biz_date}T12:00:00+09:00`)} ${minutesToLabel(input.start_min)}`,
+        `${surname(input.customer_name.trim() || "お客様")}様 ${input.party_size}名`,
+        seat && seat !== "指定なし" ? seat : "",
+        course,
+        `受付：${registrar}${source ? `（${source}）` : ""}`,
+        "",
+        `${app}/day/${input.biz_date}`,
+      ]
+        .filter((l) => l !== "")
+        .join("\n"),
+    );
+  } catch {
+    // 通知は落ちても予約に影響させない
+  }
 }
 
 /**
