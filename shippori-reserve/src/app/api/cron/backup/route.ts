@@ -48,7 +48,7 @@ const TABLES = [
   "line_broadcasts",
   "net_pause",
   "reference_counters",
-  // 衛生管理（0063）。計画→記録→異常→振り返りの順＝参照される側が先
+  // 衛生管理（0064）。計画→記録→異常→振り返りの順＝参照される側が先
   "haccp_plans",
   "haccp_plan_notices",
   "haccp_plan_acks",

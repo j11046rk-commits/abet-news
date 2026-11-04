@@ -47,7 +47,7 @@ psql -d shippori -f supabase/tests/01-rls-and-constraints.sql
 ただし `01-...sql` はセッション変数でユーザーを装う作りなので、そのままでは通りません。
 本番同等の確認は、実際にスタッフのアカウントでログインして画面から触るのが確実です。
 
-## 衛生管理（0063）
+## 衛生管理（0064）
 
 ```bash
 psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/02-haccp.sql
