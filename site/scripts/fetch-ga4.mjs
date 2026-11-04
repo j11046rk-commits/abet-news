@@ -98,7 +98,12 @@ async function main() {
   const { propertyId, sa } = await resolveCreds();
   const token = await getAccessToken(sa);
 
-  const [cur, prev, pages, channels, daily, devices, extra, actions] = await Promise.all([
+  // 予約・電話までの道のり（店主要望 2026-11-04）。HPの訪問を分母に、どこまで進んだか
+  // reserve_click＝HPのネット予約ボタン（2026-11-04〜計測）／reserve_complete＝予約アプリで予約が確定
+  const FUNNEL_EVENTS = ["reserve_click", "reserve_complete", "tel_click", "line_click"];
+  const hostFilter = (host) => ({ filter: { fieldName: "hostName", stringFilter: { matchType: "EXACT", value: host } } });
+
+  const [cur, prev, pages, channels, daily, devices, extra, actions, hpOnly, yoyakuOpen, funnelEv] = await Promise.all([
     runReport(propertyId, token, totalsBody(RANGE.start, RANGE.end)),
     runReport(propertyId, token, totalsBody(PREV.start, PREV.end)),
     runReport(propertyId, token, {
@@ -134,6 +139,31 @@ async function main() {
       dimensions: [{ name: "eventName" }],
       metrics: [{ name: "eventCount" }, { name: "sessions" }],
       dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: ACTION_EVENTS.map((a) => a.event) } } },
+    }),
+    // HP（shipporitei.jp）だけの訪問
+    runReport(propertyId, token, {
+      dateRanges: [{ startDate: RANGE.start, endDate: RANGE.end }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: hostFilter("shipporitei.jp"),
+    }),
+    // 予約画面（yoyaku.shipporitei.jp/yoyaku）を開いた訪問
+    runReport(propertyId, token, {
+      dateRanges: [{ startDate: RANGE.start, endDate: RANGE.end }],
+      metrics: [{ name: "sessions" }],
+      dimensionFilter: {
+        andGroup: {
+          expressions: [
+            hostFilter("yoyaku.shipporitei.jp"),
+            { filter: { fieldName: "pagePath", stringFilter: { matchType: "BEGINS_WITH", value: "/yoyaku" } } },
+          ],
+        },
+      },
+    }),
+    runReport(propertyId, token, {
+      dateRanges: [{ startDate: RANGE.start, endDate: RANGE.end }],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "eventCount" }, { name: "sessions" }],
+      dimensionFilter: { filter: { fieldName: "eventName", inListFilter: { values: FUNNEL_EVENTS } } },
     }),
   ]);
 
@@ -187,6 +217,21 @@ async function main() {
       pageviews: num(r.metricValues?.[2]?.value),
     })),
     actions: { items: actionList, total: totalActions },
+    funnel: (() => {
+      const ev = {};
+      for (const r of funnelEv.rows ?? []) {
+        ev[r.dimensionValues?.[0]?.value] = { count: num(r.metricValues?.[0]?.value), sessions: num(r.metricValues?.[1]?.value) };
+      }
+      const z = { count: 0, sessions: 0 };
+      return {
+        hpSessions: num(hpOnly.rows?.[0]?.metricValues?.[0]?.value),
+        yoyakuSessions: num(yoyakuOpen.rows?.[0]?.metricValues?.[0]?.value),
+        reserveClick: ev.reserve_click ?? z,
+        reserveComplete: ev.reserve_complete ?? z,
+        tel: ev.tel_click ?? z,
+        line: ev.line_click ?? z,
+      };
+    })(),
   };
 
   const dest = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data", "ga4.json");
