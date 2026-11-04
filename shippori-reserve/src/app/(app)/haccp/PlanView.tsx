@@ -76,7 +76,7 @@ export default function PlanView({ content }: { content: PlanContent }) {
               <td>
                 {[e.maxC != null ? `${e.maxC}℃以下` : "", e.minC != null ? `${e.minC}℃以上` : ""].filter(Boolean).join("・")}
               </td>
-              <td>{e.timings.map((t) => TIMING_LABEL[t]).join("・")}</td>
+              <td>{e.auto ? "温度計で自動記録" : e.timings.map((t) => TIMING_LABEL[t]).join("・")}</td>
               <td>{e.basis}</td>
             </tr>
           ))}

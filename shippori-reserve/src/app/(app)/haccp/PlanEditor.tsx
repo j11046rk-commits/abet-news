@@ -350,8 +350,16 @@ function EquipmentCard({
         onUse={(c) => on((x) => ({ ...x, maxC: c.apply.maxC ?? x.maxC, basis: `${c.label}（${c.source}）` }))}
       />
       <Field label="基準の根拠" value={e.basis} on={(v) => on((x) => ({ ...x, basis: v }))} />
-      <span className="field-label">測るとき</span>
-      {timingChips(e.timings, (v) => on((x) => ({ ...x, timings: v })), `${e.name}を測るとき`)}
+      <label className="hc-toggle">
+        <input type="checkbox" checked={!!e.auto} onChange={(ev) => on((x) => ({ ...x, auto: ev.target.checked }))} />
+        温度は温度計（SwitchBot）で自動記録する（毎日の入力に出さない）
+      </label>
+      {!e.auto ? (
+        <>
+          <span className="field-label">測るとき</span>
+          {timingChips(e.timings, (v) => on((x) => ({ ...x, timings: v })), `${e.name}を測るとき`)}
+        </>
+      ) : null}
       <button type="button" className="btn btn-danger btn-sm" onClick={remove}>この設備を外す</button>
     </section>
   );

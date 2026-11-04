@@ -206,3 +206,14 @@ test("CSV：BOM付き・空欄は空欄のまま・式は実行させない・�
   assert.ok(csv.includes("'=1+1,-18\r\n"));
   assert.ok(csv.includes('"a,b","""x"""'));
 });
+
+test("温度計で自動記録する設備は、毎日の入力にも「記録完了」の判定にも入らない（帳票には並ぶ）", () => {
+  const c = newPlanContent();
+  c.equipment.push({ id: "f1", name: "冷凍①", kind: "freezer", maxC: -15, minC: null, timings: [], basis: "", auto: true });
+  c.equipment.push({ id: "r1", name: "冷蔵①", kind: "fridge", maxC: 10, minC: null, timings: ["close"], basis: "" });
+  const daily = requiredChecks(c).map((r) => r.key);
+  assert.ok(!daily.includes("eq:f1:close") && daily.includes("eq:r1:close"));
+  assert.ok(requiredChecks(c, true).some((r) => r.key === "eq:f1:close"));
+  // 自動の設備は「測るとき」を決めなくても確定できる
+  assert.ok(!planIssues(header, c).some((s) => s.includes("冷凍①：測るタイミング")));
+});

@@ -215,6 +215,11 @@ export type Equipment = {
   timings: Timing[];
   /** 基準の根拠（候補から選んだ場合はその出典が入る） */
   basis: string;
+  /**
+   * 温度を温度計（SwitchBot）で自動記録する設備（店主指定 2026-11-04：温度の手入力はしない）。
+   * 毎日の入力項目には出さない。記録は自動計測が入れる
+   */
+  auto?: boolean;
 };
 
 // ── メニュー別の重要管理 ─────────────────────────────────────
@@ -537,7 +542,7 @@ export function planIssues(h: PlanHeader, c: PlanContent): string[] {
     const name = blank(e.name) ? "名前のない設備" : e.name;
     if (blank(e.name)) out.push("設備の名前が未設定です");
     if (!nn(e.maxC) && !nn(e.minC)) out.push(`${name}：温度の基準が未設定です`);
-    if (e.timings.length === 0) out.push(`${name}：測るタイミングが未設定です`);
+    if (!e.auto && e.timings.length === 0) out.push(`${name}：測るタイミングが未設定です`);
   }
 
   const groups = new Set<CcGroup>();
@@ -600,7 +605,11 @@ export type RequiredCheck = {
   temp: boolean;
 };
 
-export function requiredChecks(c: PlanContent): RequiredCheck[] {
+/**
+ * その日に記録すること。includeAuto=false（既定）は人が入れるものだけ＝毎日の画面と「記録完了」の判定。
+ * 帳票（温度の記録）は includeAuto=true で自動記録の設備も並べる。
+ */
+export function requiredChecks(c: PlanContent, includeAuto = false): RequiredCheck[] {
   const out: RequiredCheck[] = [];
   for (const t of TIMINGS) {
     for (const g of c.general) {
@@ -609,7 +618,9 @@ export function requiredChecks(c: PlanContent): RequiredCheck[] {
     }
     if (c.general.find((g) => g.key === "fridge")?.enabled !== false) {
       for (const e of c.equipment) {
-        if (!e.timings.includes(t)) continue;
+        if (e.auto && !includeAuto) continue;
+        const ts = e.auto ? (["close"] as Timing[]) : e.timings;
+        if (!ts.includes(t)) continue;
         out.push({ key: `eq:${e.id}:${t}`, timing: t, kind: "eq", label: e.name, ref: e.id, allowNA: true, temp: true });
       }
     }

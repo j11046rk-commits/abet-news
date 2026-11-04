@@ -66,7 +66,7 @@ export async function buildReport(type: ReportType, ym: string, opts: { blank?: 
     for (const d of dates) {
       const p = planForDate(plans, d);
       if (!p) continue;
-      for (const r of requiredChecks(p.content)) {
+      for (const r of requiredChecks(p.content, type === "temps")) {
         if (type === "general" ? r.kind !== "eq" : r.kind === "eq") colMap.set(r.key, r);
       }
     }
@@ -114,7 +114,7 @@ export async function buildReport(type: ReportType, ym: string, opts: { blank?: 
     const rows: (string | number | null)[][] = [];
     for (const d of dates) {
       const p = planForDate(plans, d);
-      const req = new Set(p ? requiredChecks(p.content).map((r) => r.key) : []);
+      const req = new Set(p ? requiredChecks(p.content, true).map((r) => r.key) : []);
       for (const c of cols) {
         if (!req.has(c.key) && !by.has(`${d}|${c.key}`)) continue;
         const eq = p?.content.equipment.find((e) => e.id === c.ref);

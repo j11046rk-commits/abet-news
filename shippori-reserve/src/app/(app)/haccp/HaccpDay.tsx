@@ -84,6 +84,13 @@ export default function HaccpDay(p: Props) {
         </label>
       </section>
 
+      {p.plan.content.equipment.some((e) => e.auto) ? (
+        <p className="micro">
+          冷蔵庫・冷凍庫の温度は温度計で自動記録します（
+          {p.plan.content.equipment.filter((e) => e.auto).map((e) => e.name).join("・")}）。ここで入力する必要はありません。
+        </p>
+      ) : null}
+
       {late ? (
         <section className="notice notice-strong">
           <strong>過去の日の追記です。</strong>実施した日時を入れてから記録してください。

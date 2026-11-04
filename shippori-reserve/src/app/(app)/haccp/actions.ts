@@ -480,7 +480,7 @@ function sanitizeContent(c: PlanContent): PlanContent {
       timings: g.timings, who: t(g.who), how: t(g.how), onProblem: t(g.onProblem), allowNA: !!g.allowNA, hint: g.hint,
     })),
     equipment: c.equipment.map((e) => ({
-      id: e.id, name: t(e.name), kind: e.kind, maxC: num(e.maxC), minC: num(e.minC), timings: e.timings, basis: t(e.basis),
+      id: e.id, name: t(e.name), kind: e.kind, maxC: num(e.maxC), minC: num(e.minC), timings: e.timings, basis: t(e.basis), auto: !!e.auto,
     })),
     menus: c.menus.map((m) => ({
       ...m,
