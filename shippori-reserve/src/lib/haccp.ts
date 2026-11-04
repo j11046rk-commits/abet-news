@@ -87,6 +87,7 @@ export type GeneralItem = {
 
 /**
  * 初期の下書きに入れる一般衛生管理の項目。
+ * ★作業量は最低限（店主指定 2026-11-04）：記録は「営業終了時に1日1回」にまとめてある。
  * how / onProblem は手引書の記載例をもとにした「たたき台」。誰が（who）は空のまま——
  * 店の実態を知っている人が入れるまで計画は確定できない。
  */
@@ -98,7 +99,7 @@ export function generalTemplate(): GeneralItem[] {
       label: "原材料の受入の確認",
       basis: "guide",
       enabled: true,
-      timings: ["during"],
+      timings: ["close"],
       who: "",
       how: "納品時に、外観・におい・包装の状態・表示（期限）・保存温度（冷蔵品・冷凍品）を確認する",
       onProblem: "返品し、交換してもらう。使用しない。仕入先に連絡する",
@@ -147,7 +148,7 @@ export function generalTemplate(): GeneralItem[] {
       label: "トイレの洗浄・消毒",
       basis: "guide",
       enabled: true,
-      timings: ["pre"],
+      timings: ["close"],
       who: "",
       how: "便座・水洗レバー・手すり・ドアノブなどを清掃・消毒する",
       onProblem: "汚れていたら、再度清掃・消毒する。使用中に汚れた場合も同様",
@@ -159,7 +160,7 @@ export function generalTemplate(): GeneralItem[] {
       label: "従業員の健康管理・衛生的な作業着の着用など",
       basis: "guide",
       enabled: true,
-      timings: ["pre"],
+      timings: ["close"],
       who: "",
       how: "作業前に、体調（下痢・嘔吐・発熱など）、手の傷の有無、着衣・身だしなみを確認する",
       onProblem: "体調不良の人は調理作業に従事させない。手に傷があれば耐水性絆創膏を付けた上で手袋を着用する。汚れた作業着は交換する",
@@ -183,7 +184,8 @@ export function generalTemplate(): GeneralItem[] {
       no: "⑤",
       label: "厨房・廃棄物・害虫対策",
       basis: "store",
-      enabled: true,
+      // 手引書の7項目には無い店舗の追加分。作業を増やさないため最初は外しておく（店主指定 2026-11-04）
+      enabled: false,
       timings: ["close"],
       who: "",
       how: "床・排水口の汚れ、生ごみの処理・ふた、ゴキブリ・ネズミ等の発生の有無を確認する",
@@ -337,6 +339,7 @@ export function newPlanContent(): PlanContent {
   };
 }
 
+/** 新しいメニュー。仕込みごとの記録は付けない（必要な料理だけオンにする）のが既定 */
 export function newMenu(id: string): MenuPlan {
   return {
     id,
@@ -523,7 +526,6 @@ export function planIssues(h: PlanHeader, c: PlanContent): string[] {
   for (const g of c.general) {
     if (!g.enabled) continue;
     const name = `${g.no} ${g.label}`;
-    if (blank(g.who)) out.push(`${name}：「誰が」が未設定です`);
     if (blank(g.how)) out.push(`${name}：確認方法が未設定です`);
     if (blank(g.onProblem)) out.push(`${name}：問題があったときの対応が未設定です`);
     if (g.key !== "fridge" && g.timings.length === 0) out.push(`${name}：記録するタイミングが未設定です`);
@@ -549,25 +551,22 @@ export function planIssues(h: PlanHeader, c: PlanContent): string[] {
     groups.add(m.group);
     const steps = stepsFor(m.group, m.variant);
     if (steps.length === 0) out.push(`${name}：調理工程（提供のしかた）が未設定です`);
-    if (blank(m.hazards)) out.push(`${name}：主な危害要因が未設定です`);
     if (blank(m.method)) out.push(`${name}：確認方法が未設定です`);
-    if (blank(m.frequency)) out.push(`${name}：確認頻度が未設定です`);
-    if (blank(m.onFail)) out.push(`${name}：基準を満たさなかった場合の対応が未設定です`);
-    if (m.group === "g3") {
-      if (blank(m.storage)) out.push(`${name}：保存方法が未設定です`);
-      if (blank(m.useByRule)) out.push(`${name}：店舗で決めた使用期限が未設定です`);
-    }
     const cr = m.criteria;
-    for (const s of steps) {
-      if (s === "heat" || s === "reheat") {
-        const h = cr[s];
-        const ok = h && (h.mode === "visual" ? !blank(h.visual) : nn(h.minC) && nn(h.holdSec));
-        if (!ok) out.push(`${name}：${STEP_LABEL[s]}の管理基準が未設定です`);
+    // 温度などの管理基準は「仕込みごとの記録を付ける」料理だけ必須（手引書の基本は1日1回の○×）
+    if (m.batchRecord) {
+      if (m.group === "g3" && blank(m.useByRule)) out.push(`${name}：店舗で決めた使用期限が未設定です`);
+      for (const s of steps) {
+        if (s === "heat" || s === "reheat") {
+          const h = cr[s];
+          const ok = h && (h.mode === "visual" ? !blank(h.visual) : nn(h.minC) && nn(h.holdSec));
+          if (!ok) out.push(`${name}：${STEP_LABEL[s]}の管理基準が未設定です`);
+        }
+        if (s === "cool" && !(nn(cr.cool?.targetC) && nn(cr.cool?.withinMin)))
+          out.push(`${name}：冷却の管理基準（到達温度・時間）が未設定です`);
+        if (s === "chill" && !nn(cr.chill?.maxC)) out.push(`${name}：冷蔵保管の温度が未設定です`);
+        if (s === "hotHold" && !nn(cr.hotHold?.minC)) out.push(`${name}：高温保管の温度が未設定です`);
       }
-      if (s === "cool" && !(nn(cr.cool?.targetC) && nn(cr.cool?.withinMin)))
-        out.push(`${name}：冷却の管理基準（到達温度・時間）が未設定です`);
-      if (s === "chill" && !nn(cr.chill?.maxC)) out.push(`${name}：冷蔵保管の温度が未設定です`);
-      if (s === "hotHold" && !nn(cr.hotHold?.minC)) out.push(`${name}：高温保管の温度が未設定です`);
     }
     if (m.special.bivalve && cr.heat?.mode === "measure" && nn(cr.heat.minC) && (cr.heat.minC! < 85 || (cr.heat.holdSec ?? 0) < 90))
       out.push(`${name}：二枚貝などに一般的な加熱条件を当てはめています（候補は85〜90℃・90秒以上）`);
@@ -581,9 +580,7 @@ export function planIssues(h: PlanHeader, c: PlanContent): string[] {
   for (const g of groups) {
     const d = c.cc[g];
     if (d.timings.length === 0) out.push(`${GROUP_LABEL[g]}の日々の確認：タイミングが未設定です`);
-    if (blank(d.who)) out.push(`${GROUP_LABEL[g]}の日々の確認：「誰が」が未設定です`);
     if (blank(d.how)) out.push(`${GROUP_LABEL[g]}の日々の確認：確認方法が未設定です`);
-    if (blank(d.onProblem)) out.push(`${GROUP_LABEL[g]}の日々の確認：問題があったときの対応が未設定です`);
   }
   if (c.menus.length === 0) out.push("重要管理のメニューが1つも登録されていません");
   return out;

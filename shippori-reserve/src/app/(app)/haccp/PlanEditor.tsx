@@ -155,7 +155,7 @@ export default function PlanEditor({ draft, canApprove, hasApproved }: { draft: 
                   {timingChips(g.timings, (v) => upd((x) => { x.general[i].timings = v; return x; }), `${g.label}のタイミング`)}
                 </>
               )}
-              <Field label="誰が" value={g.who} on={(v) => upd((x) => { x.general[i].who = v; return x; })} placeholder="例：店長／その日の調理担当" />
+              <Field label="誰が（任意）" value={g.who} on={(v) => upd((x) => { x.general[i].who = v; return x; })} placeholder="例：店長／その日の調理担当" />
               <Field label="どのように確認するか" value={g.how} on={(v) => upd((x) => { x.general[i].how = v; return x; })} area />
               <Field label="問題があったときの対応" value={g.onProblem} on={(v) => upd((x) => { x.general[i].onProblem = v; return x; })} area />
               {g.key !== "fridge" ? (
@@ -183,7 +183,7 @@ export default function PlanEditor({ draft, canApprove, hasApproved }: { draft: 
       <button
         type="button"
         className="btn btn-block"
-        onClick={() => upd((x) => { x.equipment.push({ id: uid(), name: "", kind: "fridge", maxC: null, minC: null, timings: ["pre", "close"], basis: "" }); return x; })}
+        onClick={() => upd((x) => { x.equipment.push({ id: uid(), name: "", kind: "fridge", maxC: null, minC: null, timings: ["close"], basis: "" }); return x; })}
       >
         ＋ 設備を追加
       </button>
@@ -215,9 +215,9 @@ export default function PlanEditor({ draft, canApprove, hasApproved }: { draft: 
         <section key={g} className="card stack">
           <strong>{GROUP_LABEL[g]}</strong>
           {timingChips(c.cc[g].timings, (v) => upd((x) => { x.cc[g].timings = v; return x; }), `${GROUP_LABEL[g]}のタイミング`)}
-          <Field label="誰が" value={c.cc[g].who} on={(v) => upd((x) => { x.cc[g].who = v; return x; })} />
+          <Field label="誰が（任意）" value={c.cc[g].who} on={(v) => upd((x) => { x.cc[g].who = v; return x; })} />
           <Field label="どのように確認するか" value={c.cc[g].how} on={(v) => upd((x) => { x.cc[g].how = v; return x; })} area />
-          <Field label="問題があったときの対応" value={c.cc[g].onProblem} on={(v) => upd((x) => { x.cc[g].onProblem = v; return x; })} area placeholder="例：提供を止め、責任者に確認する" />
+          <Field label="問題があったときの対応（任意）" value={c.cc[g].onProblem} on={(v) => upd((x) => { x.cc[g].onProblem = v; return x; })} area placeholder="例：提供を止め、責任者に確認する" />
         </section>
       ))}
 
@@ -400,7 +400,7 @@ function MenuCard({ m, on, remove }: { m: MenuPlan; on: (f: (m: MenuPlan) => Men
           onChange={(e) => {
             const g = e.target.value as CcGroup | "";
             const v = g ? VARIANTS[g][0].value : "";
-            on((x) => ({ ...x, group: g, variant: v, criteria: blankCriteria(stepsFor(g, v), x.criteria), batchRecord: g === "g3" ? true : x.batchRecord }));
+            on((x) => ({ ...x, group: g, variant: v, criteria: blankCriteria(stepsFor(g, v), x.criteria) }));
           }}
         >
           <option value="">選んでください</option>
@@ -423,8 +423,11 @@ function MenuCard({ m, on, remove }: { m: MenuPlan; on: (f: (m: MenuPlan) => Men
           </select>
         </label>
       ) : null}
-      <Field label="主な危害要因" value={m.hazards} on={(v) => on((x) => ({ ...x, hazards: v }))} placeholder="例：ウェルシュ菌（加熱後の冷却が遅いと増える）" area />
-
+      <Field label="確認方法" value={m.method} on={(v) => on((x) => ({ ...x, method: v }))} placeholder="例：火の通りを色と肉汁で確認／冷ましてから冷蔵庫へ" area />
+      <label className="hc-toggle">
+        <input type="checkbox" checked={m.batchRecord} onChange={(e) => on((x) => ({ ...x, batchRecord: e.target.checked }))} />
+        仕込みごとに温度を記録する（任意。付けない料理は1日1回の○×だけ）
+      </label>
       <div className="chips">
         <label className="hc-toggle"><input type="checkbox" checked={m.special.rawSeafood} onChange={(e) => on((x) => ({ ...x, special: { ...x.special, rawSeafood: e.target.checked } }))} />生食用の魚介類</label>
         <label className="hc-toggle"><input type="checkbox" checked={m.special.bivalve} onChange={(e) => on((x) => ({ ...x, special: { ...x.special, bivalve: e.target.checked } }))} />二枚貝など</label>
@@ -439,8 +442,9 @@ function MenuCard({ m, on, remove }: { m: MenuPlan; on: (f: (m: MenuPlan) => Men
       {m.special.lowTemp ? (
         <Field label="低温調理の条件の根拠（検証した条件・参照した資料）" value={m.special.lowTempBasis} on={(v) => on((x) => ({ ...x, special: { ...x.special, lowTempBasis: v } }))} area />
       ) : null}
-
-      {steps.map((s: StepKey) => {
+      {m.batchRecord ? (
+        <>
+          {steps.map((s: StepKey) => {
         if (s === "heat" || s === "reheat") return heatLike(s);
         if (s === "cool")
           return (
@@ -469,20 +473,23 @@ function MenuCard({ m, on, remove }: { m: MenuPlan; on: (f: (m: MenuPlan) => Men
           </fieldset>
         );
       })}
-
-      <Field label="確認方法" value={m.method} on={(v) => on((x) => ({ ...x, method: v }))} placeholder="例：中心温度計で測る／小分けして氷水で冷やし時刻を記録" area />
-      <Field label="確認頻度" value={m.frequency} on={(v) => on((x) => ({ ...x, frequency: v }))} placeholder="例：仕込みのたび" />
-      {m.group === "g3" || m.group === "g1" ? (
-        <Field label="保存方法" value={m.storage} on={(v) => on((x) => ({ ...x, storage: v }))} placeholder="例：浅い容器に小分けし、ふたをして冷蔵庫へ" />
+        </>
       ) : null}
-      {m.group === "g3" ? (
+      {m.batchRecord && m.group === "g3" ? (
         <Field label="店舗で決めた使用期限（候補は出しません。店で決めてください）" value={m.useByRule} on={(v) => on((x) => ({ ...x, useByRule: v }))} />
       ) : null}
-      <Field label="基準を満たさなかった場合の対応" value={m.onFail} on={(v) => on((x) => ({ ...x, onFail: v }))} placeholder="例：提供しない。廃棄するか、責任者が判断する" area />
-      <label className="hc-toggle">
-        <input type="checkbox" checked={m.batchRecord} onChange={(e) => on((x) => ({ ...x, batchRecord: e.target.checked }))} />
-        料理・仕込みごとの記録を付ける
-      </label>
+      <details className="hc-cand">
+        <summary>詳しく書く（任意：危害要因・頻度・保存方法・外れたときの対応）</summary>
+        <div className="stack" style={{ marginTop: "0.5rem" }}>
+          <Field label="主な危害要因" value={m.hazards} on={(v) => on((x) => ({ ...x, hazards: v }))} placeholder="例：ウェルシュ菌（加熱後の冷却が遅いと増える）" area />
+          <Field label="確認頻度" value={m.frequency} on={(v) => on((x) => ({ ...x, frequency: v }))} placeholder="例：毎日" />
+          <Field label="保存方法" value={m.storage} on={(v) => on((x) => ({ ...x, storage: v }))} placeholder="例：浅い容器に小分けし、ふたをして冷蔵庫へ" />
+          {!m.batchRecord && m.group === "g3" ? (
+            <Field label="店舗で決めた使用期限" value={m.useByRule} on={(v) => on((x) => ({ ...x, useByRule: v }))} />
+          ) : null}
+          <Field label="基準を満たさなかった場合の対応" value={m.onFail} on={(v) => on((x) => ({ ...x, onFail: v }))} placeholder="例：提供しない。廃棄するか、責任者が判断する" area />
+        </div>
+      </details>
       <button type="button" className="btn btn-danger btn-sm" onClick={remove}>このメニューを外す</button>
     </section>
   );

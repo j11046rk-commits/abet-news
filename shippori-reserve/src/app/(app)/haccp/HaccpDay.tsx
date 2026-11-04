@@ -409,8 +409,9 @@ function CheckCard({
 
 function Batches(p: Props & { late: boolean; lateAt: string }) {
   const [open, setOpen] = useState<string | null>(null);
-  const menus = p.plan!.content.menus.filter((m) => m.group);
-  if (menus.length === 0) return null;
+  // 仕込みごとの記録を付ける料理だけ（付けない設定なら、この欄ごと出さない）
+  const menus = p.plan!.content.menus.filter((m) => m.group && m.batchRecord);
+  if (menus.length === 0 && p.batches.length === 0) return null;
   return (
     <section className="stack" aria-label="重要管理の記録">
       <h2 className="section-title">重要管理（料理・仕込みごと）</h2>
@@ -481,7 +482,7 @@ function BatchForm(p: Props & { late: boolean; lateAt: string; batch: BatchRow |
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const menus = p.plan!.content.menus.filter((m) => m.group);
+  const menus = p.plan!.content.menus.filter((m) => m.group && (m.batchRecord || m.id === p.batch?.menu_id));
   const [menuId, setMenuId] = useState(p.batch?.menu_id ?? (menus.find((m) => m.group === "g3") ?? menus[0])?.id ?? "");
   const menu = menus.find((m) => m.id === menuId) ?? null;
   const steps: StepKey[] = menu ? stepsFor(menu.group, menu.variant) : [];

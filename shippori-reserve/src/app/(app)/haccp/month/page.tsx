@@ -122,7 +122,9 @@ export default async function HaccpMonthPage({ searchParams }: { searchParams: P
           </section>
         ) : null}
 
-        <h2 className="section-title">週ごとの記録確認</h2>
+        <details>
+        <summary className="section-title" style={{ cursor: "pointer" }}>週ごとの記録確認（任意）</summary>
+        <div className="stack" style={{ marginTop: "0.6rem" }}>
         {weeks.map((w) => {
           const end = shiftDate(w, 6);
           const r = reviewOf("week", w);
@@ -141,7 +143,10 @@ export default async function HaccpMonthPage({ searchParams }: { searchParams: P
           );
         })}
 
-        <h2 className="section-title">月の振り返り</h2>
+        </div>
+        </details>
+
+        <h2 className="section-title">月の振り返り（月1回）</h2>
         {prevMonthImprovements.length ? (
           <section className="notice">
             先月の改善事項で終わっていないもの：

@@ -43,6 +43,7 @@ function readyPlan(): PlanContent {
   m.storage = "小分けして冷蔵庫1";
   m.useByRule = "店で決めた日数";
   m.onFail = "廃棄";
+  m.batchRecord = true;
   c.menus.push(m);
   c.cc.g3.who = "店長";
   c.cc.g3.onProblem = "廃棄";
@@ -55,6 +56,7 @@ test("初期の下書きは未設定だらけで、確定できない（誰が�
   assert.equal(c.menus.length, 0);
   assert.ok(c.general.every((g) => g.who === ""));
   const issues = planIssues({ store_name: null, hygiene_manager: null, author_name: null, effective_from: null }, c);
+  assert.ok(!issues.some((s) => s.includes("誰が"))); // 誰がは任意
   assert.ok(issues.includes("食品衛生責任者が未設定です"));
   assert.ok(issues.includes("冷蔵庫・冷凍庫が1台も登録されていません"));
   assert.ok(issues.includes("重要管理のメニューが1つも登録されていません"));
@@ -64,7 +66,27 @@ test("すべて埋まれば確定できる", () => {
   assert.deepEqual(planIssues(header, readyPlan()), []);
 });
 
-test("第3グループは店舗で決めた使用期限がないと確定できない（日数の候補は出さない）", () => {
+test("最低限の計画：料理名・グループ・確認方法だけで確定できる（誰が・危害要因などは任意）", () => {
+  const c = newPlanContent();
+  c.equipment.push({ id: "e1", name: "冷蔵庫1", kind: "fridge", maxC: 10, minC: null, timings: ["close"], basis: "" });
+  const m = newMenu("m1");
+  m.name = "煮物";
+  m.group = "g3";
+  m.variant = "reheat";
+  m.method = "冷ましてから冷蔵庫へ";
+  c.menus.push(m);
+  assert.equal(m.batchRecord, false); // 仕込みごとの記録は既定で付けない
+  assert.deepEqual(planIssues(header, c), []);
+});
+
+test("記録は1日1回（営業終了時）にまとめ、店で足した⑤は最初は外してある", () => {
+  const keys = requiredChecks(newPlanContent()).map((r) => r.key);
+  assert.ok(keys.every((k) => k.endsWith(":close")));
+  assert.ok(!keys.includes("gen:kitchen:close"));
+  assert.equal(keys.length, 6);
+});
+
+test("仕込みごとに記録する第3グループは、店舗で決めた使用期限がないと確定できない（日数の候補は出さない）", () => {
   const c = readyPlan();
   c.menus[0].useByRule = "";
   assert.ok(planIssues(header, c).some((s) => s.includes("使用期限")));
@@ -99,7 +121,7 @@ test("工程の分類は料理名ではなく工程で決まる", () => {
 test("1日に記録すること：タイミングごと・設備ごと・使っているグループだけ", () => {
   const keys = requiredChecks(readyPlan()).map((r) => r.key);
   assert.ok(keys.includes("eq:e1:pre") && keys.includes("eq:e1:close"));
-  assert.ok(keys.includes("gen:receiving:during"));
+  assert.ok(keys.includes("gen:receiving:close"));
   assert.ok(keys.includes("cc:g3:close"));
   assert.ok(!keys.some((k) => k.startsWith("cc:g1"))); // 第1グループの料理は無い
   assert.ok(!keys.some((k) => k.startsWith("gen:fridge"))); // 冷蔵庫は設備ごと
