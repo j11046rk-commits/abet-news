@@ -159,6 +159,13 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
   帯グラフが公開時から全部空。トラックだけ見えていた）。`.bar-track`/`.bar-fill` に `display:block`
   を付けて解消。教訓：`<span>` に幅・高さを指定するときは display を必ず見る。
 
+## ダッシュボードを店舗管理アプリへ移した（2026-11-04・店主要望）
+- 合言葉（DASHBOARD_PASSWORD）での暗号化公開は**廃止**。`scripts/encrypt-dashboard.mjs` は削除。
+- ビルド後に `scripts/push-dashboard.mjs` が `dist/dashboard/index.html` を読み、**すぐ公開側を案内ページ（yoyaku.shipporitei.jp/hp-dashboard へ転送）に上書き**してから、
+  CSS を埋め込み・画像を絶対URLにして店舗管理アプリの `POST /api/insights/hp-dashboard`（x-api-key＝RESERVE_INSIGHTS_TOKEN／アプリ側 INSIGHTS_TOKEN）へ送る。
+- 見るのは店舗管理アプリにログインしている人だけ（`/hp-dashboard`・設定の「アクセス管理ダッシュボードを開く」）。生のダッシュボードは公開側に残さない。
+- 送信に失敗してもビルドは止めない（アプリには前回の版が出たまま）。GitHub の DASHBOARD_PASSWORD シークレットはもう使っていない。
+
 ## 採用ページ（/recruit・2026-10-08）
 - 店主要望「Instagramの求人投稿に反響がない。HPにも載せたい」に対応。IGの投稿はフォロワー（＝お客様）にしか届かないため、「新居浜 バイト 居酒屋」で検索した人の受け皿としてHPに常設。
 - **中身は `site.json` の `求人`**（時給・勤務時間・待遇・モデル収入など）。`公開:false` で「募集していません」表示＋noindex、ヘッダー/フッターの導線も消える。
