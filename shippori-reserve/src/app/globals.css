@@ -2605,6 +2605,26 @@ textarea.field:-webkit-autofill {
 
 /* ───────────────────────── 衛生管理（HACCP・2026-11） ───────────────────────── */
 
+/* 暦の日付の下の衛生チェックの箱（☑＝記録がそろった日・□＝まだ） */
+.mrow__hc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.15rem;
+  border: 1.5px solid var(--text-dim);
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.mrow__hc--done {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--bg);
+}
+
 .badge--hc-alert { color: #fff; background: var(--seal); border-color: var(--seal); font-weight: 600; }
 .badge--hc-today { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 60%, transparent); }
 .badge--hc-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }

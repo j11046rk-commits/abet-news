@@ -301,35 +301,45 @@ async function MonthList({
                   </span>
                 ) : null}
                 {guests > 0 ? <span className="mrow__guests">{guests}名</span> : null}
+                {(() => {
+                  // 衛生チェックの箱（店主指定 2026-11-04）：記録がそろった日は☑、まだの日は空の□。
+                  // これからの日・休業日・計画の無い日は出さない
+                  const h = hcMap?.get(date);
+                  if (!h || h.state === "noplan" || h.state === "future" || h.state === "closed") return null;
+                  const done = h.state === "complete";
+                  return (
+                    <span
+                      className={`mrow__hc${done ? " mrow__hc--done" : ""}`}
+                      aria-label={done ? "衛生チェック済み" : "衛生チェックまだ"}
+                    >
+                      {done ? "✓" : ""}
+                    </span>
+                  );
+                })()}
               </Link>
 
               <div className="mrow__body">
                 <div className="mrow__top">
                   {day.is_closed ? <span className="badge badge--closed">休</span> : null}
                   {(() => {
-                    // 衛生チェック：過ぎた日の未記録はアラート、今日は進み具合、済んだ日は✓
+                    // 衛生：過ぎた日の未記録はアラート。対応中の異常があれば知らせる（済み・今日の進み具合は日付の下の箱で出す）
                     const h = hcMap?.get(date);
                     if (!h || h.state === "noplan" || h.state === "future" || h.state === "closed") return null;
-                    const extra = h.open > 0 ? `・対応中${h.open}` : "";
                     if (h.alert)
                       return (
                         <Link href={`/haccp?d=${date}`} className="badge badge--hc-alert">
-                          ⚠ 衛生{h.state === "none" ? "未記録" : `残${h.required - h.filled}`}{extra}
+                          ⚠ 衛生{h.state === "none" ? "未記録" : `残${h.required - h.filled}`}
+                          {h.open > 0 ? `・対応中${h.open}` : ""}
                         </Link>
                       );
-                    if (date === today && h.state !== "complete")
+                    if (h.open > 0)
                       return (
-                        <Link href="/haccp" className="badge badge--hc-today">
-                          衛生 {h.filled}/{h.required}{extra}
+                        <Link href="/haccp/incidents" className="badge badge--hc-alert">
+                          衛生 対応中{h.open}
                         </Link>
                       );
-                    return (
-                      <Link href={`/haccp?d=${date}`} className={`badge ${h.open > 0 ? "badge--hc-alert" : "badge--hc-ok"}`}>
-                        衛生✓{extra}
-                      </Link>
-                    );
+                    return null;
                   })()}
-                  {/* 静かな日のクーポンを配信した日。当日限定の受付可否をレジで画面から判定できるように */}
                   {couponDates.has(date) ? (
                     <span className="badge badge--coupon">🎫 クーポン配信日</span>
                   ) : null}
