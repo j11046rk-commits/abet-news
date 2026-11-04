@@ -9,7 +9,8 @@ import rv from '../../data/reserve.json';
 
 const nf = new Intl.NumberFormat('ja-JP');
 const pct1 = (v) => `${(v * 100).toFixed(1)}%`;
-const pct0 = (v) => `${Math.round(v * 100)}%`;
+// パーセントはすべて小数点第1位まで（店主指定 2026-11-04）
+const pct0 = pct1;
 const dur = (sec) => {
   const s = Math.round(sec);
   if (s < 60) return `${s}秒`;
@@ -18,10 +19,24 @@ const dur = (sec) => {
 const delta = (cur, prev) => {
   if (!prev) return { kind: 'new' };
   const d = ((cur - prev) / prev) * 100;
-  return { kind: d >= 0 ? 'up' : 'down', label: `${d >= 0 ? '+' : ''}${d.toFixed(0)}%` };
+  return { kind: d >= 0 ? 'up' : 'down', label: `${d >= 0 ? '+' : ''}${d.toFixed(1)}%` };
 };
 
 const t = ga4.totals;
+
+// 予約・電話までの道のり（店主要望 2026-11-04）。分母はHP（shipporitei.jp）の訪問
+const fn = ga4.funnel ?? null;
+const fnBase = Math.max(1, fn?.hpSessions ?? 0);
+const funnelRows = fn
+  ? [
+      { label: 'ホームページの訪問', n: fn.hpSessions, unit: '回', note: '' , main: true },
+      { label: 'ネット予約のボタンを押した', n: fn.reserveClick.sessions, unit: '回', note: '11/4から計測', main: true },
+      { label: '予約画面を開いた', n: fn.yoyakuSessions, unit: '回', note: 'LINEなどから直接来た人も含む', main: true },
+      { label: 'ネット予約が確定した', n: fn.reserveComplete.count, unit: '件', note: '', main: true },
+      { label: '電話のボタンを押した', n: fn.tel.sessions, unit: '回', note: 'かけたかどうかまでは分からない', main: false },
+      { label: '公式LINEのボタンを押した', n: fn.line.sessions, unit: '回', note: '', main: false },
+    ]
+  : [];
 const p = ga4.prev;
 const ex = ga4.extra;
 
@@ -260,6 +275,14 @@ const ICONS = {
       @media (max-width: 860px) { .panels3 { grid-template-columns: 1fr !important; } }
 
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .funnel { display: flex; flex-direction: column; gap: 10px; }
+      .frow { display: grid; grid-template-columns: minmax(0, 11rem) 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
+      .frow--side { opacity: .9; }
+      .flabel small { display: block; color: var(--muted); font-size: 11px; }
+      .fnum { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .fnum b { display: inline-block; min-width: 4.2em; margin-left: 6px; }
+      .fnote { margin: 4px 0 0; font-size: 11.5px; color: var(--muted); }
+      @media (max-width: 560px) { .frow { grid-template-columns: 1fr auto; } .frow .bar-track { grid-column: 1 / -1; grid-row: 2; } }
       th, td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--line); }
       th { color: var(--muted); font-weight: 600; font-size: 11.5px; letter-spacing: .04em; }
       td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -332,6 +355,23 @@ const ICONS = {
           );
         })}
       </div>
+
+      <!-- 予約・電話までの道のり（店主要望 2026-11-04） -->
+      {funnelRows.length > 0 && (
+        <>
+          <div class="sec-title">HPの訪問から、予約・電話まで（{periodLabel}）</div>
+          <div class="card pad funnel">
+            {funnelRows.map((r, i) => (
+              <div class={`frow${r.main ? '' : ' frow--side'}`}>
+                <span class="flabel">{r.label}{r.note && <small>{r.note}</small>}</span>
+                <span class="bar-track"><span class="bar-fill" style={`width:${Math.min(100, (r.n / fnBase) * 100).toFixed(1)}%${r.main ? '' : ';background:linear-gradient(90deg,#f472b6,#fb923c)'}`}></span></span>
+                <span class="fnum">{nf.format(r.n)}{r.unit}<b>{i === 0 ? '100.0%' : pct1(r.n / fnBase)}</b></span>
+              </div>
+            ))}
+            <p class="fnote">％は「ホームページの訪問」を100としたときの割合です。実際に入ったネット予約の件数は、下の「ネット予約システム」の欄（予約台帳の数）も見てください。</p>
+          </div>
+        </>
+      )}
 
       <!-- 推移 + 流入 -->
       <div class="sec-title">アクセスの中身（{periodLabel}）</div>
