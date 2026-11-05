@@ -107,8 +107,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
   // オーナー・店長＝確定シフトを組む側（shift.write）。
   // 一般スタッフ＝希望を出す側（shiftrequest.write）。店長は提出しない（店主指定）。
   // 衛生管理：記録＝オーナー・店長・スタッフ／確認・改善対応・計画の下書き＝オーナー・店長／承認＝オーナー（0064）
-  owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve"],
-  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage"],
+  // 原価（仕入・棚卸・ロス）：閲覧も記録もオーナー・店長・事務（0065）
+  owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve", "cost.read", "cost.write"],
+  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage", "cost.read", "cost.write"],
   staff: [
     "reservation.read",
     "reservation.write",
@@ -123,6 +124,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
     "reservation.write",
     "reservation.override",
     "stats.read",
+    "cost.read",
+    "cost.write",
   ],
   viewer: ["reservation.read"],
 };

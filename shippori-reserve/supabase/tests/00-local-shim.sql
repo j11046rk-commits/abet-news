@@ -25,3 +25,9 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant select on auth.users to authenticated, service_role;
+
+-- 写真の置き場（storage）の殻。0028（チラシ）・0065（原価の写真）が行を入れる
+create schema if not exists storage;
+create table if not exists storage.buckets (id text primary key, name text, public boolean);
+create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+alter table storage.objects enable row level security;

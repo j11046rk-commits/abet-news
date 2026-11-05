@@ -55,3 +55,13 @@ psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/02-haccp.sql
 
 1つのトランザクションで流して最後に巻き戻すので、何も残りません。
 「PASS:」が並び、最後に `ALL HACCP TESTS PASSED` が出れば合格。外れると `FAIL:` で止まります。
+
+## 原価（0065）
+
+```bash
+psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/03-cost.sql
+```
+
+仕入・棚卸・ロスを入れられる／読めるのはオーナー・店長・事務だけ、作った人・直した人は自動で入る、
+確定した棚卸の数は直せない（確定を外せば直せる）、写真の置き場は非公開、を確かめます（22項目）。
+最後に `ALL COST TESTS PASSED` が出れば合格。

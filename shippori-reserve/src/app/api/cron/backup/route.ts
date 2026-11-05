@@ -58,6 +58,11 @@ const TABLES = [
   "haccp_day_closes",
   "haccp_reviews",
   "haccp_revisions",
+  "cost_purchases",
+  "cost_stock_items",
+  "cost_stocktakes",
+  "cost_stock_counts",
+  "cost_losses",
   "audit_logs",
 ] as const;
 

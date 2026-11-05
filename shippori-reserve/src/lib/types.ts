@@ -36,7 +36,9 @@ export type PermissionCode =
   | "sales.write"
   | "haccp.record"
   | "haccp.manage"
-  | "haccp.approve";
+  | "haccp.approve"
+  | "cost.read"
+  | "cost.write";
 
 export type Profile = {
   id: string;

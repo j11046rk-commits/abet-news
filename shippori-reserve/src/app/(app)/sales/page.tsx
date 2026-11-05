@@ -160,6 +160,11 @@ export default async function SalesPage({
         <Link className="btn btn-sm" href={`/sales/year?y=${ym.slice(0, 4)}`}>
           年間
         </Link>
+        {can(me.role, "cost.read") ? (
+          <Link className="btn btn-sm" href={`/sales/cost?m=${ym}`}>
+            原価
+          </Link>
+        ) : null}
       </header>
 
       <div className="wrap stack">
