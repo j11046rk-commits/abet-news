@@ -39,7 +39,7 @@ export async function getMonthPurchases(ym: string): Promise<Purchase[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cost_purchases")
-    .select("id, book_date, vendor, doc_kind, food_ex, drink_ex, supplies_ex, other_ex, total_in, period_from, period_to, memo, photo_path, ai_read")
+    .select("id, book_date, vendor, doc_kind, food_ex, drink_ex, supplies_ex, other_ex, total_in, period_from, period_to, memo, photo_path, ai_read, status, ai_note")
     .gte("book_date", from)
     .lte("book_date", to)
     .order("book_date", { ascending: false })

@@ -24,6 +24,7 @@ const PUBLIC_PATHS = [
   "/api/weather/ingest", // 天気の取り込み。売上と同じ x-api-key で守る
   "/api/labor/ingest", // 労働時間の合計（人時売上）。売上と同じ x-api-key で守る
   "/api/insights",
+  "/api/cost/reader", // 原価の写真の読み取り口（定期実行のClaude）。x-api-key（画面で発行する合言葉）で守る
   "/api/cron",
   "/api/line",   // LINEからのwebhook。署名で本物か確かめる（ログインは通らない）
   "/manifest.webmanifest",

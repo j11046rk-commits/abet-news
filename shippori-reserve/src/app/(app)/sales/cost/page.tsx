@@ -5,9 +5,11 @@ import { getMonthSales } from "@/lib/queries";
 import { fmtYen } from "@/lib/sales";
 import { monthCost, prevYm, purchaseWarnings } from "@/lib/cost";
 import { getMonthLosses, getMonthPurchases, getStocktakes, signedPhotoUrls } from "@/lib/cost-data";
-import { aiReady } from "@/lib/cost-ai";
+import { apiTokenInfo } from "@/lib/api-token";
+import { createClient } from "@/lib/supabase/server";
 import { fmtMonthJa, fmtYm, shiftMonth, todayBizDate } from "@/lib/time";
 import CostPanels from "./CostPanels";
+import ReaderSetup from "./ReaderSetup";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +19,8 @@ const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
  * 原価（売上タブの中・オーナー/店長/事務）。
  *
  * 原価率＝（月初在庫＋仕入−月末在庫）÷ 売上（どちらも税抜）。
- * 入れるのは3つだけ：書類の写真（AIが読む→確認して保存）、月末の棚卸、捨てたもの（ロス）。
+ * 入れるのは3つだけ：書類の写真（撮るだけ。毎朝の定期実行でClaudeが読む）、月末の棚卸、捨てたもの（ロス）。
+ * 読み取りはサブスクのClaudeのセッションが /api/cost/reader から取りに来る（API料金を使わない・店主指示 2026-11-06）。
  */
 export default async function CostPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const me = await requirePermission("cost.read");
@@ -53,6 +56,13 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
   const warnings = purchaseWarnings(purchases);
   const photos = await signedPhotoUrls([...purchases.map((p) => p.photo_path ?? ""), ...losses.map((l) => l.photo_path ?? "")]);
   const canWrite = can(me.role, "cost.write");
+  // 読み取り待ち・未確認は月をまたいで数える（過去の書類をまとめて撮ると、読むまでは撮った日の月に並ぶ）
+  const supabase = await createClient();
+  const [{ count: pendingAll }, { count: unconfirmedAll }, reader] = await Promise.all([
+    supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("status", "unconfirmed"),
+    me.role === "owner" ? apiTokenInfo("cost_reader") : Promise.resolve(null),
+  ]);
   const isCurrent = ym === fmtYm(today);
   const closeSt = stocks.get(ym);
 
@@ -91,7 +101,7 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
               {mc.purchaseRatio != null ? (
                 <>
                   <br />
-                  目安：仕入÷売上＝<strong>{mc.purchaseRatio.toFixed(1)}%</strong>（在庫の増減を入れていない数字です）
+                  目安：{isCurrent ? "今日までの" : ""}仕入÷売上＝<strong>{mc.purchaseRatio.toFixed(1)}%</strong>（在庫の増減を入れていない数字です）
                 </>
               ) : null}
             </p>
@@ -134,6 +144,13 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
           <p className="micro">金額はすべて税抜。税理士の月次報告と同じ物差しです。</p>
         </section>
 
+        {pendingAll || unconfirmedAll ? (
+          <section className="notice" aria-label="読み取りの状況">
+            {pendingAll ? <p>📷 読み取り待ち {pendingAll}枚（明朝AIが読みます。読むまでは原価に入りません）</p> : null}
+            {unconfirmedAll ? <p>✓ 未確認 {unconfirmedAll}件（原価には入っています。写真と見比べて「確認した」を）</p> : null}
+          </section>
+        ) : null}
+
         {warnings.length > 0 ? (
           <section className="notice notice-strong" aria-label="二重のおそれ">
             {warnings.map((w) => (
@@ -151,7 +168,6 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
           ym={ym}
           today={today}
           canWrite={canWrite}
-          aiReady={aiReady()}
           purchases={purchases}
           losses={losses}
           photos={photos}
@@ -159,10 +175,12 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
         />
 
         <section className="notice micro">
-          使い方：月締めの業者は<strong>月末の請求書を1枚だけ</strong>。現金・カードの買い物は<strong>レシート</strong>。
-          同じ業者の納品書と請求書を両方入れると二重になります（入れたときは上に⚠が出ます）。
-          写真はAIが読み、保存は必ず人が確認してから行います。
+          使い方：<strong>納品書とレシートを毎日撮る</strong>（撮るだけ）。毎朝AIがまとめて読み、未確認として並びます。
+          請求書は撮らずに、月初に納品書と紙で突き合わせる（両方入れると二重になり、上に⚠が出ます）。
+          納品書が無い月締めの業者だけ、請求書を撮ってください。
         </section>
+
+        {me.role === "owner" ? <ReaderSetup issuedAt={reader?.created_at ?? null} lastUsedAt={reader?.last_used_at ?? null} /> : null}
         <div style={{ height: "2rem" }} />
       </div>
     </>

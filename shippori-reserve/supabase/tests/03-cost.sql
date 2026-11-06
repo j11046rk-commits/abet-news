@@ -110,7 +110,17 @@ select pg_temp.run_as(:J, $$insert into cost_losses (biz_date, item, amount_ex, 
 select pg_temp.expect_error(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'lazy')$$, 'ロスの理由は決めた中から');
 select pg_temp.expect_error(:S, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'expired')$$, 'スタッフはロスを入れられない');
 
--- 7. 写真の置き場は非公開
+-- 7. 撮っただけ（読み取り待ち）の行は業者名なしで置ける。確認済みは業者名が要る
+select pg_temp.run_as(:M, $$insert into cost_purchases (book_date, vendor, doc_kind, status) values ('2026-11-06', null, 'receipt', 'pending')$$);
+select pg_temp.expect_error(:M, $$insert into cost_purchases (book_date, vendor, doc_kind) values ('2026-11-06', null, 'receipt')$$, '確認済みは業者名なしでは置けない');
+select pg_temp.expect_error(:M, $$insert into cost_purchases (book_date, vendor, doc_kind, status) values ('2026-11-06', 'x', 'receipt', 'done')$$, '状態は3つだけ');
+
+-- 8. 読み取り口の合言葉（ハッシュ）は、オーナーにも画面からは見えない
+insert into api_tokens (name, token_hash) values ('cost_reader', 'abc');
+select pg_temp.ok(pg_temp.count_as(:O, 'select * from api_tokens') = 0, '合言葉の表はオーナーにも見えない（サーバーだけが読む）');
+select pg_temp.expect_error(:O, $$insert into api_tokens (name, token_hash) values ('x_y', 'z')$$, '合言葉は画面から書けない');
+
+-- 9. 写真の置き場は非公開
 select pg_temp.ok((select not public from storage.buckets where id = 'cost-photos'), '写真の置き場は非公開');
 
 \echo 'ALL COST TESTS PASSED'

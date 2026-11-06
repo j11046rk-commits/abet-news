@@ -8,22 +8,21 @@ import {
   CATEGORY_LABEL,
   DOC_KIND_LABEL,
   LOSS_REASON_LABEL,
+  STATUS_LABEL,
   purchaseEx,
   totalMismatch,
   type CostCategory,
   type DocKind,
   type LossReason,
   type Purchase,
-  type PurchaseDraft,
 } from "@/lib/cost";
 import type { Loss } from "@/lib/cost-data";
-import { addLoss, deleteLoss, deletePurchase, discardPhoto, readPurchasePhoto, savePurchase } from "./actions";
+import { addLoss, addPurchasePhotos, confirmPurchase, deleteLoss, deletePurchase, savePurchase } from "./actions";
 
 type P = {
   ym: string;
   today: string;
   canWrite: boolean;
-  aiReady: boolean;
   purchases: Purchase[];
   losses: Loss[];
   photos: Record<string, string>;
@@ -47,11 +46,9 @@ type FormState = {
   photo_path: string | null;
   ai_read: boolean;
   note: string;
-  /** 撮ったばかりの写真（この端末の中だけの表示用） */
-  preview?: string;
 };
 
-const blank = (today: string, photo: string | null = null): FormState => ({
+const blank = (today: string): FormState => ({
   doc_kind: "receipt",
   vendor: "",
   book_date: today,
@@ -60,34 +57,15 @@ const blank = (today: string, photo: string | null = null): FormState => ({
   amounts: { food: "", drink: "", supplies: "", other: "" },
   total_in: "",
   memo: "",
-  photo_path: photo,
+  photo_path: null,
   ai_read: false,
   note: "",
-});
-
-const fromDraft = (d: PurchaseDraft, photo: string): FormState => ({
-  doc_kind: d.doc_kind,
-  vendor: d.vendor,
-  book_date: d.book_date,
-  period_from: d.period_from ?? "",
-  period_to: d.period_to ?? "",
-  amounts: {
-    food: d.food_ex ? String(d.food_ex) : "",
-    drink: d.drink_ex ? String(d.drink_ex) : "",
-    supplies: d.supplies_ex ? String(d.supplies_ex) : "",
-    other: d.other_ex ? String(d.other_ex) : "",
-  },
-  total_in: d.total_in != null ? String(d.total_in) : "",
-  memo: "",
-  photo_path: photo,
-  ai_read: true,
-  note: d.note,
 });
 
 const fromRow = (p: Purchase): FormState => ({
   id: p.id,
   doc_kind: p.doc_kind,
-  vendor: p.vendor,
+  vendor: p.status === "pending" || p.vendor === "（読み取れず）" ? "" : (p.vendor ?? ""),
   book_date: p.book_date,
   period_from: p.period_from ?? "",
   period_to: p.period_to ?? "",
@@ -101,7 +79,7 @@ const fromRow = (p: Purchase): FormState => ({
   memo: p.memo ?? "",
   photo_path: p.photo_path ?? null,
   ai_read: !!p.ai_read,
-  note: "",
+  note: p.ai_note ?? "",
 });
 
 /** 全角数字・カンマ・円記号を許して整数に。空欄は0 */
@@ -114,33 +92,25 @@ const toYen = (s: string): number | null => {
 
 export default function CostPanels(p: P) {
   const [form, setForm] = useState<FormState | null>(null);
-  const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const unconfirmed = p.purchases.filter((x) => x.status === "unconfirmed").length;
   return (
     <>
       {p.canWrite ? (
         form ? (
           <PurchaseForm
-            key={form.id ?? form.photo_path ?? "new"}
+            key={form.id ?? "new"}
             init={form}
             photoUrl={form.photo_path ? p.photos[form.photo_path] : undefined}
-            aiMsg={aiMsg}
-            onClose={() => {
-              setForm(null);
-              setAiMsg(null);
-            }}
+            onClose={() => setForm(null)}
           />
         ) : (
-          <Capture
-            {...p}
-            onRead={(f, msg) => {
-              setForm(f);
-              setAiMsg(msg);
-            }}
-          />
+          <Capture {...p} onManual={() => setForm(blank(p.today))} />
         )
       ) : null}
 
-      <h2 className="section-title">仕入（{p.purchases.length}件）</h2>
+      <h2 className="section-title">
+        仕入（{p.purchases.length}件{unconfirmed ? `・うち未確認 ${unconfirmed}` : ""}）
+      </h2>
       {p.purchases.length === 0 ? <p className="micro">この月の仕入はまだありません。</p> : null}
       <ul className="cost-list">
         {p.purchases.map((x) => (
@@ -151,7 +121,6 @@ export default function CostPanels(p: P) {
             photoUrl={x.photo_path ? p.photos[x.photo_path] : undefined}
             canWrite={p.canWrite}
             onEdit={() => {
-              setAiMsg(null);
               setForm(fromRow(x));
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
@@ -164,42 +133,43 @@ export default function CostPanels(p: P) {
   );
 }
 
-// ── 撮る ─────────────────────────────────────────────────────
+// ── 撮る（撮るだけ。読むのは毎朝の定期実行）────────────────────────
 
-function Capture(p: P & { onRead: (f: FormState, msg: string | null) => void }) {
+function Capture(p: P & { onManual: () => void }) {
+  const router = useRouter();
   const cam = useRef<HTMLInputElement>(null);
   const lib = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const onFile = async (file: File | undefined) => {
-    if (!file) return;
+  const onFiles = async (list: FileList | null) => {
+    const files = list ? [...list] : [];
+    if (files.length === 0) return;
     setErr(null);
-    setBusy(true);
+    setMsg(null);
+    let added = 0;
     try {
-      // 細かい字を読ませるので、チラシより大きめ（長辺2400px）に縮める
-      const small = await shrinkImage(file, 2400, 0.85);
-      const fd = new FormData();
-      fd.set("file", small);
-      const r = await readPurchasePhoto(fd);
-      if (!r.ok) {
-        setErr(r.error);
-        return;
+      // 細かい字を読むので、チラシより大きめ（長辺2400px）に縮める。5枚ずつ送る（1回の送信量の上限のため）
+      for (let i = 0; i < files.length; i += 5) {
+        setBusy(`送信中… ${i}/${files.length}枚`);
+        const fd = new FormData();
+        for (const f of files.slice(i, i + 5)) fd.append("file", await shrinkImage(f, 2400, 0.85));
+        const r = await addPurchasePhotos(fd);
+        if (!r.ok) {
+          setErr(added ? `${added}枚は保存しました。${r.error}` : r.error);
+          break;
+        }
+        added += r.added ?? 0;
       }
-      const preview = URL.createObjectURL(small);
-      if (r.draft) {
-        p.onRead({ ...fromDraft(r.draft, r.photoPath), preview }, "AIが読みました。写真と見比べて、違うところだけ直して保存してください。");
-      } else {
-        const why =
-          r.ai === "nokey"
-            ? "AIの読み取りはまだ準備中です（鍵の設定待ち）。写真は保存したので、金額を手で入れてください。"
-            : "AIが読み取れませんでした。写真は保存したので、金額を手で入れてください。";
-        p.onRead({ ...blank(p.today, r.photoPath), preview }, why);
+      if (added) {
+        setMsg(`${added}枚を保存しました。明朝、AIが読んで金額を入れます（未確認として並びます）。`);
+        router.refresh();
       }
     } catch {
-      setErr("送れませんでした。電波の良いところでもう一度お試しください。");
+      setErr(`送れませんでした${added ? `（${added}枚は保存済み）` : ""}。電波の良いところでもう一度お試しください。`);
     } finally {
-      setBusy(false);
+      setBusy(null);
       if (cam.current) cam.current.value = "";
       if (lib.current) lib.current.value = "";
     }
@@ -207,20 +177,21 @@ function Capture(p: P & { onRead: (f: FormState, msg: string | null) => void }) 
 
   return (
     <section className="card stack" aria-label="仕入を入れる">
-      <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => cam.current?.click()}>
-        {busy ? "読み取り中…（10秒ほど）" : "📷 納品書・請求書・レシートを撮る"}
+      <button type="button" className="btn btn-primary btn-block" disabled={!!busy} onClick={() => cam.current?.click()}>
+        {busy ?? "📷 納品書・レシートを撮る"}
       </button>
       <div className="row" style={{ justifyContent: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn btn-sm" disabled={busy} onClick={() => lib.current?.click()}>
-          保存した写真から選ぶ
+        <button type="button" className="btn btn-sm" disabled={!!busy} onClick={() => lib.current?.click()}>
+          保存した写真から選ぶ（まとめて可）
         </button>
-        <button type="button" className="btn btn-sm btn-ghost" disabled={busy} onClick={() => p.onRead(blank(p.today), null)}>
+        <button type="button" className="btn btn-sm btn-ghost" disabled={!!busy} onClick={p.onManual}>
           写真なしで手で入れる
         </button>
       </div>
-      <input ref={cam} type="file" accept="image/*" capture="environment" hidden aria-label="書類を撮る" onChange={(e) => onFile(e.target.files?.[0])} />
-      <input ref={lib} type="file" accept="image/*" hidden aria-label="写真を選ぶ" onChange={(e) => onFile(e.target.files?.[0])} />
-      {!p.aiReady ? <p className="micro">※ AIの読み取りは準備中です。いまは写真を残して金額を手で入れる形になります。</p> : null}
+      <input ref={cam} type="file" accept="image/*" capture="environment" hidden aria-label="書類を撮る" onChange={(e) => onFiles(e.target.files)} />
+      <input ref={lib} type="file" accept="image/*" multiple hidden aria-label="写真を選ぶ" onChange={(e) => onFiles(e.target.files)} />
+      <p className="micro">撮るだけでOK。毎朝AIがまとめて読み、金額が入ります。写真と見比べて「確認した」を押してください。</p>
+      {msg ? <p className="notice micro">{msg}</p> : null}
       {err ? <p className="err">{err}</p> : null}
     </section>
   );
@@ -228,12 +199,12 @@ function Capture(p: P & { onRead: (f: FormState, msg: string | null) => void }) 
 
 // ── 確認して保存 ───────────────────────────────────────────────
 
-function PurchaseForm({ init, photoUrl, aiMsg, onClose }: { init: FormState; photoUrl?: string; aiMsg: string | null; onClose: () => void }) {
+function PurchaseForm({ init, photoUrl, onClose }: { init: FormState; photoUrl?: string; onClose: () => void }) {
   const router = useRouter();
   const [f, setF] = useState<FormState>(init);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const localUrl = init.preview ?? photoUrl;
+  const localUrl = photoUrl;
 
   const amounts = Object.fromEntries(CATS.map((c) => [c, toYen(f.amounts[c])])) as Record<CostCategory, number | null>;
   const totalIn = f.total_in.trim() === "" ? null : toYen(f.total_in);
@@ -273,25 +244,16 @@ function PurchaseForm({ init, photoUrl, aiMsg, onClose }: { init: FormState; pho
       }
     });
 
-  const cancel = () =>
-    start(async () => {
-      // 新しく撮った写真を保存せずにやめたら、写真も片付ける
-      if (!f.id && f.photo_path) await discardPhoto(f.photo_path);
-      onClose();
-    });
 
   return (
     <section className="card stack cost-form" aria-label="仕入の確認">
-      <h2 className="section-title">{f.id ? "仕入を直す" : "仕入の確認"}</h2>
-      {aiMsg ? <p className="notice micro">{aiMsg}</p> : null}
+      <h2 className="section-title">{f.id ? "仕入を直す" : "仕入を手で入れる"}</h2>
       {f.note ? <p className="notice notice-strong micro">AIからの確認：{f.note}</p> : null}
       {localUrl ? (
         <a href={localUrl} target="_blank" rel="noreferrer" className="cost-photo">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={localUrl} alt="書類の写真" />
         </a>
-      ) : f.photo_path ? (
-        <p className="micro">📎 写真は保存済み（保存後に一覧から見られます）</p>
       ) : null}
 
       <span className="field-label">書類の種類</span>
@@ -348,7 +310,7 @@ function PurchaseForm({ init, photoUrl, aiMsg, onClose }: { init: FormState; pho
         <button type="button" className="btn btn-primary" disabled={pending} onClick={save}>
           保存
         </button>
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={cancel}>
+        <button type="button" className="btn btn-ghost" disabled={pending} onClick={onClose}>
           やめる
         </button>
       </div>
@@ -364,8 +326,10 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const parts = CATS.filter((c) => p[`${c}_ex` as const] !== 0).map((c) => `${CATEGORY_LABEL[c]} ${fmtYen(p[`${c}_ex` as const])}`);
+  const status = p.status ?? "confirmed";
+  const name = p.vendor ?? "撮った写真";
   const del = () => {
-    if (!window.confirm(`${p.vendor}（${md(p.book_date)}）を消しますか？写真も消えます。`)) return;
+    if (!window.confirm(`${name}（${md(p.book_date)}）を消しますか？写真も消えます。`)) return;
     start(async () => {
       const r = await deletePurchase(p.id);
       if (!r.ok) setErr(r.error);
@@ -373,20 +337,26 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
     });
   };
   return (
-    <li className={`cost-row${warn ? " cost-row--warn" : ""}`}>
+    <li className={`cost-row${warn ? " cost-row--warn" : ""} cost-row--${status}`}>
       <div className="cost-row__main">
         <span className="cost-row__date">{md(p.book_date)}</span>
         <span className="cost-row__vendor">
           {warn ? "⚠ " : ""}
-          {p.vendor}
-          <span className="micro">　{DOC_KIND_LABEL[p.doc_kind]}</span>
+          {status === "pending" ? "撮った写真" : p.vendor}
+          {status === "pending" ? null : <span className="micro">　{DOC_KIND_LABEL[p.doc_kind]}</span>}
+          {status !== "confirmed" ? <span className={`cost-pill cost-pill--${status}`}>{STATUS_LABEL[status]}</span> : null}
         </span>
-        <span className="cost-row__amt">{fmtYen(purchaseEx(p))}</span>
+        <span className="cost-row__amt">{status === "pending" ? "—" : fmtYen(purchaseEx(p))}</span>
       </div>
-      <div className="micro">
-        {parts.join("・")}
-        {p.memo ? `　${p.memo}` : ""}
-      </div>
+      {status === "pending" ? (
+        <div className="micro">明朝AIが読みます（{md(p.book_date)}に撮影）。急ぐときは「手で入れる」。</div>
+      ) : (
+        <div className="micro">
+          {parts.join("・")}
+          {p.memo ? `　${p.memo}` : ""}
+        </div>
+      )}
+      {status === "unconfirmed" && p.ai_note ? <div className="micro cost-row__note">AIから：{p.ai_note}</div> : null}
       <div className="row" style={{ gap: "1rem" }}>
         {photoUrl ? (
           <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
@@ -395,8 +365,24 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
         ) : null}
         {canWrite ? (
           <>
+            {status === "unconfirmed" ? (
+              <button
+                type="button"
+                className="linklike cost-confirm"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    const r = await confirmPurchase(p.id);
+                    if (!r.ok) setErr(r.error);
+                    else router.refresh();
+                  })
+                }
+              >
+                ✓ 確認した
+              </button>
+            ) : null}
             <button type="button" className="linklike" onClick={onEdit}>
-              直す
+              {status === "pending" ? "手で入れる" : "直す"}
             </button>
             <button type="button" className="linklike" disabled={pending} onClick={del}>
               消す

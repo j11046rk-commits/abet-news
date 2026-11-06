@@ -2868,3 +2868,9 @@ textarea.field:-webkit-autofill {
 .stock-row__qty { max-width: 6.5rem; text-align: right; }
 .cost-form .row > .field, .stock-row .row > .field { min-width: 0; flex: 1 1 0; }
 .cost-form .field { min-width: 0; max-width: 100%; }
+.cost-pill { display: inline-block; margin-left: 0.4rem; padding: 0 0.45rem; border-radius: 999px; font-size: 0.7rem; vertical-align: 0.1em; border: 1px solid currentColor; }
+.cost-pill--pending { color: var(--text-dim); }
+.cost-pill--unconfirmed { color: var(--warn); }
+.cost-row--pending { opacity: 0.85; border-style: dashed; }
+.cost-row__note { color: var(--warn); }
+.cost-confirm { font-weight: 600; }

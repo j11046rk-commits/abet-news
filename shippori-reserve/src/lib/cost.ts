@@ -48,10 +48,22 @@ export const CATEGORY_TAX: Record<CostCategory, number> = {
 /** 税込→税抜（1円未満は四捨五入） */
 export const exTax = (inclYen: number, rate: number): number => Math.round(inclYen / (1 + rate));
 
+/** 読み取り待ち（撮っただけ）／未確認（読み取った・人がまだ見ていない）／確認済み */
+export type PurchaseStatus = "pending" | "unconfirmed" | "confirmed";
+
+export const STATUS_LABEL: Record<PurchaseStatus, string> = {
+  pending: "読み取り待ち",
+  unconfirmed: "未確認",
+  confirmed: "確認済み",
+};
+
 export type Purchase = {
   id: string;
   book_date: string;
-  vendor: string;
+  /** 読み取り待ちの間は null */
+  vendor: string | null;
+  status?: PurchaseStatus;
+  ai_note?: string | null;
   doc_kind: DocKind;
   food_ex: number;
   drink_ex: number;
@@ -100,6 +112,7 @@ export function purchaseWarnings(list: Purchase[]): PurchaseWarning[] {
   const out: PurchaseWarning[] = [];
   const byVendor = new Map<string, Purchase[]>();
   for (const p of list) {
+    if (p.status === "pending" || !p.vendor) continue;
     const k = vendorKey(p.vendor);
     byVendor.set(k, [...(byVendor.get(k) ?? []), p]);
   }
@@ -174,8 +187,10 @@ export function monthCost(input: {
     salesEx = (salesEx ?? 0) + v;
     salesDays += 1;
   }
+  // 読み取り待ちは金額がまだ無い（0）ので足しても変わらないが、意図をはっきりさせて外す
+  const counted = input.purchases.filter((p) => p.status !== "pending");
   const sum = (k: "food_ex" | "drink_ex" | "supplies_ex" | "other_ex") =>
-    input.purchases.reduce((a, p) => a + p[k], 0);
+    counted.reduce((a, p) => a + p[k], 0);
   const food = sum("food_ex");
   const drink = sum("drink_ex");
   const supplies = sum("supplies_ex");
@@ -290,4 +305,43 @@ export function totalMismatch(d: Pick<PurchaseDraft, "food_ex" | "drink_ex" | "s
   const est = Math.round(d.food_ex * 1.08 + d.drink_ex * 1.1 + d.supplies_ex * 1.1 + d.other_ex * 1.1);
   const diff = d.total_in - est;
   return Math.abs(diff) > Math.max(100, Math.abs(d.total_in) * 0.02) ? diff : null;
+}
+
+// ── 外の読み取り役（定期実行のClaude）から届いた結果の検査 ─────────────────
+
+const KINDS: DocKind[] = ["slip", "invoice", "receipt"];
+const CATS: CostCategory[] = ["food", "drink", "supplies", "other"];
+
+/**
+ * 読み取り役が送ってきた JSON を AiDoc として受け取れるか確かめる。
+ * 外から来るものなので、形・種類・金額の範囲を全部見る。だめなら理由を返す。
+ */
+export function parseAiDoc(v: unknown): { ok: true; doc: AiDoc } | { ok: false; error: string } {
+  if (!v || typeof v !== "object") return { ok: false, error: "doc がありません" };
+  const o = v as Record<string, unknown>;
+  if (!KINDS.includes(o.doc_kind as DocKind)) return { ok: false, error: "doc_kind は slip / invoice / receipt" };
+  if (typeof o.vendor !== "string" || !o.vendor.trim()) return { ok: false, error: "vendor が空です" };
+  const optDate = (x: unknown) => (x == null || x === "" ? null : typeof x === "string" ? x : undefined);
+  const date = optDate(o.date);
+  const pf = optDate(o.period_from);
+  const pt = optDate(o.period_to);
+  if (date === undefined || pf === undefined || pt === undefined) return { ok: false, error: "日付は YYYY-MM-DD の文字列か null" };
+  const total = o.total_in == null ? null : Number(o.total_in);
+  if (total != null && (!Number.isInteger(total) || Math.abs(total) > 20_000_000)) return { ok: false, error: "total_in が不正です" };
+  if (!Array.isArray(o.lines) || o.lines.length === 0 || o.lines.length > 20) return { ok: false, error: "lines は1〜20行" };
+  const lines: AiDoc["lines"] = [];
+  for (const l of o.lines as Record<string, unknown>[]) {
+    if (!l || !CATS.includes(l.category as CostCategory)) return { ok: false, error: "category は food / drink / supplies / other" };
+    const amount = Number(l.amount);
+    if (!Number.isInteger(amount) || Math.abs(amount) > 10_000_000) return { ok: false, error: "amount は円の整数" };
+    if (typeof l.tax_included !== "boolean") return { ok: false, error: "tax_included は true / false" };
+    const rate = l.tax_rate == null ? null : Number(l.tax_rate);
+    if (rate != null && rate !== 0.08 && rate !== 0.1) return { ok: false, error: "tax_rate は 0.08 / 0.1 / null" };
+    lines.push({ category: l.category as CostCategory, amount, tax_included: l.tax_included, tax_rate: rate });
+  }
+  const note = typeof o.note === "string" ? o.note : "";
+  return {
+    ok: true,
+    doc: { doc_kind: o.doc_kind as DocKind, vendor: o.vendor, date, period_from: pf, period_to: pt, total_in: total, lines, note },
+  };
 }

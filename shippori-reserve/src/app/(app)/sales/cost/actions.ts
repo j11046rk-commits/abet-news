@@ -6,8 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { todayBizDate } from "@/lib/time";
-import { draftFromAi, stockTotal, type DocKind, type LossReason, type PurchaseDraft } from "@/lib/cost";
-import { readCostDocument } from "@/lib/cost-ai";
+import { stockTotal, type DocKind, type LossReason } from "@/lib/cost";
+import { issueApiToken } from "@/lib/api-token";
 import { COST_BUCKET } from "@/lib/cost-data";
 
 /*
@@ -62,24 +62,53 @@ async function dropPhoto(path: string | null | undefined) {
 
 // ── 仕入 ─────────────────────────────────────────────────────
 
-export type ReadResult =
-  | { ok: true; photoPath: string; draft: PurchaseDraft | null; ai: "read" | "nokey" | "unreadable" | "error" }
-  | { ok: false; error: string };
-
-/** 写真を置いて、AIに読ませる。読めなくても写真は残し、手入力に切り替える */
-export async function readPurchasePhoto(fd: FormData): Promise<ReadResult> {
+/**
+ * 写真を撮るだけ（店長・毎日）。読み取り待ちの行を作り、読むのは毎朝の定期実行（サブスクのClaude）。
+ * API料金は使わない（店主指示 2026-11-06）。過去の書類をまとめて入れるときは複数枚を一度に送れる。
+ */
+export async function addPurchasePhotos(fd: FormData): Promise<CResult & { added?: number }> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
-  const file = fd.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "写真を選んでください。" };
-
+  const files = fd.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { ok: false, error: "写真を選んでください。" };
+  if (files.length > 20) return { ok: false, error: "一度に送れるのは20枚までです。" };
   const today = todayBizDate();
-  const put = await putPhoto(file, `purchases/${today.slice(0, 7)}`);
-  if (!put.ok) return put;
+  const supabase = await createClient();
+  let added = 0;
+  for (const file of files) {
+    const put = await putPhoto(file, `purchases/${today.slice(0, 7)}`);
+    if (!put.ok) return { ok: false, error: added ? `${added}枚は保存しました。残りで止まりました：${put.error}` : put.error };
+    const { error } = await supabase
+      .from("cost_purchases")
+      .insert({ status: "pending", book_date: today, doc_kind: "receipt", vendor: null, photo_path: put.path });
+    if (error) {
+      await dropPhoto(put.path);
+      return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+    }
+    added += 1;
+  }
+  done();
+  return { ok: true, added };
+}
 
-  const data = Buffer.from(await file.arrayBuffer()).toString("base64");
-  const r = await readCostDocument({ data, mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" });
-  if (!r.ok) return { ok: true, photoPath: put.path, draft: null, ai: r.reason };
-  return { ok: true, photoPath: put.path, draft: draftFromAi(r.doc, today), ai: "read" };
+/** 読み取った内容を写真と見比べて、合っていたら「確認した」 */
+export async function confirmPurchase(id: string): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("cost_purchases").update({ status: "confirmed" }).eq("id", id).eq("status", "unconfirmed");
+  if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+  done();
+  return { ok: true };
+}
+
+/** 読み取り口の合言葉を発行（オーナーだけ）。平文はこの1回しか出ない。発行し直すと前のは効かなくなる */
+export async function issueReaderToken(): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const me = await requireProfile();
+  if (me.role !== "owner") return { ok: false, error: "発行できるのはオーナーだけです。" };
+  try {
+    return { ok: true, token: await issueApiToken("cost_reader", me.id) };
+  } catch {
+    return { ok: false, error: "発行できませんでした。" };
+  }
 }
 
 export type PurchaseInput = {
@@ -133,6 +162,8 @@ export async function savePurchase(input: PurchaseInput): Promise<CResult> {
     memo: input.memo.trim().slice(0, 500) || null,
     photo_path: input.photo_path,
     ai_read: input.ai_read,
+    // 人が見て保存した＝確認済み（読み取り待ち・未確認の行を直したときもここに来る）
+    status: "confirmed",
   };
   const supabase = await createClient();
   const q = input.id
@@ -151,16 +182,6 @@ export async function deletePurchase(id: string): Promise<CResult> {
   if (error) return { ok: false, error: dbErr(error.message, "消せませんでした。") };
   await dropPhoto(data?.photo_path as string | null);
   done();
-  return { ok: true };
-}
-
-/** 確認画面で「やめる」を押したとき、置いた写真を片付ける（どの行にも使われていないものだけ） */
-export async function discardPhoto(path: string): Promise<CResult> {
-  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
-  if (!/^purchases\/\d{4}-\d{2}\/[0-9a-f-]{36}\.(jpg|png|webp)$/.test(path)) return { ok: false, error: "不正です。" };
-  const supabase = await createClient();
-  const { count } = await supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("photo_path", path);
-  if (!count) await dropPhoto(path);
   return { ok: true };
 }
 

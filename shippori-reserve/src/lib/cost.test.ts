@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   draftFromAi,
   monthCost,
+  parseAiDoc,
   prevYm,
   purchaseWarnings,
   salesExTax,
@@ -134,4 +135,37 @@ test("AIの読み取り→確認画面の初期値：税込は区分の税率で
   assert.equal(r.supplies_ex, 1_000);
   assert.equal(totalMismatch(r), null);
   assert.ok(totalMismatch({ ...r, total_in: 5_000 }) != null); // 読み違いは知らせる
+});
+
+test("読み取り待ちは原価にも二重の警告にも入れない", () => {
+  const pending = p({ status: "pending", vendor: null, food_ex: 0 });
+  const r = monthCost({
+    sales: [{ biz_date: "a", target_yen: null, actual_yen: 110_000, tax8_yen: null, tax10_yen: null }],
+    purchases: [pending, p({ status: "unconfirmed", food_ex: 10_000 })],
+    open: null,
+    close: null,
+  });
+  assert.equal(r.food, 10_000); // 未確認は入る（金額は読めている）
+  assert.deepEqual(purchaseWarnings([pending, pending]), []);
+});
+
+test("読み取り役から届いた結果の検査：外から来るので形を全部見る", () => {
+  const good = {
+    doc_kind: "slip",
+    vendor: "丸魚",
+    date: "2026-11-05",
+    period_from: null,
+    period_to: null,
+    total_in: 10_800,
+    lines: [{ category: "food", amount: 10_800, tax_included: true, tax_rate: 0.08 }],
+    note: "",
+  };
+  assert.equal(parseAiDoc(good).ok, true);
+  assert.equal(parseAiDoc({ ...good, doc_kind: "memo" }).ok, false);
+  assert.equal(parseAiDoc({ ...good, vendor: " " }).ok, false);
+  assert.equal(parseAiDoc({ ...good, lines: [] }).ok, false);
+  assert.equal(parseAiDoc({ ...good, lines: [{ ...good.lines[0], amount: 1.5 }] }).ok, false);
+  assert.equal(parseAiDoc({ ...good, lines: [{ ...good.lines[0], tax_rate: 0.05 }] }).ok, false);
+  assert.equal(parseAiDoc({ ...good, date: 20261105 }).ok, false);
+  assert.equal(parseAiDoc(null).ok, false);
 });
