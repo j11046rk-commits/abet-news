@@ -1,0 +1,191 @@
+---
+// 幹事さん用の1枚まとめ（shipporitei.jp/kanji）。2026-11-07・店主承認。
+// GA4 の分析で、パソコンからの訪問が3割・Microsoft Teams に貼られたリンクからの訪問があり、
+// 会社の幹事さんが社内でHPを共有していると見られたため、社内チャットやメールに
+// そのまま貼れる案内文（コピー用）と、稟議に要る事実を1画面にまとめる。
+// 数字・内容はすべて site.json から出す（ここで書き直さない＝宴会ページと食い違わない）。
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import BottomNav from '../components/BottomNav.astro';
+import Icon from '../components/Icon.astro';
+import site from '../../data/site.json';
+
+const s = site.店舗情報;
+const h = site.営業時間;
+const a = site.アクセス;
+const b = site.宴会コース;
+const r = site.予約問い合わせ;
+const raw = (site as any).季節プラン;
+const jstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+const sp = raw && raw.公開 && (!raw.掲載期限 || jstToday <= raw.掲載期限) ? raw : null;
+const season = site.宴会ページ.季節見出し;
+const tel = s.電話番号.replace(/-/g, '');
+const lineURL = (r.lineURL || '').trim();
+const pageURL = new URL('/kanji', Astro.site ?? 'https://shipporitei.jp').href;
+const hours = `${h.表示.map((x: any) => `${x.曜日} ${x.時間}`).join('／')}（${h.定休日}定休）`;
+
+// コースの1行表記（季節プランがあれば先に）
+const courseLines: string[] = [];
+if (sp) {
+  courseLines.push(
+    `${sp.見出し}：${sp.プラン.map((p: any) => `${p.名称} ${p.価格.split('（')[0]}`).join('／')}（税込・おひとり。${sp.飲み放題.replace(/（税込）/, '')}。${sp.条件}）`,
+  );
+}
+// 「21時以降限定」のような条件は案内文にも残す（内容の最初の区切りまで）
+const limitOf = (c: any) => (String(c.内容 ?? '').split('／')[0].includes('限定') ? `・${String(c.内容).split('／')[0]}` : '');
+for (const c of b.コース一覧) courseLines.push(`${c.名称}：${c.価格}（${c.飲み放題}・${c.品数}${limitOf(c)}）`);
+
+const rows: [string, string, string][] = [
+  ['group', '人数', `${b.宴会最大人数}。${b.貸切}`],
+  ['room', 'お席', b.個室],
+  ['yen', 'ご予算', `${b.予算目安}`],
+  ['receipt', 'お支払い', `${b.領収書対応}${b.請求書対応}`],
+  ['clock', '営業時間', hours],
+  ['room', '喫煙', s.喫煙],
+  ['pin', '住所', `〒${s.郵便番号} ${s.住所}`],
+  ['pin', 'アクセス', `${a.最寄り}。${a.バス}。${a.ホテルから}`],
+  ['seats', '駐車場', a.駐車場],
+  ['phone', 'ご予約', `${b.予約方法}8名様まではネット予約（24時間受付）も使えます。`],
+];
+
+// 社内に貼る案内文。社内チャット・メールにそのまま貼れる素の文章
+const shareText = [
+  `【${season}の候補】${s.店名}（新居浜のおばんざい居酒屋）`,
+  `住所：〒${s.郵便番号} ${s.住所}`,
+  `電話：${s.電話番号表示用}`,
+  `営業：${hours}`,
+  `人数：${b.宴会最大人数}。${b.貸切.split('。')[0]}`,
+  `お席：${b.個室}`,
+  ...courseLines.map((l, i) => `${i === 0 ? 'コース：' : '　　　　'}${l}`),
+  `支払い：インボイス対応の領収書・請求書OK（宛名・但し書き・締め日は相談可）`,
+  `喫煙：${s.喫煙}`,
+  `駐車場：${a.駐車場}`,
+  `詳しく：${pageURL}`,
+].join('\n');
+---
+<Base
+  title={`幹事さん用 ${season}・宴会のご案内｜新居浜 ${s.店名}`}
+  description={`新居浜の${season}・宴会の幹事さん向けに、人数・お席・コースの価格・インボイス対応の領収書/請求書・駐車場を1ページにまとめました。社内に貼れる案内文のコピー付き。`}
+>
+  <Header onSubPage />
+  <main class="kj">
+    <section class="section">
+      <div class="container kj__wrap">
+        <div class="section__head">
+          <p class="section__kicker">FOR ORGANIZERS</p>
+          <h1 class="section__title">幹事さん用 {season}・宴会のご案内</h1>
+          <p class="section__lead">社内での相談や稟議に要ることを、この1ページにまとめました。下の案内文は、社内チャットやメールにそのまま貼れます。</p>
+        </div>
+
+        <section class="kj__share" aria-labelledby="kj-share-title">
+          <h2 id="kj-share-title" class="kj__h2"><Icon name="group" size={20} /> 社内に貼る案内文</h2>
+          <textarea id="kj-text" class="kj__text" readonly rows={courseLines.length + 10} aria-label="社内に貼る案内文">{shareText}</textarea>
+          <div class="kj__btns">
+            <button type="button" class="btn btn--primary" data-copy="kj-text">
+              <span data-label>案内文をコピー</span>
+            </button>
+            <button type="button" class="btn btn--ghost" data-copy-url={pageURL}>
+              <span data-label>このページのURLをコピー</span>
+            </button>
+          </div>
+          <p class="kj__hint" id="kj-hint" aria-live="polite"></p>
+        </section>
+
+        {courseLines.length > 0 && (
+          <section aria-labelledby="kj-course-title">
+            <h2 id="kj-course-title" class="kj__h2"><Icon name="yen" size={20} /> コースと価格</h2>
+            <ul class="kj__courses">
+              {sp && sp.プラン.map((p: any) => (
+                <li><span class="kj__cname">{p.名称}</span><span class="kj__cprice">{p.価格}</span></li>
+              ))}
+              {b.コース一覧.map((c: any) => (
+                <li><span class="kj__cname">{c.名称}</span><span class="kj__cprice">{c.価格}</span><span class="kj__cnote">{c.飲み放題}・{c.品数}{limitOf(c)}</span></li>
+              ))}
+            </ul>
+            {sp && <p class="kj__note">{sp.見出し}：{sp.飲み放題}。{sp.条件}</p>}
+          </section>
+        )}
+
+        <section aria-labelledby="kj-facts-title">
+          <h2 id="kj-facts-title" class="kj__h2"><Icon name="receipt" size={20} /> 確認しておきたいこと</h2>
+          <dl class="kj__facts">
+            {rows.map(([icon, k, v]) => (
+              <div class="kj__row">
+                <dt><Icon name={icon} size={18} /> {k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <div class="kj__cta">
+          <a class="btn btn--primary btn--lg" href={`tel:${tel}`}>
+            <Icon name="phone" size={20} /> <span>電話で宴会を相談</span> <span class="btn__phone-num">{s.電話番号表示用}</span>
+          </a>
+          {lineURL && (
+            <a class="btn btn--line" href={lineURL} target="_blank" rel="noopener noreferrer">
+              <Icon name="line" size={20} /> <span>LINEで相談</span>
+            </a>
+          )}
+          <a class="btn btn--ghost" href="/enkai">宴会ページ（写真・よくある質問）</a>
+        </div>
+        <p class="kj__note">{r.電話受付}</p>
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <BottomNav page="sub" />
+</Base>
+
+<script>
+  // コピー。使えない環境（古いアプリ内ブラウザなど）では文章を選んだ状態にして、長押しでコピーしてもらう
+  const hint = document.getElementById('kj-hint');
+  const say = (t: string) => { if (hint) hint.textContent = t; };
+  async function copy(text: string, fallback?: HTMLTextAreaElement | null) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      if (fallback) { fallback.focus(); fallback.select(); }
+      return false;
+    }
+  }
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ta = document.getElementById(btn.dataset.copy!) as HTMLTextAreaElement | null;
+      if (!ta) return;
+      say((await copy(ta.value, ta)) ? 'コピーしました。社内チャットやメールに貼り付けてください。' : '文章を選びました。長押し（右クリック）でコピーしてください。');
+    });
+  });
+  document.querySelectorAll<HTMLButtonElement>('[data-copy-url]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      say((await copy(btn.dataset.copyUrl!)) ? 'URLをコピーしました。' : `URL：${btn.dataset.copyUrl}`);
+    });
+  });
+</script>
+
+<style>
+  .kj__wrap { max-width: 48rem; display: grid; gap: clamp(1.8rem, 5vw, 2.6rem); }
+  .kj__wrap > .section__head { margin-bottom: 0; }
+  .kj__h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.9rem; font-family: var(--font-serif); font-size: 1.25rem; color: var(--gold-soft); }
+  .kj__share { background: var(--bg-3); border: 1px solid var(--gold); border-radius: var(--radius); padding: clamp(1rem, 4vw, 1.5rem); }
+  .kj__text { width: 100%; box-sizing: border-box; resize: vertical; padding: 0.9rem 1rem; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: inherit; font-size: 0.9rem; line-height: 1.75; white-space: pre-wrap; }
+  .kj__btns { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+  .kj__hint { min-height: 1.4em; margin: 0.5rem 0 0; font-size: 0.86rem; color: var(--gold-soft); }
+  .kj__courses { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .kj__courses li { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 1rem; padding: 0.8rem 0.2rem; border-bottom: 1px solid var(--line); align-items: baseline; }
+  .kj__cname { font-weight: 700; min-width: 0; }
+  .kj__cprice { color: var(--gold-soft); font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+  .kj__cnote { grid-column: 1 / -1; font-size: 0.84rem; color: var(--text-dim); }
+  .kj__note { margin: 0.7rem 0 0; font-size: 0.86rem; color: var(--text-dim); line-height: 1.8; }
+  .kj__facts { margin: 0; border-top: 1px solid var(--line); }
+  .kj__row { display: grid; gap: 0.2rem; padding: 0.85rem 0.2rem; border-bottom: 1px solid var(--line); }
+  @media (min-width: 640px) { .kj__row { grid-template-columns: 9rem 1fr; gap: 1rem; } }
+  .kj__row dt { display: flex; align-items: center; gap: 0.4rem; color: var(--gold); font-weight: 700; font-size: 0.92rem; }
+  .kj__row dd { margin: 0; line-height: 1.8; min-width: 0; overflow-wrap: anywhere; }
+  .kj__cta { display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; }
+  .btn--line { background: #06c755; color: #fff; }
+  .btn--line:hover { background: #05b14c; color: #fff; }
+</style>

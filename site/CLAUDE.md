@@ -239,3 +239,8 @@ Header → Hero → Concept → **Banquet(宴会・最重要)** → Menu → Gal
 - 実写真導入後、`astro:assets` で WebP 自動最適化に切替を検討（運用容易性とのトレードオフ）
 - メニューが増えるなら `看板メニュー` を content collection 化
 - 構造化データに `Menu`/`MenuItem`、`aggregateRating`（レビュー導入時）を追加
+
+## 幹事さん用の1枚まとめ・Search Console（2026-11-07・店主承認）
+- アクセス増の要因分析（GA4）で、パソコンからの訪問が3割・Microsoft Teams に貼られたリンクからの訪問があり、会社の幹事が社内で共有していると見られた。
+- `/kanji`：人数・お席・コースと価格・支払い（インボイス）・喫煙・駐車場・予約方法を1画面に。**社内に貼る案内文のコピー**と URL コピー付き。数字は全部 `site.json`（宴会コース・季節プラン・店舗情報・アクセス）から出す。季節プランは掲載期限を過ぎると案内文からも消える。`/enkai` のチェックポイント欄からリンク。
+- Search Console：`scripts/fetch-gsc.mjs` が毎時ビルドで `data/gsc.json` を更新（GA4と同じサービスアカウント `GA4_SA_KEY`）。店主が Search Console でそのサービスアカウントを「制限付き」ユーザーに追加するまでは `status: unconnected` とアドレスだけを書き、ダッシュボードに手順を出す。店名を含む検索（しっぽり・shippori）とそれ以外を分けて数える。

@@ -6,8 +6,15 @@ import ga4 from '../../data/ga4.json';
 // 予約システム（yoyaku.shipporitei.jp）の集計。scripts/fetch-reserve.mjs が更新。
 // ★集計だけ。氏名・電話番号は入っていないし、入れてはいけない。
 import rv from '../../data/reserve.json';
+import gsc from '../../data/gsc.json';
 
 const nf = new Intl.NumberFormat('ja-JP');
+// Search Console（検索された言葉）。未接続の間は手順を出す（2026-11-07）
+const g: any = gsc;
+const gOk = g.status === 'ok';
+const gMd = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const gBrandShare = gOk && (g.split.brand.clicks + g.split.other.clicks) > 0 ? g.split.brand.clicks / (g.split.brand.clicks + g.split.other.clicks) : null;
+const gQMax = gOk ? Math.max(1, ...g.queries.map((q: any) => q.clicks)) : 1;
 const pct1 = (v) => `${(v * 100).toFixed(1)}%`;
 // パーセントはすべて小数点第1位まで（店主指定 2026-11-04）
 const pct0 = pct1;
@@ -288,6 +295,9 @@ const ICONS = {
       td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
       .muted { color: var(--muted); }
       .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+      .gsc-steps { padding-left: 1.3em; display: grid; gap: 6px; }
+      .gsc-mail { color: #e6e9f5; word-break: break-all; user-select: all; }
+      .gsc-tag { margin-left: 6px; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(99,102,241,.18); color: #a5b4fc; }
       .note { margin-top: 26px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
     </style>
   </head>
@@ -423,6 +433,74 @@ const ICONS = {
           ))}
         </div>
       </div>
+
+
+      <!-- 検索された言葉（Search Console） -->
+      <div class="sec-title">検索された言葉（Google 検索）</div>
+      {!gOk ? (
+        <div class="card pad">
+          <p class="empty" style="padding-top:0">
+            Search Console がまだつながっていません。つなぐと「店名で探されたのか」「忘年会・居酒屋などの言葉で見つけられたのか」が分かります。
+          </p>
+          <ol class="note-s gsc-steps">
+            <li>https://search.google.com/search-console を開き、shipporitei.jp のプロパティを選ぶ（無ければ「URLプレフィックス」で https://shipporitei.jp/ を追加し、確認方法は「Googleアナリティクス」）</li>
+            <li>設定 → ユーザーと権限 → ユーザーを追加</li>
+            <li>メールアドレスに {g.serviceAccount ? <b class="gsc-mail">{g.serviceAccount}</b> : '（次の更新でここに出ます）'} を入れ、権限は「制限付き」で追加</li>
+          </ol>
+          <p class="note-s">追加すると、1時間以内の更新でここに数字が出ます。</p>
+        </div>
+      ) : (
+        <>
+          <div class="grid kpis">
+            <div class="card pad kpi a"><span class="rail"></span>
+              <div class="label">検索結果からのクリック</div>
+              <div class="value">{nf.format(g.totals.clicks)}</div>
+              <div class="sub">{gMd(g.range.start)}〜{gMd(g.range.end)}</div>
+              {(() => { const d = delta(g.totals.clicks, g.prev.clicks); return <span class={`chip ${d.kind}`}>{d.kind === 'new' ? '初回' : `${d.kind === 'up' ? '▲' : '▼'} ${d.label}`}</span>; })()}
+            </div>
+            <div class="card pad kpi b"><span class="rail"></span>
+              <div class="label">検索結果に出た回数</div>
+              <div class="value">{nf.format(g.totals.impressions)}</div>
+              <div class="sub">平均の順位 {g.totals.position}位</div>
+              {(() => { const d = delta(g.totals.impressions, g.prev.impressions); return <span class={`chip ${d.kind}`}>{d.kind === 'new' ? '初回' : `${d.kind === 'up' ? '▲' : '▼'} ${d.label}`}</span>; })()}
+            </div>
+            <div class="card pad kpi c"><span class="rail"></span>
+              <div class="label">店名で探した人のクリック</div>
+              <div class="value">{nf.format(g.split.brand.clicks)}</div>
+              <div class="sub">前期 {nf.format(g.prevSplit.brand.clicks)}{gBrandShare != null ? `／全体の ${pct1(gBrandShare)}` : ''}</div>
+            </div>
+            <div class="card pad kpi d"><span class="rail"></span>
+              <div class="label">店名以外の言葉からのクリック</div>
+              <div class="value">{nf.format(g.split.other.clicks)}</div>
+              <div class="sub">前期 {nf.format(g.prevSplit.other.clicks)}（忘年会・居酒屋など）</div>
+            </div>
+          </div>
+          <div class="grid panels" style="margin-top:16px;">
+            <div class="card pad">
+              <h2 class="h"><span class="d"></span>クリックの多い検索語（上位20）</h2>
+              {g.queries.length === 0 ? <div class="empty">データなし</div> : g.queries.map((q: any) => (
+                <div class="bar-row bar-row--wide">
+                  <span>{q.query}{q.brand ? <small class="gsc-tag">店名</small> : null}</span>
+                  <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((q.clicks / gQMax) * 100)}%`}></span></span>
+                  <span class="n">{nf.format(q.clicks)}<small> {q.position}位</small></span>
+                </div>
+              ))}
+              <p class="note-s">数字はクリック数、右は検索結果での平均の順位。検索した人が少ない言葉は Google が伏せるため、合計は上の数字より少なくなります。</p>
+            </div>
+            <div class="card pad">
+              <h2 class="h"><span class="d"></span>検索から入ったページ</h2>
+              {g.pages.length === 0 ? <div class="empty">データなし</div> : g.pages.map((pg: any) => (
+                <div class="bar-row bar-row--wide">
+                  <span>{pg.page}</span>
+                  <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((pg.clicks / Math.max(1, g.pages[0].clicks)) * 100)}%`}></span></span>
+                  <span class="n">{nf.format(pg.clicks)}<small> {nf.format(pg.impressions)}表示</small></span>
+                </div>
+              ))}
+              <p class="note-s">検索のデータは2〜3日遅れて確定するため、期間は3日前までの28日間です（前期はその前の28日間）。</p>
+            </div>
+          </div>
+        </>
+      )}
 
       <!-- 予約システム -->
       <div class="sec-title">ネット予約システム（yoyaku.shipporitei.jp）</div>
