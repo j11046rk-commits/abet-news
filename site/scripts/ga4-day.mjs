@@ -101,6 +101,10 @@ async function main() {
   out.dailyByHost = await run({ dateRanges: span, dimensions: [{ name: "date" }, { name: "hostName" }], metrics: [{ name: "sessions" }, { name: "totalUsers" }], orderBys: [{ dimension: { dimensionName: "date" } }], limit: 200 });
   // その日の流入元（参照元／メディア）
   out.sourceMedium = await run({ dateRanges: day, dimensions: [{ name: "sessionSourceMedium" }, { name: "hostName" }], metrics: [{ name: "sessions" }, { name: "totalUsers" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 40 });
+  // 期間全体：日ごと×チャネル（どの流入が増えたか）・入口ページ（どのページから入ったか）（2026-11-07 追加）
+  out.channelDaily = await run({ dateRanges: span, dimensions: [{ name: "date" }, { name: "sessionDefaultChannelGroup" }], metrics: [{ name: "sessions" }], dimensionFilter: { filter: { fieldName: "hostName", stringFilter: { value: "shipporitei.jp" } } }, orderBys: [{ dimension: { dimensionName: "date" } }], limit: 1000 });
+  out.landingSpan = await run({ dateRanges: span, dimensions: [{ name: "landingPage" }, { name: "sessionDefaultChannelGroup" }], metrics: [{ name: "sessions" }], dimensionFilter: { filter: { fieldName: "hostName", stringFilter: { value: "shipporitei.jp" } } }, orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 80 });
+  out.citySpan = await run({ dateRanges: span, dimensions: [{ name: "city" }], metrics: [{ name: "sessions" }], dimensionFilter: { filter: { fieldName: "hostName", stringFilter: { value: "shipporitei.jp" } } }, orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 15 });
   // 比較期間全体の流入元（いつもとの違いを見る）
   out.sourceMediumSpan = await run({ dateRanges: span, dimensions: [{ name: "sessionSourceMedium" }], metrics: [{ name: "sessions" }], orderBys: [{ metric: { metricName: "sessions" }, desc: true }], limit: 30 });
   // その日の入口ページ
