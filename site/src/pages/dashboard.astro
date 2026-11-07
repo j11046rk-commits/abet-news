@@ -297,6 +297,7 @@ const ICONS = {
       .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
       .gsc-steps { padding-left: 1.3em; display: grid; gap: 6px; }
       .gsc-mail { color: #e6e9f5; word-break: break-all; user-select: all; }
+      .gsc-link { color: #a5b4fc; text-decoration: underline; margin: 0 4px; }
       .gsc-tag { margin-left: 6px; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: rgba(99,102,241,.18); color: #a5b4fc; }
       .note { margin-top: 26px; font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
     </style>
@@ -443,6 +444,13 @@ const ICONS = {
             Search Console がまだつながっていません。つなぐと「店名で探されたのか」「忘年会・居酒屋などの言葉で見つけられたのか」が分かります。
           </p>
           <ol class="note-s gsc-steps">
+            {g.reason === 'api_disabled' && (
+              <li>
+                <b>先にこれだけ：</b>Google Cloud で「Search Console API」を有効にする（GA4の鍵を作ったプロジェクト）。
+                {g.enableUrl ? <a href={g.enableUrl} target="_blank" rel="noopener" class="gsc-link">有効にする画面を開く</a> : null}
+                → 「有効にする」を押す
+              </li>
+            )}
             <li>https://search.google.com/search-console を開き、shipporitei.jp のプロパティを選ぶ（無ければ「URLプレフィックス」で https://shipporitei.jp/ を追加し、確認方法は「Googleアナリティクス」）</li>
             <li>設定 → ユーザーと権限 → ユーザーを追加</li>
             <li>メールアドレスに {g.serviceAccount ? <b class="gsc-mail">{g.serviceAccount}</b> : '（次の更新でここに出ます）'} を入れ、権限は「制限付き」で追加</li>
