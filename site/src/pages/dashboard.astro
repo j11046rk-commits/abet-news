@@ -13,7 +13,10 @@ const nf = new Intl.NumberFormat('ja-JP');
 const g: any = gsc;
 const gOk = g.status === 'ok';
 const gMd = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
-const gBrandShare = gOk && (g.split.brand.clicks + g.split.other.clicks) > 0 ? g.split.brand.clicks / (g.split.brand.clicks + g.split.other.clicks) : null;
+// 店名以外＝全体 − 店名。Google が伏せる「検索した人が少ない言葉」は店名ではない言葉なので、こちらに数える
+const gBrandShare = gOk && g.totals.clicks > 0 ? g.split.brand.clicks / g.totals.clicks : null;
+const gOther = gOk ? Math.max(0, g.totals.clicks - g.split.brand.clicks) : 0;
+const gOtherPrev = gOk ? Math.max(0, g.prev.clicks - g.prevSplit.brand.clicks) : 0;
 const gQMax = gOk ? Math.max(1, ...g.queries.map((q: any) => q.clicks)) : 1;
 const pct1 = (v) => `${(v * 100).toFixed(1)}%`;
 // パーセントはすべて小数点第1位まで（店主指定 2026-11-04）
@@ -476,11 +479,13 @@ const ICONS = {
               <div class="label">店名で探した人のクリック</div>
               <div class="value">{nf.format(g.split.brand.clicks)}</div>
               <div class="sub">前期 {nf.format(g.prevSplit.brand.clicks)}{gBrandShare != null ? `／全体の ${pct1(gBrandShare)}` : ''}</div>
+              {(() => { const d = delta(g.split.brand.clicks, g.prevSplit.brand.clicks); return <span class={`chip ${d.kind}`}>{d.kind === 'new' ? '初回' : `${d.kind === 'up' ? '▲' : '▼'} ${d.label}`}</span>; })()}
             </div>
             <div class="card pad kpi d"><span class="rail"></span>
               <div class="label">店名以外の言葉からのクリック</div>
-              <div class="value">{nf.format(g.split.other.clicks)}</div>
-              <div class="sub">前期 {nf.format(g.prevSplit.other.clicks)}（忘年会・居酒屋など）</div>
+              <div class="value">{nf.format(gOther)}</div>
+              <div class="sub">前期 {nf.format(gOtherPrev)}（忘年会・居酒屋など。うち言葉が分かるのは {nf.format(g.split.other.clicks)}）</div>
+              {(() => { const d = delta(gOther, gOtherPrev); return <span class={`chip ${d.kind}`}>{d.kind === 'new' ? '初回' : `${d.kind === 'up' ? '▲' : '▼'} ${d.label}`}</span>; })()}
             </div>
           </div>
           <div class="grid panels" style="margin-top:16px;">
