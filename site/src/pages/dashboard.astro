@@ -138,6 +138,9 @@ const rvKpis = [
 
 // 流入元の帯（多い順・ネット予約を目立たせる）
 const rvSrcTotal = Math.max(1, rv.bySource.reduce((a, s) => a + s.count, 0));
+// 電話・スタッフ入力の予約で「何を見てご連絡いただいたか」（予約アプリ 0067・2026-11-07〜）。古いデータには無い
+const hf: any = (rv as any).heardFrom ?? null;
+const hfMax = hf ? Math.max(1, ...hf.items.map((i: any) => i.count)) : 1;
 
 // 日別の予約（棒。ネット予約分を色分け）
 const rvDaily = rv.daily.map((d) => ({ ...d, label: `${d.date.slice(5, 7)}/${d.date.slice(8, 10)}` }));
@@ -576,6 +579,21 @@ const ICONS = {
                   <span class="n">{nf.format(s.count)}</span>
                 </div>
               ))}
+              {hf && (
+                <>
+                  <h2 class="h" style="margin-top:22px;"><span class="d"></span>電話などの予約は何を見て？</h2>
+                  {hf.items.length === 0 ? (
+                    <div class="empty">まだ記録がありません（予約登録の「何を見てご連絡いただいたか」を選ぶと出ます）</div>
+                  ) : hf.items.map((i: any) => (
+                    <div class="bar-row">
+                      <span>{i.label}</span>
+                      <span class="bar-track"><span class="bar-fill" style={`width:${Math.round((i.count / hfMax) * 100)}%`}></span></span>
+                      <span class="n">{nf.format(i.count)}<small> {nf.format(i.guests)}名</small></span>
+                    </div>
+                  ))}
+                  <p class="note-s">直近{rv.days}日に入った電話・スタッフ入力などの予約 {nf.format(hf.total)}件のうち、聞けた {nf.format(hf.asked)}件。電話の予約はアクセス解析に出ないので、ここが手がかりです。</p>
+                </>
+              )}
               <h2 class="h" style="margin-top:22px;"><span class="d"></span>ご予約の人数</h2>
               {rv.partySize.map((p) => (
                 <div class="bar-row">
