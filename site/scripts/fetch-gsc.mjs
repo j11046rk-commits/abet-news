@@ -51,18 +51,36 @@ async function api(tk, pathname, body) {
   return json;
 }
 
+/** まだ読めない理由を、ダッシュボードが手順を出せる形で書く（前回のデータが「ok」なら上書きしない） */
+async function writeUnconnected(sa, reason, enableUrl = null) {
+  try {
+    const prev = JSON.parse(await readFile(DEST, "utf8"));
+    if (prev.status === "ok" && reason === "error") return; // 一時的な失敗で前回の数字を消さない
+  } catch { /* 初回 */ }
+  await writeFile(DEST, JSON.stringify({ status: "unconnected", reason, enableUrl, serviceAccount: sa.client_email, checkedAt: new Date().toISOString() }, null, 2) + "\n");
+}
+
 async function main() {
   if (!process.env.GA4_SA_KEY) throw new Error("GA4_SA_KEY 未設定（ローカル実行ではスキップ）");
   const sa = JSON.parse(process.env.GA4_SA_KEY);
   const tk = await token(sa);
 
   // サービスアカウントが見られるプロパティから shipporitei.jp を探す（ドメイン型を優先）
-  const sites = (await api(tk, "/sites")).siteEntry ?? [];
+  let sites;
+  try {
+    sites = (await api(tk, "/sites")).siteEntry ?? [];
+  } catch (e) {
+    // Google Cloud 側で Search Console API が有効になっていない（GA4用に作ったプロジェクトでは最初は無効）
+    const msg = String(e.message || e);
+    const url = msg.match(/https:\/\/console\.developers\.google\.com\/apis\/api\/searchconsole\.googleapis\.com\/overview\?project=\d+/)?.[0] ?? null;
+    await writeUnconnected(sa, /has not been used|is disabled/.test(msg) ? "api_disabled" : "error", url);
+    throw e;
+  }
   const pick =
     sites.find((s) => s.siteUrl === "sc-domain:shipporitei.jp") ??
     sites.find((s) => /^https?:\/\/(www\.)?shipporitei\.jp\/?$/.test(s.siteUrl));
   if (!pick) {
-    await writeFile(DEST, JSON.stringify({ status: "unconnected", serviceAccount: sa.client_email, checkedAt: new Date().toISOString() }, null, 2) + "\n");
+    await writeUnconnected(sa, "not_shared");
     console.log("Search Console：まだ共有されていません（サービスアカウントをユーザーに追加すると読めます）");
     return;
   }
