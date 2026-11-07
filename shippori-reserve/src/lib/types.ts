@@ -111,6 +111,8 @@ export type Reservation = {
   source: ReservationSource;
   source_profile_id: string | null;
   source_detail: string | null;
+  /** 何を見てご連絡いただいたか（0067）。聞けなかったら null */
+  heard_from?: string | null;
   external_ref: string | null;
   status: ReservationStatus;
   is_exclusive: boolean;

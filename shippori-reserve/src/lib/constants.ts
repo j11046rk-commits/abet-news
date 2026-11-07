@@ -32,6 +32,24 @@ export const SELECTABLE_SOURCES = (["phone", "other", "line", "instagram_dm"] as
   (v) => SOURCES.find((s) => s.value === v)!,
 );
 
+/**
+ * 「何を見てご連絡いただいたか」（0067・店主要望 2026-11-07）。電話・スタッフ入力の予約で聞く。任意。
+ * 電話の予約はHPのアクセス解析に出ないので、ここで聞いた分だけが「どこから来たか」の手がかりになる。
+ */
+export const HEARD_FROM: { value: string; label: string }[] = [
+  { value: "gmap", label: "Googleマップ" },
+  { value: "search", label: "ネット検索" },
+  { value: "hp", label: "ホームページ" },
+  { value: "instagram", label: "Instagram" },
+  { value: "line", label: "公式LINE" },
+  { value: "ai", label: "AI（ChatGPT等）" },
+  { value: "repeat", label: "前に来た" },
+  { value: "referral", label: "紹介" },
+  { value: "flyer", label: "チラシ・看板" },
+  { value: "other", label: "その他" },
+];
+export const HEARD_FROM_LABEL: Record<string, string> = Object.fromEntries(HEARD_FROM.map((h) => [h.value, h.label]));
+
 export const SOURCE_LABEL: Record<ReservationSource, string> = Object.fromEntries(
   SOURCES.map((s) => [s.value, s.label]),
 ) as Record<ReservationSource, string>;

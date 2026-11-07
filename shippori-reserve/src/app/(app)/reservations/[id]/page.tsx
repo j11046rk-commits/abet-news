@@ -6,7 +6,7 @@ import ReservationForm from "@/components/ReservationForm";
 import StatusPanel from "@/components/StatusPanel";
 import { SourceBadge } from "@/components/Badges";
 import { requireProfile } from "@/lib/auth";
-import { can, SOURCE_LABEL } from "@/lib/constants";
+import { can, HEARD_FROM_LABEL, SOURCE_LABEL } from "@/lib/constants";
 import {
   getCourses,
   getDailySummary,
@@ -92,6 +92,19 @@ export default async function ReservationDetailPage({
                 ? `（${names.get(reservation.source_profile_id) ?? "—"}）`
                 : ""}
             </dd>
+
+            {reservation.source !== "web_form" ? (
+              <>
+                <dt>何を見て</dt>
+                <dd>
+                  {reservation.heard_from ? (
+                    HEARD_FROM_LABEL[reservation.heard_from] ?? reservation.heard_from
+                  ) : (
+                    <span className="muted">聞けていない（「変更」から入れられます）</span>
+                  )}
+                </dd>
+              </>
+            ) : null}
 
             <dt>席</dt>
             <dd>{reservation.seat_note || <span className="muted">未定</span>}</dd>

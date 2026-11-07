@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SOURCE_LABEL } from "@/lib/constants";
+import { HEARD_FROM_LABEL, SOURCE_LABEL } from "@/lib/constants";
 import type { ReservationSource, ReservationStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -165,8 +165,39 @@ export async function GET(request: Request) {
     count: live.filter((r) => r.party_size >= b.min && r.party_size <= b.max).length,
   }));
 
+  // 何を見てご連絡いただいたか（0067）。来店日ではなく「予約が入った日」で直近の期間を数える（宣伝の効き目を見るため）。
+  // 取るのは選択肢のキーと人数だけ。列がまだ無い（DB更新前）ときは空のまま返す
+  const createdFrom = new Date(Date.now() - days * DAY).toISOString();
+  const { data: hf } = await admin
+    .from("reservations")
+    .select("heard_from, party_size, source, status")
+    .gte("created_at", createdFrom)
+    .neq("source", "web_form")
+    .neq("source", "walk_in");
+  const hfMap = new Map<string, { count: number; guests: number }>();
+  let hfAsked = 0;
+  let hfTotal = 0;
+  for (const r of (hf ?? []) as { heard_from: string | null; party_size: number; status: string }[]) {
+    if (!isLive(r.status as ReservationStatus)) continue;
+    hfTotal++;
+    if (!r.heard_from) continue;
+    hfAsked++;
+    const e = hfMap.get(r.heard_from) ?? { count: 0, guests: 0 };
+    e.count++;
+    e.guests += r.party_size;
+    hfMap.set(r.heard_from, e);
+  }
+  const heardFrom = {
+    total: hfTotal,
+    asked: hfAsked,
+    items: [...hfMap.entries()]
+      .map(([key, v]) => ({ key, label: HEARD_FROM_LABEL[key] ?? key, ...v }))
+      .sort((a, b) => b.count - a.count || b.guests - a.guests),
+  };
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
+    heardFrom,
     days,
     range: { from, to },
     prevRange: { from: prevFrom, to: prevTo },

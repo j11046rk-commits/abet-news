@@ -9,7 +9,7 @@ import {
   getSeatUnits,
   getStayMinutes,
 } from "@/lib/queries";
-import { can, SOURCES, STATUSES } from "@/lib/constants";
+import { can, HEARD_FROM, SOURCES, STATUSES } from "@/lib/constants";
 import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
 import { fmtDateJa, minutesToIso, minutesToLabel } from "@/lib/time";
 import { pushLine } from "@/lib/line";
@@ -27,6 +27,8 @@ export type ReservationInput = {
   source: ReservationSource | "";
   source_profile_id?: string;
   source_detail?: string;
+  /** 何を見てご連絡いただいたか（0067）。空文字＝聞けなかった */
+  heard_from?: string;
   seat_note?: string;
   course_id?: string;
   drink_plan?: boolean;
@@ -140,6 +142,7 @@ async function toRow(input: ReservationInput) {
     source: input.source as ReservationSource,
     source_profile_id: input.source === "owner_direct" ? (input.source_profile_id ?? null) : null,
     source_detail: trim(input.source_detail),
+    heard_from: HEARD_FROM.some((h) => h.value === input.heard_from) ? input.heard_from! : null,
     seat_note: trim(input.seat_note),
     course_id: input.course_id || null,
     drink_plan: input.drink_plan === true,
@@ -251,6 +254,7 @@ async function toUpdateRow(input: ReservationInput) {
     customer_kana: input.customer_kana !== undefined,
     phone: input.phone !== undefined,
     source_detail: input.source_detail !== undefined,
+    heard_from: input.heard_from !== undefined,
     seat_note: input.seat_note !== undefined,
     course_id: input.course_id !== undefined,
     drink_plan: input.drink_plan !== undefined,

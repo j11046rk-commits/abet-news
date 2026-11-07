@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { SELECTABLE_SOURCES } from "@/lib/constants";
+import { HEARD_FROM, SELECTABLE_SOURCES } from "@/lib/constants";
 import { EXCLUSIVE_SEAT, isSeatFull, NO_SEAT } from "@/lib/seats";
 import DateJa from "@/components/DateJa";
 import { isoToMinutes, minutesToLabel } from "@/lib/time";
@@ -53,6 +53,7 @@ export default function ReservationForm({
   const [name, setName] = useState(reservation?.customer_name ?? "");
   const [phone, setPhone] = useState(reservation?.phone ?? "");
   const [source, setSource] = useState<ReservationInput["source"]>(reservation?.source ?? "");
+  const [heardFrom, setHeardFrom] = useState<string>(reservation?.heard_from ?? "");
   const [seats, setSeats] = useState<string[]>(() => {
     const note = reservation?.seat_note;
     if (!note) return [];
@@ -209,6 +210,7 @@ export default function ReservationForm({
       customer_name: name,
       phone,
       source,
+      heard_from: heardFrom,
       seat_note: isEvent ? "" : exclusive ? EXCLUSIVE_SEAT : seats.join("＋"),
       is_exclusive: !isEvent && exclusive,
       course_id: isEvent ? "" : courseId,
@@ -408,6 +410,29 @@ export default function ReservationForm({
           ))}
         </div>
       </div>
+
+      {/* 6-2. 何を見てご連絡いただいたか（0067・任意）。電話の予約はアクセス解析に出ないので、ここだけが手がかり。
+          もう一度押すと外れる。聞けなかったら空のままでよい */}
+      {source && source !== "web_form" ? (
+        <div>
+          <label className="field-label">
+            何を見てご連絡いただいたか<span className="micro" style={{ marginLeft: "0.5rem" }}>聞けたら1つ</span>
+          </label>
+          <div className="chips">
+            {HEARD_FROM.map((h) => (
+              <button
+                key={h.value}
+                type="button"
+                className="chip"
+                aria-pressed={heardFrom === h.value}
+                onClick={() => setHeardFrom(heardFrom === h.value ? "" : h.value)}
+              >
+                {h.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* 7. 席 ─ 必須。「指定なし」も選択のうち。7名様以上は複数選べる。 */}
       {!isEvent ? (
