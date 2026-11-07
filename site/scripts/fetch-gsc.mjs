@@ -23,6 +23,32 @@ export function isBrandQuery(q) {
   return /しっぽり|シッポリ|shippori|sippori|しっぽりてい/.test(t);
 }
 
+/**
+ * ページの表記をそろえる。ドメイン型のプロパティは予約サイト（yoyaku.）も含むので、HP本体以外はホスト名を残す。
+ * ?fbclid= などの計測用の付け足しは外して、同じページとしてまとめる。
+ */
+export function pageLabel(url) {
+  const u = new URL(url);
+  const host = u.hostname.replace(/^www\./, "");
+  const path = u.pathname || "/";
+  return host === "shipporitei.jp" ? path : `${host.replace(/\.shipporitei\.jp$/, "")}：${path}`;
+}
+function mergePages(rows) {
+  const m = new Map();
+  for (const r of rows) {
+    const k = pageLabel(r.keys[0]);
+    const o = m.get(k) ?? { page: k, clicks: 0, impressions: 0, posSum: 0 };
+    o.clicks += r.clicks;
+    o.impressions += r.impressions;
+    o.posSum += r.position * r.impressions;
+    m.set(k, o);
+  }
+  return [...m.values()]
+    .map((o) => ({ page: o.page, clicks: o.clicks, impressions: o.impressions, position: o.impressions ? Math.round((o.posSum / o.impressions) * 10) / 10 : 0 }))
+    .sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
+    .slice(0, 12);
+}
+
 const ymd = (d) => d.toISOString().slice(0, 10);
 const daysAgo = (n) => new Date(Date.now() - n * 86400000);
 
@@ -96,7 +122,7 @@ async function main() {
     q(pStart, pEnd, []),
     q(start, end, ["query"]),
     q(pStart, pEnd, ["query"]),
-    q(start, end, ["page"], 20),
+    q(start, end, ["page"], 50),
   ]);
   const sum = (rows) => {
     const r = rows[0] ?? { clicks: 0, impressions: 0, position: 0 };
@@ -133,7 +159,7 @@ async function main() {
         position: Math.round(r.position * 10) / 10,
         prevClicks: prevBy.get(r.keys[0]) ?? 0,
       })),
-    pages: pages.map((r) => ({ page: r.keys[0].replace(/^https?:\/\/[^/]+/, "") || "/", clicks: r.clicks, impressions: r.impressions, position: Math.round(r.position * 10) / 10 })),
+    pages: mergePages(pages),
   };
   await writeFile(DEST, JSON.stringify(out, null, 2) + "\n");
   console.log(`Search Console：${out.totals.clicks}クリック / ${out.totals.impressions}表示（${out.range.start}〜${out.range.end}）`);
