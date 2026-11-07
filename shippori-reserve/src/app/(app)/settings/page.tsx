@@ -105,6 +105,21 @@ export default async function SettingsPage() {
           </p>
         </div>
 
+        {/* 口コミのお願い（2026-11-07）。LINEで届くのはLINEつきの予約だけなので、店内でも同じお願いをする */}
+        <h2 className="section-title">口コミのお願い</h2>
+        <div className="card stack">
+          <a href="/review-qr" className="btn" style={{ width: "100%", textAlign: "center" }}>
+            会計のときに見せるQRを出す
+          </a>
+          <a href="/review-qr/print" className="btn" style={{ width: "100%", textAlign: "center" }}>
+            卓・レジに置くカードを印刷する（名刺サイズ9枚）
+          </a>
+          <p className="micro">
+            Googleマップの口コミページにつながるQRです。席ボードの「口コミQR」からも出せます。
+            どのお客様にも同じように「よろしければ」と見せてください。割引やサービスと引き換えにするのは禁止です（Googleのルール）。
+          </p>
+        </div>
+
         <h2 className="section-title">タブレット</h2>
         <div className="card">
           <a href="/board" className="btn" style={{ width: "100%", textAlign: "center" }}>

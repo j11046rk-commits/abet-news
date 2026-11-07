@@ -383,6 +383,10 @@ export default function FloorBoard({ initial }: { initial: BoardSnapshot }) {
           <p className="fb__sum">
             予約 {resv.length}組 {guests}名 ／ カウンター使用 {counterUsed}席
           </p>
+          {/* 会計のときにお客様へ見せる口コミのQR（2026-11-07）。全員に同じように・見返りなし */}
+          <a className="fb__pausebtn fb__reviewbtn" href="/review-qr?from=board">
+            口コミQR
+          </a>
           {saving && <span className="fb__saving">保存中…</span>}
         </header>
 

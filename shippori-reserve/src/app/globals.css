@@ -2018,6 +2018,7 @@ textarea.field:-webkit-autofill {
   cursor: pointer;
   white-space: nowrap;
 }
+.fb__reviewbtn { color: #7a5418; border-color: #e6cf9f; text-decoration: none; }
 .fb__pausebtn--on { color: #fff; background: #1a7f4b; border-color: #14663c; }
 .fb__pausebtn:disabled { color: #a9a294; border-color: #e4dfd4; cursor: default; }
 
@@ -2874,3 +2875,35 @@ textarea.field:-webkit-autofill {
 .cost-row--pending { opacity: 0.85; border-style: dashed; }
 .cost-row__note { color: var(--warn); }
 .cost-confirm { font-weight: 600; }
+
+/* ───────────────────────── 口コミのQR（会計で見せる・印刷カード） ───────────────────────── */
+.rq { min-height: 100dvh; background: #fbf8f2; color: #1d1a16; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem;
+  padding: calc(1rem + var(--safe-t, 0px)) 1rem calc(1rem + var(--safe-b, 0px)); position: relative; }
+.rq__back { position: absolute; top: calc(0.8rem + var(--safe-t, 0px)); left: 1rem; color: #6b6255; font-size: 0.95rem; }
+.rq__card { background: #fff; border: 1px solid #e6dfd2; border-radius: 18px; padding: 1.6rem 1.4rem; width: min(92vw, 26rem); text-align: center; box-shadow: 0 8px 30px rgba(60, 40, 10, 0.08); }
+.rq__ask { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: 0.04em; }
+.rq__qr { width: min(70vw, 18rem); margin: 1.1rem auto; }
+.rq__qr svg { width: 100%; height: auto; display: block; }
+.rq__body { margin: 0; font-size: 1rem; line-height: 1.8; color: #3d362d; }
+.rq__shop { margin: 0.8rem 0 0; font-size: 0.9rem; color: #9a6b1f; font-weight: 700; letter-spacing: 0.2em; }
+.rq__none { color: #9a3412; }
+.rq__staff { max-width: 26rem; font-size: 0.75rem; line-height: 1.7; color: #8a8174; text-align: center; margin: 0; }
+
+.rqp { background: #fff; color: #111; min-height: 100dvh; padding: 1rem; }
+.rqp__bar { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-bottom: 1rem; }
+.rqp__hint { font-size: 0.8rem; color: #555; }
+/* 印刷はアプリ全体で A4横（@page）。横3×縦3＝9枚（273×165mm）がちょうど収まる */
+.rqp__scroll { overflow-x: auto; }
+.rqp__sheet { width: 273mm; display: grid; grid-template-columns: repeat(3, 91mm); grid-auto-rows: 55mm; margin: 0 auto; }
+.rqp__card { box-sizing: border-box; border: 1px dashed #bbb; display: grid; grid-template-columns: 33mm 1fr; align-items: center; gap: 3mm; padding: 4mm; }
+.rqp__qr svg { width: 33mm; height: 33mm; display: block; }
+.rqp__text { min-width: 0; }
+.rqp__ask { margin: 0; font-size: 9pt; font-weight: 700; white-space: nowrap; }
+.rqp__body { margin: 1.5mm 0 0; font-size: 7.6pt; line-height: 1.55; color: #333; }
+.rqp__shop { margin: 2mm 0 0; font-size: 8pt; font-weight: 700; letter-spacing: 0.18em; color: #7a5418; }
+@media print {
+  .rqp { padding: 0; }
+  .rqp__bar, .tabbar, .brandbar { display: none !important; }
+  .rqp__sheet { margin: 0 auto; }
+  .rqp__scroll { overflow: visible; }
+}
