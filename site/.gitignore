@@ -2,6 +2,8 @@
 dist/
 # deps
 node_modules/
+# 開発環境で張るシンボリックリンク（ディレクトリではないので上の行では除外されない）
+node_modules
 # astro
 .astro/
 # logs / env / os
