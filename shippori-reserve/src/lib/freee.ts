@@ -10,6 +10,9 @@ import {
   type PayRule,
 } from "@/lib/labor-cost";
 import { deriveBusinessDay } from "@/lib/queries";
+import { detectIssues, issueMessage, type Issue } from "@/lib/timecard";
+import { pushLine } from "@/lib/line";
+import { shiftDate, todayBizDate } from "@/lib/time";
 
 /*
  * freee人事労務 との連携（店主要望 2026-10-28：人時売上を出したい）。
@@ -220,7 +223,7 @@ async function accessToken(): Promise<{ token: string; companyId: number }> {
   }
 }
 
-type Employee = { id: number; entry_date: string | null; retire_date: string | null };
+type Employee = { id: number; display_name?: string | null; entry_date: string | null; retire_date: string | null };
 
 /** 期間に在籍していた従業員（退職者も含めて引き、期間で絞る） */
 async function employeesIn(token: string, companyId: number, from: string, to: string): Promise<Employee[]> {
@@ -277,6 +280,13 @@ export async function syncLabor(from: string, to: string): Promise<{ days: numbe
     }
 
     const sums = sumByDate(perEmployee, from, to);
+
+    // タイムカードの押し忘れ（店長LINEに1回だけ）。失敗しても取り込みは止めない
+    try {
+      await checkTimecards(employees, perEmployee, to);
+    } catch (e) {
+      console.error("[freee] timecard check failed", e instanceof Error ? e.message : String(e));
+    }
 
     // 人件費（合計だけ）。失敗しても労働時間の取り込みは止めない
     let costNote: string | null = null;
@@ -468,5 +478,78 @@ async function syncLaborCost(
       const { error } = await admin.from("labor_cost_monthly").upsert(up);
       if (error) throw new Error(`labor_cost_monthly の保存に失敗: ${error.message}`);
     }
+  }
+}
+
+// ── タイムカードの押し忘れ ─────────────────────────────────────
+
+/** 見る期間（直近14日・昨日まで）と、LINEで知らせる新しさ（直近3日） */
+const CHECK_DAYS = 14;
+const NOTIFY_DAYS = 3;
+
+async function checkTimecards(employees: Employee[], perEmployee: FreeeWorkRecord[][], to: string): Promise<void> {
+  const admin = createAdminClient();
+  // 今日（営業中）の分は見ない。まだ働いている人が「退勤なし」になってしまう
+  const yesterday = shiftDate(todayBizDate(), -1);
+  const end = to < yesterday ? to : yesterday;
+  const startMs = Date.parse(`${end}T00:00:00Z`) - (CHECK_DAYS - 1) * 86_400_000;
+  const start = new Date(startMs).toISOString().slice(0, 10);
+  const notifyFrom = new Date(Date.parse(`${end}T00:00:00Z`) - (NOTIFY_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+
+  // 確定シフト（確定した月だけ）：日付 → 出勤の人のアプリの表示名
+  const [{ data: shifts }, { data: pubs }, { data: profiles }] = await Promise.all([
+    admin.from("shifts").select("biz_date, profile_id").gte("biz_date", start).lte("biz_date", end),
+    admin.from("shift_publications").select("ym"),
+    admin.from("profiles").select("id, display_name"),
+  ]);
+  const published = new Set((pubs ?? []).map((p) => p.ym as string));
+  const nameOf = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string]));
+  const scheduled = new Map<string, string[]>();
+  for (const r of shifts ?? []) {
+    const d = r.biz_date as string;
+    if (!published.has(d.slice(0, 7))) continue;
+    const n = nameOf.get(r.profile_id as string);
+    if (n) scheduled.set(d, [...(scheduled.get(d) ?? []), n]);
+  }
+
+  const staff = employees.map((e, i) => ({ id: e.id, name: e.display_name ?? `従業員${e.id}`, records: perEmployee[i] ?? [] }));
+  const found = detectIssues(staff, scheduled, start, end);
+  const key = (i: { biz_date?: string; date?: string; employee_id?: number; employeeId?: number; kind: string }) =>
+    `${i.biz_date ?? i.date}|${i.employee_id ?? i.employeeId}|${i.kind}`;
+
+  const { data: open } = await admin
+    .from("timecard_issues")
+    .select("id, biz_date, employee_id, kind, notified_at")
+    .gte("biz_date", start)
+    .lte("biz_date", end)
+    .is("resolved_at", null);
+  const now = new Date().toISOString();
+  const foundKeys = new Set(found.map(key));
+
+  // 直ったもの
+  const fixed = (open ?? []).filter((r) => !foundKeys.has(key(r as never))).map((r) => r.id as number);
+  if (fixed.length > 0) await admin.from("timecard_issues").update({ resolved_at: now }).in("id", fixed);
+
+  // 見つかったもの（すでにあれば何もしない。直ったあとにまた抜けたら開き直す）
+  if (found.length > 0) {
+    await admin.from("timecard_issues").upsert(
+      found.map((i) => ({ biz_date: i.date, employee_id: i.employeeId, name: i.name.slice(0, 60), kind: i.kind, detail: i.detail, resolved_at: null })),
+      { onConflict: "biz_date,employee_id,kind", ignoreDuplicates: false },
+    );
+  }
+
+  // まだ知らせていない新しいものを、まとめて1通
+  const { data: toNotify } = await admin
+    .from("timecard_issues")
+    .select("id, biz_date, employee_id, name, kind, detail")
+    .gte("biz_date", notifyFrom)
+    .lte("biz_date", end)
+    .is("resolved_at", null)
+    .is("notified_at", null);
+  const list = (toNotify ?? []).map(
+    (r) => ({ date: r.biz_date as string, employeeId: r.employee_id as number, name: r.name as string, kind: r.kind, detail: r.detail }) as Issue,
+  );
+  if (list.length > 0 && (await pushLine(issueMessage(list)))) {
+    await admin.from("timecard_issues").update({ notified_at: now }).in("id", (toNotify ?? []).map((r) => r.id as number));
   }
 }

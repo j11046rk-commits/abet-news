@@ -25,6 +25,7 @@ import MyStars from "@/components/MyStars";
 import LaborCostDaily from "@/components/LaborCostDaily";
 import { salesExTax } from "@/lib/cost";
 import { createClient } from "@/lib/supabase/server";
+import { ISSUE_LABEL, type IssueKind } from "@/lib/timecard";
 import { getMonthEval, getStarRows } from "@/lib/store-eval-data";
 import { starsAvailable, targetsFrom } from "@/lib/store-eval";
 import { chipName } from "@/lib/staff";
@@ -103,8 +104,22 @@ export default async function SalesPage({
   const laborCostDays = seeLaborCost
     ? await (async () => {
         const { from: f, to: t } = monthRange(ym);
-        const { data } = await (await createClient()).from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", f).lte("biz_date", t).order("biz_date");
-        return (data ?? []).map((r) => ({ date: r.biz_date as string, cost: r.cost_yen as number, salesEx: salesExTax(sales.get(r.biz_date as string)) }));
+        const sb = await createClient();
+        const [{ data }, { data: gaps }] = await Promise.all([
+          sb.from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", f).lte("biz_date", t).order("biz_date"),
+          sb.from("timecard_issues").select("biz_date, name, kind").gte("biz_date", f).lte("biz_date", t).is("resolved_at", null),
+        ]);
+        const gapBy = new Map<string, string[]>();
+        for (const g of gaps ?? []) {
+          const label = `${g.name as string}さん${ISSUE_LABEL[g.kind as IssueKind]}`;
+          gapBy.set(g.biz_date as string, [...(gapBy.get(g.biz_date as string) ?? []), label]);
+        }
+        return (data ?? []).map((r) => ({
+          date: r.biz_date as string,
+          cost: r.cost_yen as number,
+          salesEx: salesExTax(sales.get(r.biz_date as string)),
+          gaps: gapBy.get(r.biz_date as string),
+        }));
       })()
     : null;
 

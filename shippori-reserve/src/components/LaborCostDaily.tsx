@@ -1,7 +1,7 @@
 import { fmtYen } from "@/lib/sales";
 import { WEEKDAY_JA, weekdayOf } from "@/lib/time";
 
-export type LaborCostDay = { date: string; cost: number; salesEx: number | null };
+export type LaborCostDay = { date: string; cost: number; salesEx: number | null; /** タイムカードの押し忘れ（直るまで人件費は低めに出る） */ gaps?: string[] };
 
 /**
  * 日ごとの人件費と人件費率（店長・オーナーだけ・店主指示 2026-11-09「この日の人件費いくら、人件費率何%を明示」）。
@@ -45,6 +45,7 @@ export default function LaborCostDaily({ days, targetRatio }: { days: LaborCostD
               <tr key={d.date}>
                 <td>
                   {Number(d.date.slice(8))}日（{WEEKDAY_JA[weekdayOf(d.date)]}）
+                  {d.gaps?.length ? <div className="micro eval-gap--ng">⚠ {d.gaps.join("・")}</div> : null}
                 </td>
                 <td>{d.salesEx != null ? fmtYen(d.salesEx) : "—"}</td>
                 <td>{fmtYen(d.cost)}</td>
@@ -64,6 +65,7 @@ export default function LaborCostDaily({ days, targetRatio }: { days: LaborCostD
       </table>
       <p className="micro" style={{ marginTop: "0.5rem" }}>
         freeeの時給・交通費・社会保険の会社負担と、その日の勤怠から計算した速報です（店全体の合計）。目標は{targetRatio}%以下。
+        ⚠はタイムカードの押し忘れ（店長LINEに知らせ済み）。freeeで直ると翌朝この表も直ります。
       </p>
     </section>
   );
