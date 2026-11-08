@@ -63,8 +63,7 @@ export default function LaborCostDaily({ days, targetRatio }: { days: LaborCostD
         </tfoot>
       </table>
       <p className="micro" style={{ marginTop: "0.5rem" }}>
-        freeeの時給・月給・手当（交通費）・社会保険の会社負担と、その日の勤怠から計算した速報です（店全体の合計）。目標は{targetRatio}%以下。
-        月給・決まった手当・社会保険などの毎月決まった額は、その月の営業日で割って入れています。
+        freeeの時給・交通費・社会保険の会社負担と、その日の勤怠から計算した速報です（店全体の合計）。目標は{targetRatio}%以下。
       </p>
     </section>
   );

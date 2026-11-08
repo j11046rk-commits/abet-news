@@ -147,7 +147,7 @@ export async function getMonthEval(ym: string, today: string, targets: EvalTarge
   // 人件費：給与が確定した月は実際の合計。まだの月は、freee から計算した日ごとの合計（あれば）、無ければ時間単価×労働時間
   const lc =
     laborCost.actual == null && dcSalesEx != null
-      ? { cost: dcCost, estimated: true, basis: "freeeの時給・月給・手当・社会保険×勤怠から（日ごとの合計・速報）" }
+      ? { cost: dcCost, estimated: true, basis: "freeeの時給・交通費・社会保険×勤怠から（日ごとの合計・速報）" }
       : laborCostFor({ actualTotal: laborCost.actual, minutes: laborMin, calib: laborCost.calib, fallbackHourCost: targets.hourCost });
   const laborSalesEx = !lc.estimated ? salesExAll : laborCost.actual == null && dcSalesEx != null ? dcSalesEx : salesExLaborDays;
 
