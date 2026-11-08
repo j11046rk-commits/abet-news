@@ -158,7 +158,13 @@ export default function HaccpDay(p: Props) {
 function AutoTemps(p: Props & { late: boolean; lateAt: string }) {
   const [manual, setManual] = useState<Record<string, boolean>>({});
   const plan = p.plan!;
-  const autoEq = plan.content.equipment.filter((e) => e.auto);
+  // 冷蔵庫①②③ → 冷凍庫①②③ の順（温度計タブと同じ・店主指定 2026-11-08）
+  const kindOrder = (k: string) => (k === "fridge" ? 0 : k === "freezer" ? 1 : 2);
+  const autoEq = plan.content.equipment
+    .map((e, i) => ({ e, i }))
+    .filter(({ e }) => e.auto)
+    .sort((a, b) => kindOrder(a.e.kind) - kindOrder(b.e.kind) || a.i - b.i)
+    .map(({ e }) => e);
   if (autoEq.length === 0) return null;
   const all = requiredChecks(plan.content, true);
   const byKey = new Map(p.checks.map((c) => [c.check_key, c]));

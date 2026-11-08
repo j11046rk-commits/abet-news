@@ -19,7 +19,11 @@ export default async function SensorsPage() {
   const today = todayBizDate();
   const plans = await getPlans();
   const plan = planForDate(plans, today);
-  const equipment = (plan?.content.equipment ?? []).map((e) => ({ id: e.id, name: e.name, auto: !!e.auto }));
+  // 並びは 冷蔵庫①②③ → 冷凍庫①②③（店主指定 2026-11-08）。同じ種類の中は計画の順
+  const kindOrder = (k: string) => (k === "fridge" ? 0 : k === "freezer" ? 1 : 2);
+  const equipment = (plan?.content.equipment ?? [])
+    .map((e, i) => ({ id: e.id, name: e.name, auto: !!e.auto, kind: e.kind as string, maxC: e.maxC, minC: e.minC, i }))
+    .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.i - b.i);
 
   const supabase = await createClient();
   const { data: saved } = await supabase.from("haccp_sensors").select("device_id, device_name, device_type, equipment_id");
@@ -77,6 +81,14 @@ export default async function SensorsPage() {
     }
   }
 
+  // 結びつけた設備の順（冷蔵→冷凍）、結びつけていない温度計は最後に名前順
+  const rank = new Map(equipment.map((e, i) => [e.id, i]));
+  views.sort(
+    (a, b) =>
+      (a.equipmentId != null ? (rank.get(a.equipmentId) ?? 50) : 99) - (b.equipmentId != null ? (rank.get(b.equipmentId) ?? 50) : 99) ||
+      a.deviceName.localeCompare(b.deviceName, "ja"),
+  );
+
   return (
     <>
       <header className="appbar">
@@ -102,10 +114,7 @@ export default async function SensorsPage() {
         ) : null}
 
         {ready && !apiError ? (
-          <p className="micro">
-            温度計ごとに、どの冷蔵庫・冷凍庫に置いたかを選んでください。選んだ温度計は30分ごとに読み、毎晩その日の値を衛生管理の記録に入れます。
-            計画に無い場所に置いた温度計は「参考に見るだけ」（記録はしない・電池切れだけ知らせる）。
-          </p>
+          <p className="micro">いまの温度（開いた時点）。30分ごとに記録し、毎晩その日の値を衛生の記録に入れます。赤は基準外。</p>
         ) : null}
 
         {views.length > 0 ? <SensorList views={views} equipment={equipment} /> : ready && !apiError ? (

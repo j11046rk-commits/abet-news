@@ -17,73 +17,95 @@ export type SensorView = {
   lastSavedAt: string | null;
 };
 
-const hmd = (iso: string) =>
-  new Date(iso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+type Eq = { id: string; name: string; auto: boolean; kind: string; maxC: number | null; minC: number | null };
 
-export default function SensorList({ views, equipment }: { views: SensorView[]; equipment: { id: string; name: string; auto: boolean }[] }) {
+/** 全角・半角のかっこ等の違いは同じ名前として扱う（SwitchBotは「冷蔵庫①(キッチン)」、計画は「冷蔵庫①（キッチン）」） */
+const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
+const hm = (iso: string) => new Date(iso).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
+
+/**
+ * 温度計の一覧。スマホで6台がひと目で見えるよう、1台1行に詰める（店主指定 2026-11-08）。
+ * 置いた場所の選択は普段使わないので「場所を変える」を押したときだけ出す。
+ */
+export default function SensorList({ views, equipment }: { views: SensorView[]; equipment: Eq[] }) {
+  const taken = new Map(views.filter((x) => x.equipmentId).map((x) => [x.equipmentId!, x.deviceName]));
   return (
     <ul className="sb-list">
       {views.map((v) => (
-        <SensorRow key={v.deviceId} v={v} equipment={equipment} taken={new Map(views.filter((x) => x.equipmentId && x.deviceId !== v.deviceId).map((x) => [x.equipmentId!, x.deviceName]))} />
+        <SensorRow key={v.deviceId} v={v} equipment={equipment} taken={taken} />
       ))}
     </ul>
   );
 }
 
-function SensorRow({ v, equipment, taken }: { v: SensorView; equipment: { id: string; name: string; auto: boolean }[]; taken: Map<string, string> }) {
+function SensorRow({ v, equipment, taken }: { v: SensorView; equipment: Eq[]; taken: Map<string, string> }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [open, setOpen] = useState(!v.registered);
+  const eq = v.equipmentId ? equipment.find((e) => e.id === v.equipmentId) ?? null : null;
+  const out =
+    eq && v.temp != null ? (eq.maxC != null && v.temp > eq.maxC) || (eq.minC != null && v.temp < eq.minC) : false;
+  const limit = eq ? [eq.maxC != null ? `${eq.maxC}℃以下` : "", eq.minC != null ? `${eq.minC}℃以上` : ""].filter(Boolean).join("・") : "";
+  const place = !v.registered ? "未設定" : eq ? eq.name : "参考に見るだけ";
   const value = v.registered ? (v.equipmentId ?? "watch") : "";
 
   const change = (val: string) =>
     start(async () => {
       setErr(null);
-      setSaved(false);
-      if (val === "") {
-        if (v.registered) {
-          const r = await removeSensor(v.deviceId);
-          if (!r.ok) setErr(r.error);
-        }
-      } else {
-        const r = await setSensor({ deviceId: v.deviceId, deviceName: v.deviceName, deviceType: v.deviceType, equipmentId: val === "watch" ? null : val });
-        if (!r.ok) setErr(r.error);
+      const r =
+        val === ""
+          ? v.registered
+            ? await removeSensor(v.deviceId)
+            : { ok: true as const }
+          : await setSensor({ deviceId: v.deviceId, deviceName: v.deviceName, deviceType: v.deviceType, equipmentId: val === "watch" ? null : val });
+      if (!r.ok) setErr(r.error);
+      else {
+        setOpen(false);
+        router.refresh();
       }
-      setSaved(true);
-      router.refresh();
     });
 
   return (
-    <li className="sb-row">
-      <div className="sb-row__head">
-        <span className="sb-row__name">
-          {v.deviceName}
-          <span className="micro">　{v.deviceType}</span>
-        </span>
+    <li className={`sb-row${out ? " sb-row--ng" : ""}${!v.registered ? " sb-row--off" : ""}`}>
+      <div className="sb-row__main">
+        <div className="sb-row__left">
+          <span className="sb-row__name">{v.deviceName}</span>
+          <span className="sb-row__meta">
+            {eq && norm(eq.name) !== norm(v.deviceName) ? `${eq.name}・` : !eq ? `${place}・` : ""}
+            {limit ? `基準${limit}` : ""}
+            {v.battery != null ? `・電池${v.battery}%` : ""}
+            {v.lastSavedAt ? `・記録${hm(v.lastSavedAt)}` : ""}
+            {!v.cloud ? "・⚠クラウドオフ" : ""}
+          </span>
+        </div>
         <span className="sb-row__temp">{v.temp != null ? `${v.temp}℃` : "—"}</span>
       </div>
-      <div className="micro">
-        {v.battery != null ? `電池 ${v.battery}%` : ""}
-        {v.lastSavedAt ? `　最後に記録：${hmd(v.lastSavedAt)}` : v.registered ? "　まだ記録なし（30分以内に始まります）" : ""}
-        {!v.cloud ? "　⚠ クラウドサービスがオフ" : ""}
-      </div>
-      {v.error ? <p className="err">{v.error}</p> : null}
-      <label className="field-label" htmlFor={`sb-${v.deviceId}`}>
-        置いた場所
-      </label>
-      <select id={`sb-${v.deviceId}`} className="field" value={value} disabled={pending} onChange={(e) => change(e.target.value)}>
-        <option value="">使わない</option>
-        <option value="watch">参考に見るだけ（記録しない）</option>
-        {equipment.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-            {e.auto ? "" : "（計画では手入力）"}
-            {taken.has(e.id) ? `（いま：${taken.get(e.id)}）` : ""}
-          </option>
-        ))}
-      </select>
-      {saved && !err ? <p className="micro">保存しました</p> : null}
+      {v.error ? <p className="err sb-row__err">{v.error}</p> : null}
+      {open ? (
+        <div className="sb-row__edit">
+          <select aria-label={`${v.deviceName}を置いた場所`} className="field" value={value} disabled={pending} onChange={(e) => change(e.target.value)}>
+            <option value="">使わない</option>
+            <option value="watch">参考に見るだけ（記録しない）</option>
+            {equipment.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+                {e.auto ? "" : "（計画では手入力）"}
+                {taken.has(e.id) && taken.get(e.id) !== v.deviceName ? `（いま：${taken.get(e.id)}）` : ""}
+              </option>
+            ))}
+          </select>
+          {v.registered ? (
+            <button type="button" className="linklike micro" onClick={() => setOpen(false)}>
+              閉じる
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <button type="button" className="linklike sb-row__change" onClick={() => setOpen(true)}>
+          場所を変える
+        </button>
+      )}
       {err ? <p className="err">{err}</p> : null}
     </li>
   );
