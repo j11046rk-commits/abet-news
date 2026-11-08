@@ -125,9 +125,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
   // オーナー・店長＝確定シフトを組む側（shift.write）。
   // 一般スタッフ＝希望を出す側（shiftrequest.write）。店長は提出しない（店主指定）。
   // 衛生管理：記録＝オーナー・店長・スタッフ／確認・改善対応・計画の下書き＝オーナー・店長／承認＝オーナー（0064）
-  // 原価（仕入・棚卸・ロス）：閲覧も記録もオーナー・店長・事務（0065）
-  owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve", "cost.read", "cost.write"],
-  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage", "cost.read", "cost.write"],
+  // 原価（仕入・棚卸・ロス）：記録はオーナー・店長・事務（0065）。
+  // スタッフは見ることと、ロス（廃棄・まかない）の写真を撮ることだけ（cost.loss・0073・店主指示 2026-11-09「原価タブはスタッフにも出て大丈夫」）
+  owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve", "cost.read", "cost.write", "cost.loss"],
+  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage", "cost.read", "cost.write", "cost.loss"],
   staff: [
     "reservation.read",
     "reservation.write",
@@ -135,6 +136,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
     "stats.read",
     "shiftrequest.write",
     "haccp.record",
+    "cost.read",
+    "cost.loss",
   ],
   // 事務＝予約対応と数字の閲覧はスタッフと同じ。シフト関連だけ持たない
   jimu: [
@@ -144,6 +147,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
     "stats.read",
     "cost.read",
     "cost.write",
+    "cost.loss",
   ],
   viewer: ["reservation.read"],
 };

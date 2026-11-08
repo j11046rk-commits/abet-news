@@ -500,7 +500,7 @@ function LossSection(p: P) {
   return (
     <>
       <h2 className="section-title">
-        ロス（捨てたもの）{p.losses.length}件・{fmtYen(total)}
+        ロス（廃棄・まかない）{p.losses.length}件・{fmtYen(total)}
         {waiting ? <span className="micro">　うち読み取り待ち {waiting}</span> : null}
       </h2>
       <ul className="cost-list">
@@ -539,7 +539,7 @@ type LossForm = { item: string; amount: string; reason: LossReason; memo: string
 function LossFields({ f, setF }: { f: LossForm; setF: (x: Partial<LossForm>) => void }) {
   return (
     <>
-      <label className="field-label" htmlFor="lf-item">捨てたもの</label>
+      <label className="field-label" htmlFor="lf-item">ロスにしたもの</label>
       <input id="lf-item" className="field" value={f.item} onChange={(e) => setF({ item: e.target.value })} placeholder="例：ぶり 半身" />
       <label className="field-label" htmlFor="lf-amount">金額（仕入値の目安・税抜・円）</label>
       <input id="lf-amount" className="field" inputMode="numeric" value={f.amount} onChange={(e) => setF({ amount: e.target.value })} />

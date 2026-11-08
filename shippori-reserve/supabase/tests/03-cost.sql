@@ -75,7 +75,7 @@ select pg_temp.expect_error(:V, $$insert into cost_purchases (book_date, vendor,
 
 -- 2. 読めるのも同じ3者だけ（スタッフ・閲覧には0行）
 select pg_temp.ok(pg_temp.count_as(:J, 'select * from cost_purchases') = 3, '事務は仕入を読める');
-select pg_temp.ok(pg_temp.count_as(:S, 'select * from cost_purchases') = 0, 'スタッフには仕入が見えない');
+select pg_temp.ok(pg_temp.count_as(:S, 'select * from cost_purchases') = pg_temp.count_as(:O, 'select * from cost_purchases'), 'スタッフも原価タブで仕入を見られる（0073）');
 select pg_temp.ok(pg_temp.count_as(:V, 'select * from cost_losses') = 0, '閲覧のみにはロスが見えない');
 select pg_temp.ok(pg_temp.count_as(null, 'select * from cost_stock_items') = 0, '未ログインには何も見えない');
 
@@ -118,7 +118,13 @@ select pg_temp.expect_error(:O, $$insert into cost_stock_counts (as_of, item_id,
 -- 6. ロス
 select pg_temp.run_as(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'ぶり 半身', 2000, 'expired')$$);
 select pg_temp.expect_error(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'lazy')$$, 'ロスの理由は決めた中から');
-select pg_temp.expect_error(:S, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'expired')$$, 'スタッフはロスを入れられない');
+select pg_temp.expect_error(:S, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'expired')$$, 'スタッフは金額入りのロスは入れられない（撮るだけ）');
+select pg_temp.run_as(:S, $$insert into cost_losses (biz_date, status, memo) values ('2026-11-06', 'pending', 'まかないで唐揚げ2人前')$$);
+select pg_temp.ok((select created_by = :S::uuid from cost_losses where memo = 'まかないで唐揚げ2人前'), 'スタッフはロスの写真（読み取り待ち）を自分の名前で足せる');
+select pg_temp.run_as(:S, $$update cost_losses set item = 'x', amount_ex = 1, reason = 'other', status = 'confirmed' where memo = 'まかないで唐揚げ2人前'$$);
+select pg_temp.ok((select status from cost_losses where memo = 'まかないで唐揚げ2人前') = 'pending', 'スタッフはロスを直せない（0行）');
+select pg_temp.run_as(:M, $$update cost_losses set item = '唐揚げ 2人前', amount_ex = 300, reason = 'staff_meal', status = 'confirmed' where memo = 'まかないで唐揚げ2人前'$$);
+select pg_temp.ok((select reason from cost_losses where memo = 'まかないで唐揚げ2人前') = 'staff_meal', 'ロスの理由に「まかない」');
 select pg_temp.run_as(:M, $$insert into cost_losses (biz_date, status, memo, photo_path) values ('2026-11-06', 'pending', '唐揚げ3人前', 'losses/2026-11/x.jpg')$$);
 select pg_temp.ok((select item is null and amount_ex is null from cost_losses where memo = '唐揚げ3人前'), 'ロスは写真だけ（読み取り待ち）で入れられる');
 select pg_temp.expect_error(:M, $$insert into cost_losses (biz_date, status, item) values ('2026-11-06', 'unconfirmed', 'x')$$, '読み取り待ち以外は品名・金額・理由が要る');

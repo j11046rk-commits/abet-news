@@ -21,7 +21,8 @@ export const isPdfPath = (p: string | null | undefined): boolean => !!p && p.toL
 
 export type DocKind = "slip" | "invoice" | "receipt";
 export type CostCategory = "food" | "drink" | "supplies" | "other";
-export type LossReason = "expired" | "overprep" | "mistake" | "damaged" | "other";
+/** ロスの理由。まかないで使った分もロスとして記録する（店主指示 2026-11-09） */
+export type LossReason = "expired" | "overprep" | "mistake" | "damaged" | "staff_meal" | "other";
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
   slip: "納品書",
@@ -41,6 +42,7 @@ export const LOSS_REASON_LABEL: Record<LossReason, string> = {
   overprep: "作りすぎ",
   mistake: "調理ミス",
   damaged: "傷み・破損",
+  staff_meal: "まかない",
   other: "その他",
 };
 
@@ -440,7 +442,7 @@ export function parseAiDoc(v: unknown): { ok: true; doc: AiDoc } | { ok: false; 
 
 export type AiLoss = { item: string; amount_ex: number; reason: LossReason; note: string };
 
-const LOSS_REASONS: LossReason[] = ["expired", "overprep", "mistake", "damaged", "other"];
+const LOSS_REASONS: LossReason[] = ["expired", "overprep", "mistake", "damaged", "staff_meal", "other"];
 
 /**
  * 読み取り役が送ってきたロスの見積もりを受け取れるか確かめる（外から来るので全部見る）。
@@ -453,7 +455,7 @@ export function parseAiLoss(v: unknown): { ok: true; loss: AiLoss } | { ok: fals
   if (!item || item.length > 60) return { ok: false, error: "item は1〜60文字" };
   const amount = Number(o.amount_ex);
   if (!Number.isInteger(amount) || amount < 0 || amount > 1_000_000) return { ok: false, error: "amount_ex は0〜1,000,000の円の整数" };
-  if (!LOSS_REASONS.includes(o.reason as LossReason)) return { ok: false, error: "reason は expired / overprep / mistake / damaged / other" };
+  if (!LOSS_REASONS.includes(o.reason as LossReason)) return { ok: false, error: "reason は expired / overprep / mistake / damaged / staff_meal / other" };
   const note = typeof o.note === "string" ? o.note.slice(0, 500) : "";
   return { ok: true, loss: { item, amount_ex: amount, reason: o.reason as LossReason, note } };
 }

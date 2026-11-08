@@ -11,12 +11,12 @@ import { todayBizDate } from "@/lib/time";
  * 守りは x-api-key（オーナーが画面で発行する合言葉・名前 cost_reader）。
  *
  *   GET  /api/cost/reader              … 読み取り待ちの一覧（古い順・最大30件ずつ）
- *        items[].kind = "purchase"（仕入の書類）| "loss"（捨てたもの）。file = "image" | "pdf"
+ *        items[].kind = "purchase"（仕入の書類）| "loss"（ロス：廃棄・まかない）。file = "image" | "pdf"
  *        stock_items … 棚卸の品目と税抜の単価（ロスの金額の目安に使う）
  *   GET  /api/cost/reader?photo=<id>   … その写真・PDFそのもの
  *   POST /api/cost/reader              … 読んだ結果を返す
  *        仕入：{ "id", "doc": {...} }。1つのPDFに書類が何枚もあるときは { "id", "docs": [{...}, ...] }（1枚＝1行に分ける）
- *        ロス：{ "id", "loss": { item, amount_ex（仕入値の目安・税抜・円）, reason, note } }
+ *        ロス：{ "id", "loss": { item, amount_ex（仕入値の目安・税抜・円）, reason（expired/overprep/mistake/damaged/staff_meal/other）, note } }
  *        読めなかったとき：{ "id", "unreadable": "理由" }（人が手で入れる行になる）
  *
  * 結果は「未確認」として入る（原価率・ロスの合計には入る）。人が見比べて「確認した」か「直す」。

@@ -228,7 +228,7 @@ export async function deletePurchase(id: string): Promise<CResult> {
 
 // ── ロス ─────────────────────────────────────────────────────
 
-const REASONS: LossReason[] = ["expired", "overprep", "mistake", "damaged", "other"];
+const REASONS: LossReason[] = ["expired", "overprep", "mistake", "damaged", "staff_meal", "other"];
 
 export async function addLoss(fd: FormData): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
@@ -238,7 +238,7 @@ export async function addLoss(fd: FormData): Promise<CResult> {
   const reason = String(fd.get("reason") ?? "") as LossReason;
   const memo = String(fd.get("memo") ?? "").trim();
   if (!DATE_RE.test(date)) return { ok: false, error: "日付を入れてください。" };
-  if (!item) return { ok: false, error: "何を捨てたかを入れてください。" };
+  if (!item) return { ok: false, error: "何をロスにしたかを入れてください。" };
   if (!Number.isInteger(amount) || amount < 0 || amount > 1_000_000) return { ok: false, error: "金額（仕入値の目安・円）を入れてください。" };
   if (!REASONS.includes(reason)) return { ok: false, error: "理由を選んでください。" };
 
@@ -267,11 +267,13 @@ export async function addLoss(fd: FormData): Promise<CResult> {
 }
 
 /**
- * 捨てたものを撮るだけ（店長・毎日。グループLINEに上げていた写真の代わり・店主指示 2026-11-09）。
- * 読み取り待ちの行を作り、品名・金額の目安は毎朝の読み取り役（サブスクのClaude）が入れる。ひとことは全部の写真に付く。
+ * ロス（廃棄・まかない）を撮るだけ（スタッフも・毎日。グループLINEに上げていた写真の代わり・店主指示 2026-11-09）。
+ * 読み取り待ちの行を作り、品名・金額の目安は毎朝の読み取り役（サブスクのClaude）が入れる。ひとこと（任意）は全部の写真に付く。
+ * スタッフは撮るだけ（cost.loss）。直す・消す・確認するのは cost.write（オーナー・店長・事務）。
  */
 export async function addLossPhotos(fd: FormData): Promise<CResult & { added?: number }> {
-  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const me = await requireProfile();
+  if (!can(me.role, "cost.loss")) return { ok: false, error: "権限がありません。" };
   const files = fd.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { ok: false, error: "写真を選んでください。" };
   if (files.length > 10) return { ok: false, error: "一度に送れるのは10枚までです。" };
@@ -307,7 +309,7 @@ export async function confirmLoss(id: string): Promise<CResult> {
 export async function updateLoss(input: { id: string; item: string; amount_ex: number; reason: LossReason; memo: string }): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
   const item = input.item.trim();
-  if (!item) return { ok: false, error: "何を捨てたかを入れてください。" };
+  if (!item) return { ok: false, error: "何をロスにしたかを入れてください。" };
   if (!Number.isInteger(input.amount_ex) || input.amount_ex < 0 || input.amount_ex > 1_000_000) return { ok: false, error: "金額（仕入値の目安・円）を入れてください。" };
   if (!REASONS.includes(input.reason)) return { ok: false, error: "理由を選んでください。" };
   const supabase = await createClient();

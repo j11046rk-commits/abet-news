@@ -21,7 +21,8 @@ const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
  * 原価率＝（始めの在庫＋仕入−終わりの在庫）÷ 売上（どれも税抜）。
  * 棚卸は毎週日曜（店主指示 2026-11-09）。原価率は確定した棚卸と次の確定した棚卸の間（ふだん1週間）ごとに出し、
  * 月の数字はその月に終わった区間をつなげたもの（暦の1日〜末日とは少しずれる。期間をそのまま書く）。
- * 入れるのは3つだけ：書類の写真（撮るだけ。毎朝の定期実行でClaudeが読む）、日曜の棚卸、捨てたもの（ロス）。
+ * 入れるのは3つだけ：書類の写真（撮るだけ。毎朝の定期実行でClaudeが読む）、日曜の棚卸、ロス（廃棄・まかない）。
+ * スタッフも原価タブを見て、ロスの写真を撮れる（0073）。仕入・棚卸・ロスの直し・消しはオーナー・店長・事務。
  * 読み取りはサブスクのClaudeのセッションが /api/cost/reader から取りに来る（API料金を使わない・店主指示 2026-11-06）。
  */
 export default async function CostPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
@@ -58,6 +59,7 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
   const warnings = purchaseWarnings(purchases);
   const photos = await signedPhotoUrls([...purchases.map((p) => p.photo_path ?? ""), ...losses.map((l) => l.photo_path ?? "")]);
   const canWrite = can(me.role, "cost.write");
+  const canLoss = can(me.role, "cost.loss");
   // 読み取り待ち・未確認は月をまたいで数える（過去の書類をまとめて撮ると、読むまでは撮った日の月に並ぶ）
   const supabase = await createClient();
   const [{ count: pendingAll }, { count: unconfirmedAll }, { count: lossPending }, { count: lossUnconfirmed }, reader] = await Promise.all([
@@ -90,7 +92,7 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
       </header>
 
       <div className="wrap stack">
-        {canWrite && isCurrent ? <LossCapture /> : null}
+        {canLoss && isCurrent ? <LossCapture /> : null}
 
         <section className="card cost-sum" aria-label="原価率">
           <div className="cost-sum__head">
@@ -152,7 +154,7 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
                 <dd>{fmtYen(mc.other)}</dd>
               </>
             ) : null}
-            <dt>ロス（捨てたもの）</dt>
+            <dt>ロス（廃棄・まかない）</dt>
             <dd>
               {fmtYen(lossEx)}
               <span className="micro">　{losses.length}件</span>
