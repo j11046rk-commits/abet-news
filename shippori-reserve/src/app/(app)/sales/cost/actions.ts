@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { todayBizDate } from "@/lib/time";
-import { asOfFor, stockTotal, type DocKind, type LossReason, type StockTiming } from "@/lib/cost";
+import { asOfFor, PDF_MAX, stockTotal, type DocKind, type LossReason, type StockTiming } from "@/lib/cost";
 import { issueApiToken } from "@/lib/api-token";
 import { COST_BUCKET } from "@/lib/cost-data";
 
@@ -87,6 +87,43 @@ export async function addPurchasePhotos(fd: FormData): Promise<CResult & { added
   }
   done();
   return { ok: true, added };
+}
+
+/**
+ * スキャンしたPDF（初回の請求書の束など）。大きいのでブラウザから置き場へ直接送る
+ * （Vercel はサーバーに送れる量が4.5MBまで）。ここでは送り先の一時的な許可だけ作る。
+ */
+export async function pdfUploadTicket(size: number): Promise<{ ok: true; path: string; token: string } | { ok: false; error: string }> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  if (!Number.isFinite(size) || size <= 0) return { ok: false, error: "PDFを選んでください。" };
+  if (size > PDF_MAX) return { ok: false, error: "PDFは1つ20MBまでです。分けてスキャンしてください。" };
+  const path = `purchases/${todayBizDate().slice(0, 7)}/${crypto.randomUUID()}.pdf`;
+  const { data, error } = await createAdminClient().storage.from(COST_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) {
+    console.error("[cost] pdf ticket", error?.message);
+    return { ok: false, error: "送る準備ができませんでした。" };
+  }
+  return { ok: true, path, token: data.token };
+}
+
+const PDF_PATH_RE = /^purchases\/\d{4}-\d{2}\/[0-9a-f-]{36}\.pdf$/;
+
+/** 置き場に送り終わったPDFを、読み取り待ちとして並べる。1つのPDFに書類が何枚あってもよい（読み取り役が分ける） */
+export async function addPurchasePdf(path: string): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  if (!PDF_PATH_RE.test(path)) return { ok: false, error: "PDFの置き場所が不正です。" };
+  const { error: e1 } = await createAdminClient().storage.from(COST_BUCKET).createSignedUrl(path, 60);
+  if (e1) return { ok: false, error: "PDFが届いていません。もう一度送ってください。" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("cost_purchases")
+    .insert({ status: "pending", book_date: todayBizDate(), doc_kind: "invoice", vendor: null, photo_path: path });
+  if (error) {
+    await dropPhoto(path);
+    return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+  }
+  done();
+  return { ok: true };
 }
 
 /** 読み取った内容を写真と見比べて、合っていたら「確認した」 */
@@ -179,7 +216,12 @@ export async function deletePurchase(id: string): Promise<CResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("cost_purchases").delete().eq("id", id).select("photo_path").maybeSingle();
   if (error) return { ok: false, error: dbErr(error.message, "消せませんでした。") };
-  await dropPhoto(data?.photo_path as string | null);
+  // 1つのPDFから何件も書類を読んだときは、同じファイルを他の行も使っている。最後の1件のときだけ消す
+  const path = data?.photo_path as string | null;
+  if (path) {
+    const { count } = await createAdminClient().from("cost_purchases").select("id", { count: "exact", head: true }).eq("photo_path", path);
+    if (!count) await dropPhoto(path);
+  }
   done();
   return { ok: true };
 }
@@ -220,6 +262,60 @@ export async function addLoss(fd: FormData): Promise<CResult> {
     await dropPhoto(photo);
     return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
   }
+  done();
+  return { ok: true };
+}
+
+/**
+ * 捨てたものを撮るだけ（店長・毎日。グループLINEに上げていた写真の代わり・店主指示 2026-11-09）。
+ * 読み取り待ちの行を作り、品名・金額の目安は毎朝の読み取り役（サブスクのClaude）が入れる。ひとことは全部の写真に付く。
+ */
+export async function addLossPhotos(fd: FormData): Promise<CResult & { added?: number }> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const files = fd.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { ok: false, error: "写真を選んでください。" };
+  if (files.length > 10) return { ok: false, error: "一度に送れるのは10枚までです。" };
+  const memo = String(fd.get("memo") ?? "").trim().slice(0, 300) || null;
+  const today = todayBizDate();
+  const supabase = await createClient();
+  let added = 0;
+  for (const file of files) {
+    const put = await putPhoto(file, `losses/${today.slice(0, 7)}`);
+    if (!put.ok) return { ok: false, error: added ? `${added}枚は保存しました。残りで止まりました：${put.error}` : put.error };
+    const { error } = await supabase.from("cost_losses").insert({ status: "pending", biz_date: today, memo, photo_path: put.path });
+    if (error) {
+      await dropPhoto(put.path);
+      return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+    }
+    added += 1;
+  }
+  done();
+  return { ok: true, added };
+}
+
+/** ロスの見積もりを写真と見比べて、合っていたら「確認した」 */
+export async function confirmLoss(id: string): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("cost_losses").update({ status: "confirmed" }).eq("id", id).eq("status", "unconfirmed");
+  if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+  done();
+  return { ok: true };
+}
+
+/** ロスを直す（読み取り待ち・未確認の行に人が入れる）。直したら確認済み */
+export async function updateLoss(input: { id: string; item: string; amount_ex: number; reason: LossReason; memo: string }): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const item = input.item.trim();
+  if (!item) return { ok: false, error: "何を捨てたかを入れてください。" };
+  if (!Number.isInteger(input.amount_ex) || input.amount_ex < 0 || input.amount_ex > 1_000_000) return { ok: false, error: "金額（仕入値の目安・円）を入れてください。" };
+  if (!REASONS.includes(input.reason)) return { ok: false, error: "理由を選んでください。" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("cost_losses")
+    .update({ item: item.slice(0, 60), amount_ex: input.amount_ex, reason: input.reason, memo: input.memo.trim().slice(0, 300) || null, status: "confirmed" })
+    .eq("id", input.id);
+  if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
   done();
   return { ok: true };
 }

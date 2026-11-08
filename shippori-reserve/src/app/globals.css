@@ -232,6 +232,9 @@ textarea {
   color: var(--gold);
 }
 
+/* 6つ並ぶとき（オーナー・店長）は字間を詰めて「カレンダー」を1行に収める */
+.tabbar--6 .tabbar__item { letter-spacing: 0; font-size: 0.66rem; }
+
 .tabbar__ico {
   font-size: 1.15rem;
   line-height: 1;

@@ -119,6 +119,11 @@ select pg_temp.expect_error(:O, $$insert into cost_stock_counts (as_of, item_id,
 select pg_temp.run_as(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'ぶり 半身', 2000, 'expired')$$);
 select pg_temp.expect_error(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'lazy')$$, 'ロスの理由は決めた中から');
 select pg_temp.expect_error(:S, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'x', 1, 'expired')$$, 'スタッフはロスを入れられない');
+select pg_temp.run_as(:M, $$insert into cost_losses (biz_date, status, memo, photo_path) values ('2026-11-06', 'pending', '唐揚げ3人前', 'losses/2026-11/x.jpg')$$);
+select pg_temp.ok((select item is null and amount_ex is null from cost_losses where memo = '唐揚げ3人前'), 'ロスは写真だけ（読み取り待ち）で入れられる');
+select pg_temp.expect_error(:M, $$insert into cost_losses (biz_date, status, item) values ('2026-11-06', 'unconfirmed', 'x')$$, '読み取り待ち以外は品名・金額・理由が要る');
+select pg_temp.expect_error(:M, $$insert into cost_losses (biz_date) values ('2026-11-06')$$, '手で入れるロスは品名・金額・理由が要る');
+select pg_temp.expect_error(:M, $$insert into cost_losses (biz_date, status, item, amount_ex, reason) values ('2026-11-06', 'done', 'x', 1, 'other')$$, 'ロスの状態は決めた中から');
 
 -- 7. 撮っただけ（読み取り待ち）の行は業者名なしで置ける。確認済みは業者名が要る
 select pg_temp.run_as(:M, $$insert into cost_purchases (book_date, vendor, doc_kind, status) values ('2026-11-06', null, 'receipt', 'pending')$$);

@@ -230,3 +230,24 @@ test("読み取り役から届いた結果の検査：外から来るので形�
   assert.equal(parseAiDoc({ ...good, date: 20261105 }).ok, false);
   assert.equal(parseAiDoc(null).ok, false);
 });
+
+test("ロスの写真の読み取り結果の検査・合計は読み取り待ちを数えない", async () => {
+  const { parseAiLoss, lossTotal } = await import("./cost.ts");
+  const good = { item: "唐揚げ 3人前", amount_ex: 450, reason: "overprep", note: "鶏もも約300g×単価で見積もり" };
+  const r = parseAiLoss(good);
+  assert.equal(r.ok, true);
+  assert.equal(r.ok && r.loss.item, "唐揚げ 3人前");
+  assert.equal(parseAiLoss({ ...good, item: " " }).ok, false);
+  assert.equal(parseAiLoss({ ...good, amount_ex: 12.5 }).ok, false);
+  assert.equal(parseAiLoss({ ...good, amount_ex: -1 }).ok, false);
+  assert.equal(parseAiLoss({ ...good, reason: "lazy" }).ok, false);
+  assert.equal(parseAiLoss(null).ok, false);
+  assert.equal(
+    lossTotal([
+      { amount_ex: 450, status: "unconfirmed" },
+      { amount_ex: null, status: "pending" },
+      { amount_ex: 1000, status: "confirmed" },
+    ]),
+    1450,
+  );
+});

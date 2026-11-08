@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       */}
       <BrandBar />
       {children}
-      <Nav haccp={can(me.role, "haccp.record")} />
+      <Nav haccp={can(me.role, "haccp.record")} cost={can(me.role, "cost.read")} />
     </div>
   );
 }

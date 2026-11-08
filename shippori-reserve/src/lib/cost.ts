@@ -13,6 +13,12 @@
  */
 import type { SalesDay } from "./sales.ts";
 
+/** 写真・PDFの置き場（非公開） */
+export const COST_BUCKET = "cost-photos";
+/** スキャンしたPDF（初回の請求書の束など）の上限。ブラウザから置き場へ直接送る（サーバーを通さない） */
+export const PDF_MAX = 20 * 1024 * 1024;
+export const isPdfPath = (p: string | null | undefined): boolean => !!p && p.toLowerCase().endsWith(".pdf");
+
 export type DocKind = "slip" | "invoice" | "receipt";
 export type CostCategory = "food" | "drink" | "supplies" | "other";
 export type LossReason = "expired" | "overprep" | "mistake" | "damaged" | "other";
@@ -429,3 +435,29 @@ export function parseAiDoc(v: unknown): { ok: true; doc: AiDoc } | { ok: false; 
     doc: { doc_kind: o.doc_kind as DocKind, vendor: o.vendor, date, period_from: pf, period_to: pt, total_in: total, lines, note },
   };
 }
+
+// ── ロスの写真の読み取り結果（品名・金額の目安）──────────────────────
+
+export type AiLoss = { item: string; amount_ex: number; reason: LossReason; note: string };
+
+const LOSS_REASONS: LossReason[] = ["expired", "overprep", "mistake", "damaged", "other"];
+
+/**
+ * 読み取り役が送ってきたロスの見積もりを受け取れるか確かめる（外から来るので全部見る）。
+ * 金額は「仕入値の目安・税抜・円」。調理済みのものは材料の仕入値で見積もる。
+ */
+export function parseAiLoss(v: unknown): { ok: true; loss: AiLoss } | { ok: false; error: string } {
+  if (!v || typeof v !== "object") return { ok: false, error: "loss がありません" };
+  const o = v as Record<string, unknown>;
+  const item = typeof o.item === "string" ? o.item.trim() : "";
+  if (!item || item.length > 60) return { ok: false, error: "item は1〜60文字" };
+  const amount = Number(o.amount_ex);
+  if (!Number.isInteger(amount) || amount < 0 || amount > 1_000_000) return { ok: false, error: "amount_ex は0〜1,000,000の円の整数" };
+  if (!LOSS_REASONS.includes(o.reason as LossReason)) return { ok: false, error: "reason は expired / overprep / mistake / damaged / other" };
+  const note = typeof o.note === "string" ? o.note.slice(0, 500) : "";
+  return { ok: true, loss: { item, amount_ex: amount, reason: o.reason as LossReason, note } };
+}
+
+/** ロスの合計。読み取り待ち（金額がまだ無い）は数えない */
+export const lossTotal = (ls: { amount_ex: number | null; status?: PurchaseStatus }[]): number =>
+  ls.reduce((a, l) => a + (l.status === "pending" || l.amount_ex == null ? 0 : l.amount_ex), 0);

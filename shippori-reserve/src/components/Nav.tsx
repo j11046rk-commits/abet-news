@@ -19,12 +19,16 @@ const TABS = [
   { href: "/settings", label: "設定", icon: "⚙" },
 ];
 
-export default function Nav({ haccp = false }: { haccp?: boolean }) {
+export default function Nav({ haccp = false, cost = false }: { haccp?: boolean; cost?: boolean }) {
   const pathname = usePathname();
+  // 原価（2026-11-09・店主指定「原価タブを作って毎日のロスを登録する」）。見られる人（オーナー・店長・事務）にだけ出す
   // 衛生管理（2026-11・店主要望）。記録する人（オーナー・店長・スタッフ）にだけ出す
-  const tabs = haccp
-    ? [...TABS.slice(0, 3), { href: "/haccp", label: "衛生", icon: "✓" }, TABS[3]]
-    : TABS;
+  const tabs = [
+    ...TABS.slice(0, 3),
+    ...(cost ? [{ href: "/sales/cost", label: "原価", icon: "％" }] : []),
+    ...(haccp ? [{ href: "/haccp", label: "衛生", icon: "✓" }] : []),
+    TABS[3]!,
+  ];
 
   const isCurrent = (href: string) =>
     href === "/"
@@ -33,10 +37,12 @@ export default function Nav({ haccp = false }: { haccp?: boolean }) {
         pathname.startsWith("/day/") ||
         pathname.startsWith("/reservations") ||
         pathname.startsWith("/calendar/")
-      : pathname === href || pathname.startsWith(`${href}/`);
+      : href === "/sales" && cost && pathname.startsWith("/sales/cost")
+        ? false
+        : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className="tabbar" aria-label="メインナビゲーション">
+    <nav className={`tabbar${tabs.length >= 6 ? " tabbar--6" : ""}`} aria-label="メインナビゲーション">
       {tabs.map((t) => (
         <Link
           key={t.href}

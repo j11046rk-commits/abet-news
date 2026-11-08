@@ -2,13 +2,14 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { fmtYen } from "@/lib/sales";
-import { addDaysStr, fmtSpan, periodCost, purchaseWarnings, stockPeriods, TIMING_LABEL, type PeriodCost } from "@/lib/cost";
+import { addDaysStr, fmtSpan, lossTotal, periodCost, purchaseWarnings, stockPeriods, TIMING_LABEL, type PeriodCost } from "@/lib/cost";
 import { getMonthLosses, getPurchasesRange, getSalesRange, getStocktakes, signedPhotoUrls } from "@/lib/cost-data";
 import { apiTokenInfo } from "@/lib/api-token";
 import { createClient } from "@/lib/supabase/server";
 import { fmtDateShort, fmtMonthJa, fmtYm, monthRange, shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
 import CostPanels from "./CostPanels";
 import ReaderSetup from "./ReaderSetup";
+import LossCapture from "./LossCapture";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
   ]);
   const purchases = allPurchases.filter((p) => p.book_date >= from && p.book_date <= to);
 
-  const lossEx = losses.reduce((a, l) => a + l.amount_ex, 0);
+  const lossEx = lossTotal(losses);
   const mc = periodCost({ from, to, sales, purchases: allPurchases, open: null, close: null });
   const weeks = periods.map((x) => periodCost({ ...x, sales, purchases: allPurchases })).reverse();
   const monthSpan =
@@ -59,9 +60,11 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
   const canWrite = can(me.role, "cost.write");
   // 読み取り待ち・未確認は月をまたいで数える（過去の書類をまとめて撮ると、読むまでは撮った日の月に並ぶ）
   const supabase = await createClient();
-  const [{ count: pendingAll }, { count: unconfirmedAll }, reader] = await Promise.all([
+  const [{ count: pendingAll }, { count: unconfirmedAll }, { count: lossPending }, { count: lossUnconfirmed }, reader] = await Promise.all([
     supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("status", "unconfirmed"),
+    supabase.from("cost_losses").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("cost_losses").select("id", { count: "exact", head: true }).eq("status", "unconfirmed"),
     me.role === "owner" ? apiTokenInfo("cost_reader") : Promise.resolve(null),
   ]);
   const draft = stocks.find((s) => s.status === "draft") ?? null;
@@ -87,6 +90,8 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
       </header>
 
       <div className="wrap stack">
+        {canWrite && isCurrent ? <LossCapture /> : null}
+
         <section className="card cost-sum" aria-label="原価率">
           <div className="cost-sum__head">
             <span className="cost-sum__label">原価率（棚卸の間ごと）</span>
@@ -161,10 +166,12 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
           </p>
         </section>
 
-        {pendingAll || unconfirmedAll ? (
+        {pendingAll || unconfirmedAll || lossPending || lossUnconfirmed ? (
           <section className="notice" aria-label="読み取りの状況">
             {pendingAll ? <p>📷 読み取り待ち {pendingAll}枚（明朝AIが読みます。読むまでは原価に入りません）</p> : null}
             {unconfirmedAll ? <p>✓ 未確認 {unconfirmedAll}件（原価には入っています。写真と見比べて「確認した」を）</p> : null}
+            {lossPending ? <p>🗑 ロスの読み取り待ち {lossPending}枚（明朝AIが品名と金額の目安を入れます）</p> : null}
+            {lossUnconfirmed ? <p>🗑 ロスの未確認 {lossUnconfirmed}件（写真と見比べて「確認した」か「直す」を）</p> : null}
           </section>
         ) : null}
 

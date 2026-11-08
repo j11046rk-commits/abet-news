@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { monthRange } from "@/lib/time";
-import type { LossReason, Purchase, Stocktake } from "@/lib/cost";
+import type { LossReason, Purchase, PurchaseStatus, Stocktake } from "@/lib/cost";
 import type { SalesDay } from "@/lib/sales";
 
 /*
@@ -10,17 +10,21 @@ import type { SalesDay } from "@/lib/sales";
  * 写真だけは非公開の置き場なので、サーバーが短い時間だけ有効なURLを作る（呼ぶ側で権限を見てから）。
  */
 
-export const COST_BUCKET = "cost-photos";
+import { COST_BUCKET } from "@/lib/cost";
+export { COST_BUCKET };
 
+/** ロス。写真だけ撮った行（読み取り待ち）は品名・金額・理由がまだ空 */
 export type Loss = {
   id: string;
   biz_date: string;
-  item: string;
-  amount_ex: number;
-  reason: LossReason;
+  item: string | null;
+  amount_ex: number | null;
+  reason: LossReason | null;
   memo: string | null;
   photo_path: string | null;
   created_by: string | null;
+  status: PurchaseStatus;
+  ai_note: string | null;
 };
 
 export type StockItem = {
@@ -59,7 +63,7 @@ export async function getMonthLosses(ym: string): Promise<Loss[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cost_losses")
-    .select("id, biz_date, item, amount_ex, reason, memo, photo_path, created_by")
+    .select("id, biz_date, item, amount_ex, reason, memo, photo_path, created_by, status, ai_note")
     .gte("biz_date", from)
     .lte("biz_date", to)
     .order("biz_date", { ascending: false })
