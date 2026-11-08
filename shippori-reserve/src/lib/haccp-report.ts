@@ -56,6 +56,8 @@ export async function buildReport(type: ReportType, ym: string, opts: { blank?: 
   const store = plan?.store_name ?? "おばんざい家庭料理 しっぽり亭";
   const period = `${from} 〜 ${to}`;
   const nm = (id: string | null | undefined) => (id ? names.get(id) ?? "?" : "");
+  // 温度計（SwitchBot）が自動で書いた記録は記録者が空（0068）。帳票では「温度計（自動）」と出す
+  const who = (r: { recorded_by: string | null; source?: string | null }) => (r.source === "auto" ? "温度計（自動）" : nm(r.recorded_by));
   const dates: string[] = [];
   for (let d = from; d <= to; d = shiftDate(d, 1)) dates.push(d);
   const base = { title: REPORT_TITLE[type], store, period, notes: [] as string[] };
@@ -100,7 +102,7 @@ export async function buildReport(type: ReportType, ym: string, opts: { blank?: 
           WEEKDAY_JA[weekdayOf(d)],
           opts.blank ? (isClosed ? "休業" : "") : DAY_STATE_LABEL[days!.get(d)!.state],
           ...cells,
-          opts.blank ? "" : [...new Set(dayRows.map((r) => nm(r!.recorded_by)))].join("・"),
+          opts.blank ? "" : [...new Set(dayRows.map((r) => who(r!)))].join("・"),
           opts.blank ? "" : notes,
           opts.blank ? "" : late ? `${late}件` : "",
         ];
@@ -130,7 +132,7 @@ export async function buildReport(type: ReportType, ym: string, opts: { blank?: 
           row?.temp_c != null ? Number(row.temp_c) : null,
           opts.blank ? "" : row ? cellResult(row.result) : closed.has(d) ? "休業" : d < today ? "未記録" : "",
           row ? mdhm(row.measured_at) : "",
-          row ? nm(row.recorded_by) : "",
+          row ? who(row) : "",
           row ? [row.note, row.action].filter(Boolean).join("／") : "",
           row ? [row.entered_late ? `追記(入力${mdhm(row.recorded_at)})` : "", row.revision > 1 ? `修正${row.revision - 1}回` : ""].filter(Boolean).join(" ") : "",
         ]);

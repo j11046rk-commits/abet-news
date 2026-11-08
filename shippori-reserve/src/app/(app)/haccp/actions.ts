@@ -80,7 +80,8 @@ export async function saveCheck(input: CheckInput): Promise<HResult> {
 
   const plan = await planOn(input.date);
   if (!plan) return { ok: false, error: "この日に使える承認済みの衛生管理計画がありません。" };
-  const req = requiredChecks(plan.content).find((r) => r.key === input.key);
+  // 温度計の設備（auto）も、温度計が止まっていた日は手で記録できるようにする（0068）
+  const req = requiredChecks(plan.content, true).find((r) => r.key === input.key);
   if (!req) return { ok: false, error: "この日の計画に無い項目です。" };
 
   let result = input.result;

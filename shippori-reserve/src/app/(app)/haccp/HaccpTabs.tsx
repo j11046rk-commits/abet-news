@@ -6,7 +6,12 @@ export default function HaccpTabs({ current, canManage }: { current: string; can
     { href: "/haccp", key: "day", label: "今日のチェック" },
     { href: "/haccp/incidents", key: "incidents", label: "異常・改善" },
     { href: "/haccp/plan", key: "plan", label: "計画" },
-    ...(canManage ? [{ href: "/haccp/month", key: "month", label: "月の確認・出力" }] : []),
+    ...(canManage
+      ? [
+          { href: "/haccp/month", key: "month", label: "月の確認・出力" },
+          { href: "/haccp/sensors", key: "sensors", label: "温度計" },
+        ]
+      : []),
   ];
   return (
     <nav className="hc-tabs" aria-label="衛生管理の画面">

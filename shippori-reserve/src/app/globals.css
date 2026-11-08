@@ -2907,3 +2907,16 @@ textarea.field:-webkit-autofill {
   .rqp__sheet { margin: 0 auto; }
   .rqp__scroll { overflow: visible; }
 }
+
+/* ───────────────────────── 衛生：温度計（SwitchBot・0068） ───────────────────────── */
+.hc-auto { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.hc-auto__row { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.hc-auto__row--ng { border-left: 3px solid var(--seal); }
+.hc-auto__name { font-weight: 600; display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; }
+.hc-auto__val strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.hc-auto__row--ng .hc-auto__val strong { color: var(--seal); }
+.sb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.sb-row { background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.8rem 0.9rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.sb-row__head { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+.sb-row__name { font-weight: 600; overflow-wrap: anywhere; }
+.sb-row__temp { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }

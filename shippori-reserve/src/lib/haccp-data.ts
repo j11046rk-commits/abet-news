@@ -51,7 +51,10 @@ export type CheckRow = {
   note: string | null;
   action: string | null;
   first_result: CheckResult;
-  recorded_by: string;
+  /** 温度計の自動記録（source=auto）は空 */
+  recorded_by: string | null;
+  /** manual＝人 / auto＝温度計（0068） */
+  source?: "manual" | "auto";
   recorded_at: string;
   entered_late: boolean;
   updated_by: string | null;
@@ -310,6 +313,42 @@ export async function getDaysHaccp(
         open: incidents.filter((i) => i.biz_date === d && i.status === "open").length,
       }),
     );
+  }
+  return out;
+}
+
+/**
+ * 温度計で自動記録する設備の、その営業日の値（0068）。設備ID → 最新の値・回数・最低・最高。
+ * 利用者のログインで読む（haccp.record の人だけ見える）。
+ */
+export async function getAutoReadings(
+  date: string,
+  equipmentIds: string[],
+): Promise<Record<string, { temp_c: number; read_at: string; count: number; min: number; max: number }>> {
+  if (equipmentIds.length === 0) return {};
+  const supabase = await createClient();
+  const from = new Date(`${date}T04:00:00+09:00`).toISOString();
+  const to = new Date(`${shiftDate(date, 1)}T04:00:00+09:00`).toISOString();
+  const { data, error } = await supabase
+    .from("haccp_temp_readings")
+    .select("equipment_id, temp_c, read_at")
+    .in("equipment_id", equipmentIds)
+    .gte("read_at", from)
+    .lt("read_at", to)
+    .order("read_at", { ascending: true })
+    .limit(2000);
+  if (error) {
+    console.error("[haccp] readings", error.message);
+    return {};
+  }
+  const out: Record<string, { temp_c: number; read_at: string; count: number; min: number; max: number }> = {};
+  for (const r of data ?? []) {
+    const id = r.equipment_id as string;
+    const t = Number(r.temp_c);
+    const cur = out[id];
+    out[id] = cur
+      ? { temp_c: t, read_at: r.read_at as string, count: cur.count + 1, min: Math.min(cur.min, t), max: Math.max(cur.max, t) }
+      : { temp_c: t, read_at: r.read_at as string, count: 1, min: t, max: t };
   }
   return out;
 }

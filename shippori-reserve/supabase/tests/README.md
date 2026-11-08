@@ -65,3 +65,13 @@ psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/03-cost.sql
 仕入・棚卸・ロスを入れられる／読めるのはオーナー・店長・事務だけ、作った人・直した人は自動で入る、
 確定した棚卸の数は直せない（確定を外せば直せる）、写真の置き場は非公開、を確かめます（27項目）。
 最後に `ALL COST TESTS PASSED` が出れば合格。
+
+## 温度計の自動記録（0068）
+
+```bash
+psql -d shippori -v ON_ERROR_STOP=1 -f supabase/tests/04-haccp-sensors.sql
+```
+
+温度計の結びつけは店長・オーナーだけ、1つの設備に温度計は1つ、読み取った値は画面から書けない（サーバーだけ）、
+自動の記録は記録者なしで入る（手で入れる記録は記録者が要る）、自動の記録も直すには理由が要り最初の結果は残る、を確かめます（14項目）。
+最後に `ALL SENSOR TESTS PASSED` が出れば合格。

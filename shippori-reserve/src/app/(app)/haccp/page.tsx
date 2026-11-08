@@ -11,6 +11,7 @@ import {
   getClosedDays,
   getDayCloses,
   getDaysHaccp,
+  getAutoReadings,
   getIncidents,
   getPlans,
 } from "@/lib/haccp-data";
@@ -43,6 +44,7 @@ export default async function HaccpPage({ searchParams }: { searchParams: Promis
     getIncidents({ openOnly: true }),
   ]);
   const plan = planForDate(plans, date);
+  const autoReadings = plan ? await getAutoReadings(date, plan.content.equipment.filter((e) => e.auto).map((e) => e.id)) : {};
   const current = plans.find((p) => p.status === "approved") ?? null;
   const draft = plans.find((p) => p.status === "draft") ?? null;
   const acks = current ? await getAcks([current.id]) : [];
@@ -114,6 +116,7 @@ export default async function HaccpPage({ searchParams }: { searchParams: Promis
         names={Object.fromEntries(names)}
         meId={me.id}
         canManage={canManage}
+        autoReadings={autoReadings}
       />
       <div style={{ height: "2rem" }} />
     </>

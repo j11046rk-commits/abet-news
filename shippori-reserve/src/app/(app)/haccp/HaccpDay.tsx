@@ -34,6 +34,8 @@ type Props = {
   names: Record<string, string>;
   meId: string;
   canManage: boolean;
+  /** 温度計で自動記録する設備の、その日の値（0068）。設備ID → 最新の値と回数 */
+  autoReadings?: Record<string, { temp_c: number; read_at: string; count: number; min: number; max: number }>;
 };
 
 export default function HaccpDay(p: Props) {
@@ -84,12 +86,7 @@ export default function HaccpDay(p: Props) {
         </label>
       </section>
 
-      {p.plan.content.equipment.some((e) => e.auto) ? (
-        <p className="micro">
-          冷蔵庫・冷凍庫の温度は温度計で自動記録します（
-          {p.plan.content.equipment.filter((e) => e.auto).map((e) => e.name).join("・")}）。ここで入力する必要はありません。
-        </p>
-      ) : null}
+      <AutoTemps {...p} late={late} lateAt={lateAt} />
 
       {late ? (
         <section className="notice notice-strong">
@@ -152,6 +149,79 @@ export default function HaccpDay(p: Props) {
 
       <DayClose {...p} missing={req.length - filled} />
     </div>
+  );
+}
+
+// ── 温度計で自動記録する冷蔵庫・冷凍庫（0068）──────────────────────
+// 記録は毎晩1時ごろに自動で入る。入っていない日（温度計が止まっていた等）だけ、ここから手で記録できる。
+
+function AutoTemps(p: Props & { late: boolean; lateAt: string }) {
+  const [manual, setManual] = useState<Record<string, boolean>>({});
+  const plan = p.plan!;
+  const autoEq = plan.content.equipment.filter((e) => e.auto);
+  if (autoEq.length === 0) return null;
+  const all = requiredChecks(plan.content, true);
+  const byKey = new Map(p.checks.map((c) => [c.check_key, c]));
+  return (
+    <section className="stack" aria-label="冷蔵庫・冷凍庫（温度計）">
+      <h2 className="section-title">
+        冷蔵庫・冷凍庫（温度計で自動記録）
+      </h2>
+      <p className="micro">30分ごとに温度計を読み、毎晩1時ごろにその日の最後の値を記録します。基準を外れた状態が続くと店のLINEに知らせます。</p>
+      <ul className="hc-auto">
+        {autoEq.map((e) => {
+          const key = `eq:${e.id}:close`;
+          const row = byKey.get(key) ?? null;
+          const rd = p.autoReadings?.[e.id];
+          const r = all.find((x) => x.key === key);
+          const limit = [e.maxC != null ? `${e.maxC}℃以下` : "", e.minC != null ? `${e.minC}℃以上` : ""].filter(Boolean).join("・");
+          const out = rd ? (e.maxC != null && rd.temp_c > e.maxC) || (e.minC != null && rd.temp_c < e.minC) : false;
+          if (row || manual[e.id]) {
+            return r ? (
+              <li key={e.id}>
+                <CheckCard
+                  r={r}
+                  row={row}
+                  plan={plan}
+                  date={p.date}
+                  late={p.late}
+                  lateAt={p.lateAt}
+                  names={p.names}
+                  canEdit={(x) => p.canManage || x.recorded_by === p.meId}
+                />
+              </li>
+            ) : null;
+          }
+          return (
+            <li key={e.id} className={`hc-auto__row${out ? " hc-auto__row--ng" : ""}`}>
+              <div className="hc-auto__name">
+                {e.name}
+                <span className="hc-card__limit">基準 {limit}</span>
+              </div>
+              <div className="hc-auto__val">
+                {rd ? (
+                  <>
+                    <strong>{rd.temp_c}℃</strong>
+                    <span className="micro">
+                      {" "}
+                      {hm(rd.read_at)}時点・今日{rd.count}回（{rd.min}〜{rd.max}℃）
+                    </span>
+                  </>
+                ) : (
+                  <span className="micro">まだ値が届いていません</span>
+                )}
+              </div>
+              <div className="micro">
+                {p.date < p.today ? "自動の記録がありません。" : "今夜、自動で記録します。"}
+                <button type="button" className="linklike" onClick={() => setManual({ ...manual, [e.id]: true })}>
+                  手で記録する
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
@@ -280,7 +350,7 @@ function CheckCard({
           {row.note ? <div>内容：{row.note}</div> : null}
           {row.action ? <div>対応：{row.action}</div> : null}
           <div className="micro">
-            {names[row.recorded_by] ?? "?"}・実施 {mdhm(row.measured_at)}
+            {row.source === "auto" ? "温度計（自動）" : (names[row.recorded_by ?? ""] ?? "?")}・{row.source === "auto" ? "測定" : "実施"} {mdhm(row.measured_at)}
             {row.entered_late ? <span className="hc-tag">追記（入力 {mdhm(row.recorded_at)}）</span> : null}
             {row.revision > 1 ? (
               <Link className="hc-tag" href={`/haccp/history?t=haccp_checks&id=${row.id}`}>
