@@ -1,0 +1,21 @@
+# 冷蔵庫・冷凍庫の温度計（SwitchBot）を30分ごとに読む（店舗管理アプリ /api/cron/switchbot）。
+# Vercel の定期実行は1日1回しか回せないため、ここから呼ぶ。毎晩の記録そのものは Vercel 側（/api/cron/haccp-auto）。
+# 合言葉は予約インサイトと同じ RESERVE_INSIGHTS_TOKEN（アプリの INSIGHTS_TOKEN）。レスポンスに個人情報は含まれない。
+name: switchbot-poll
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - env:
+          TOKEN: ${{ secrets.RESERVE_INSIGHTS_TOKEN }}
+        run: |
+          curl -sS --fail-with-body --max-time 90 \
+            -H "x-api-key: ${TOKEN}" \
+            https://yoyaku.shipporitei.jp/api/cron/switchbot
