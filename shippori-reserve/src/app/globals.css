@@ -2930,3 +2930,6 @@ textarea.field:-webkit-autofill {
 .sb-row__edit { display: flex; gap: 0.6rem; align-items: center; margin-top: 0.4rem; }
 .sb-row__edit .field { flex: 1; min-width: 0; }
 .sb-row__err { margin: 0.2rem 0 0; font-size: 0.75rem; }
+.sb-alert { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; padding: 0.5rem 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-3); font-size: 0.9rem; }
+.sb-alert--paused { border-color: var(--warn); }
+.sb-alert--paused strong { color: var(--warn); }

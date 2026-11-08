@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 
@@ -48,6 +49,23 @@ export async function removeSensor(deviceId: string): Promise<SResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("haccp_sensors").delete().eq("device_id", deviceId);
   if (error) return { ok: false, error: "外せませんでした。" };
+  revalidatePath("/haccp/sensors");
+  return { ok: true };
+}
+
+/**
+ * 温度計のLINEの知らせを止める／再開する（店長・オーナー）。
+ * 再開するときは、止めていた間に付けた「知らせ済み」の印（先の日付にしたもの）を消して、必要な知らせがすぐ届くようにする。
+ */
+export async function setAlertsPaused(paused: boolean): Promise<SResult> {
+  const me = await requireProfile();
+  if (!can(me.role, "haccp.manage")) return { ok: false, error: "権限がありません。" };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("settings")
+    .upsert({ key: "haccp_alerts_paused", value: paused, updated_by: me.id, updated_at: new Date().toISOString() });
+  if (error) return { ok: false, error: "保存できませんでした。" };
+  if (!paused) await admin.from("haccp_sensor_alerts").delete().gt("sent_at", new Date().toISOString());
   revalidatePath("/haccp/sensors");
   return { ok: true };
 }

@@ -8,6 +8,7 @@ import { listThermometers, readStatus, switchbotReady, type SbDevice } from "@/l
 import { todayBizDate } from "@/lib/time";
 import HaccpTabs from "../HaccpTabs";
 import SensorList, { type SensorView } from "./SensorList";
+import AlertSwitch from "./AlertSwitch";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ export default async function SensorsPage() {
     .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.i - b.i);
 
   const supabase = await createClient();
+  const { data: pausedRow } = await supabase.from("settings").select("value").eq("key", "haccp_alerts_paused").maybeSingle();
+  const paused = pausedRow?.value === true;
   const { data: saved } = await supabase.from("haccp_sensors").select("device_id, device_name, device_type, equipment_id");
   const savedBy = new Map((saved ?? []).map((s) => [s.device_id as string, s]));
 
@@ -119,6 +122,8 @@ export default async function SensorsPage() {
         {ready && !apiError ? (
           <p className="micro">いまの温度（開いた時点）。30分ごとに記録し、毎晩その日の値を衛生の記録に入れます。赤は基準外。</p>
         ) : null}
+
+        {ready ? <AlertSwitch paused={paused} canManage={canManage} /> : null}
 
         {views.length > 0 ? <SensorList views={canManage ? views : views.filter((v) => v.registered)} equipment={equipment} canManage={canManage} /> : ready && !apiError ? (
           <p className="notice">温度計が見つかりません。SwitchBotアプリで温度計がハブにつながっているか、各温度計の「クラウドサービス」がオンかを確かめてください。</p>

@@ -20,6 +20,15 @@ import {
  *   autoRecord  … 毎晩：その営業日の最後の値を衛生管理の記録（eq:<設備>:close・source=auto）に書く
  */
 
+/**
+ * 温度計のLINEの知らせを止めているか（settings.haccp_alerts_paused・店主指示 2026-11-09「初期設定が終わるまで止めて」）。
+ * 止めている間も、読み取りと毎晩の記録は続ける。知らせだけ送らない（知らせた記録も付けない＝再開後に必要なら届く）。
+ */
+export async function alertsPaused(): Promise<boolean> {
+  const { data } = await createAdminClient().from("settings").select("value").eq("key", "haccp_alerts_paused").maybeSingle();
+  return data?.value === true;
+}
+
 type Sensor = { device_id: string; device_name: string; equipment_id: string | null };
 type PlanRow = { id: string; version: number; status: string; effective_from: string | null; content: PlanContent };
 
@@ -45,6 +54,7 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
   let alerts = 0;
   const failed: string[] = [];
 
+  const paused = await alertsPaused();
   const { data: sentRows } = await admin.from("haccp_sensor_alerts").select("device_id, kind, sent_at");
   const sentBy = new Map<string, Partial<Record<AlertKind, string>>>();
   for (const s of (sentRows ?? []) as { device_id: string; kind: AlertKind; sent_at: string }[]) {
@@ -72,7 +82,7 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
       console.error("[switchbot] read failed", s.device_id, String((e as Error).message));
       failed.push(name);
       const sent = sentBy.get(s.device_id) ?? {};
-      if (s.equipment_id && (!sent.error || now.getTime() - Date.parse(sent.error) >= 6 * 3600_000)) {
+      if (!paused && s.equipment_id && (!sent.error || now.getTime() - Date.parse(sent.error) >= 6 * 3600_000)) {
         if (await pushLine(alertText("error", name, null, null))) alerts++;
         await mark(s.device_id, "error");
       }
@@ -86,6 +96,7 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
       .order("read_at", { ascending: false })
       .limit(STALE_COUNT);
     const rs = ((recent ?? []) as Reading[]).map((r) => ({ ...r, temp_c: Number(r.temp_c) }));
+    if (paused) continue;
     const limits = eq ? { maxC: eq.maxC, minC: eq.minC } : null;
     const sent = sentBy.get(s.device_id) ?? {};
     const { send, recovered } = decideAlerts(rs, limits, sent, now);
@@ -152,7 +163,7 @@ export async function autoRecord(): Promise<{ date: string; written: string[]; m
     } else written.push(e.name);
   }
 
-  if (missing.length > 0) {
+  if (missing.length > 0 && !(await alertsPaused())) {
     await pushLine(
       `🌡 今日の冷蔵庫・冷凍庫の温度を自動で記録できませんでした：${missing.join("・")}\n温度計の値が届いていません。アプリの「衛生」→「今日のチェック」で前の日（‹）を開くと、手で記録できます。`,
     );
