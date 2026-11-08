@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/constants";
-import { getMonthSales } from "@/lib/queries";
 import { fmtYen } from "@/lib/sales";
-import { monthCost, prevYm, purchaseWarnings } from "@/lib/cost";
-import { getMonthLosses, getMonthPurchases, getStocktakes, signedPhotoUrls } from "@/lib/cost-data";
+import { addDaysStr, fmtSpan, periodCost, purchaseWarnings, stockPeriods, TIMING_LABEL, type PeriodCost } from "@/lib/cost";
+import { getMonthLosses, getPurchasesRange, getSalesRange, getStocktakes, signedPhotoUrls } from "@/lib/cost-data";
 import { apiTokenInfo } from "@/lib/api-token";
 import { createClient } from "@/lib/supabase/server";
-import { fmtMonthJa, fmtYm, shiftMonth, todayBizDate } from "@/lib/time";
+import { fmtDateShort, fmtMonthJa, fmtYm, monthRange, shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
 import CostPanels from "./CostPanels";
 import ReaderSetup from "./ReaderSetup";
 
@@ -18,8 +17,10 @@ const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 /**
  * 原価（売上タブの中・オーナー/店長/事務）。
  *
- * 原価率＝（月初在庫＋仕入−月末在庫）÷ 売上（どちらも税抜）。
- * 入れるのは3つだけ：書類の写真（撮るだけ。毎朝の定期実行でClaudeが読む）、月末の棚卸、捨てたもの（ロス）。
+ * 原価率＝（始めの在庫＋仕入−終わりの在庫）÷ 売上（どれも税抜）。
+ * 棚卸は毎週日曜（店主指示 2026-11-09）。原価率は確定した棚卸と次の確定した棚卸の間（ふだん1週間）ごとに出し、
+ * 月の数字はその月に終わった区間をつなげたもの（暦の1日〜末日とは少しずれる。期間をそのまま書く）。
+ * 入れるのは3つだけ：書類の写真（撮るだけ。毎朝の定期実行でClaudeが読む）、日曜の棚卸、捨てたもの（ロス）。
  * 読み取りはサブスクのClaudeのセッションが /api/cost/reader から取りに来る（API料金を使わない・店主指示 2026-11-06）。
  */
 export default async function CostPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
@@ -27,32 +28,32 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const today = todayBizDate();
   const ym = YM_RE.test(sp.m ?? "") ? sp.m! : fmtYm(today);
-  const prev = prevYm(ym);
+  const { from, to } = monthRange(ym);
 
-  const [sales, purchases, losses, stocks, prevPurchases, prevSales, prevStocks] = await Promise.all([
-    getMonthSales(ym),
-    getMonthPurchases(ym),
+  const stocks = await getStocktakes(shiftDate(from, -120));
+  const periods = stockPeriods(stocks).filter((x) => x.to >= from && x.to <= to);
+  const spanFrom = periods[0] && periods[0].from < from ? periods[0].from : from;
+  const lastDone = stocks.find((s) => s.status === "done" && s.as_of <= today) ?? null;
+  const isCurrent = ym === fmtYm(today);
+  const weekFrom = isCurrent && lastDone && lastDone.as_of >= shiftDate(today, -14) ? addDaysStr(lastDone.as_of, 1) : null;
+  const readFrom = weekFrom && weekFrom < spanFrom ? weekFrom : spanFrom;
+
+  const [sales, allPurchases, losses] = await Promise.all([
+    getSalesRange(readFrom, to),
+    // 月締めの請求書は締め日（翌月のこともある）で計上されるので、日割りのため少し先まで読む
+    getPurchasesRange(readFrom, shiftDate(to, 45)),
     getMonthLosses(ym),
-    getStocktakes([prev, ym]),
-    getMonthPurchases(prev),
-    getMonthSales(prev),
-    getStocktakes([prevYm(prev)]),
   ]);
+  const purchases = allPurchases.filter((p) => p.book_date >= from && p.book_date <= to);
 
   const lossEx = losses.reduce((a, l) => a + l.amount_ex, 0);
-  const mc = monthCost({
-    sales: [...sales.values()],
-    purchases,
-    open: stocks.get(prev) ?? null,
-    close: stocks.get(ym) ?? null,
-    lossEx,
-  });
-  const pc = monthCost({
-    sales: [...prevSales.values()],
-    purchases: prevPurchases,
-    open: prevStocks.get(prevYm(prev)) ?? null,
-    close: stocks.get(prev) ?? null,
-  });
+  const mc = periodCost({ from, to, sales, purchases: allPurchases, open: null, close: null });
+  const weeks = periods.map((x) => periodCost({ ...x, sales, purchases: allPurchases })).reverse();
+  const monthSpan =
+    periods.length >= 2
+      ? periodCost({ from: periods[0]!.from, to: periods.at(-1)!.to, sales, purchases: allPurchases, open: periods[0]!.open, close: periods.at(-1)!.close })
+      : null;
+  const now = weekFrom && weekFrom <= today ? periodCost({ from: weekFrom, to: today, sales, purchases: allPurchases, open: lastDone, close: null }) : null;
   const warnings = purchaseWarnings(purchases);
   const photos = await signedPhotoUrls([...purchases.map((p) => p.photo_path ?? ""), ...losses.map((l) => l.photo_path ?? "")]);
   const canWrite = can(me.role, "cost.write");
@@ -63,8 +64,8 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
     supabase.from("cost_purchases").select("id", { count: "exact", head: true }).eq("status", "unconfirmed"),
     me.role === "owner" ? apiTokenInfo("cost_reader") : Promise.resolve(null),
   ]);
-  const isCurrent = ym === fmtYm(today);
-  const closeSt = stocks.get(ym);
+  const draft = stocks.find((s) => s.status === "draft") ?? null;
+  const doneCount = stocks.filter((s) => s.status === "done").length;
 
   return (
     <>
@@ -88,29 +89,46 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
       <div className="wrap stack">
         <section className="card cost-sum" aria-label="原価率">
           <div className="cost-sum__head">
-            <span className="cost-sum__label">原価率</span>
-            {mc.ratio != null ? (
-              <span className="cost-sum__big">{mc.ratio.toFixed(1)}%</span>
+            <span className="cost-sum__label">原価率（棚卸の間ごと）</span>
+            {weeks[0]?.ratio != null ? (
+              <span className="cost-sum__big">{weeks[0].ratio.toFixed(1)}%</span>
             ) : (
               <span className="cost-sum__none">まだ出せません</span>
             )}
           </div>
-          {mc.ratio == null ? (
+          {weeks.length === 0 ? (
             <p className="micro">
-              足りないもの：{mc.missing.join("・")}
-              {mc.purchaseRatio != null ? (
-                <>
-                  <br />
-                  目安：{isCurrent ? "今日までの" : ""}仕入÷売上＝<strong>{mc.purchaseRatio.toFixed(1)}%</strong>（在庫の増減を入れていない数字です）
-                </>
-              ) : null}
+              確定した棚卸が2回そろうと、その間の原価率が出ます（毎週日曜に数えると、1週間ごと）。
+              {doneCount === 1 ? "　いま確定した棚卸は1回です。次の日曜で出ます。" : ""}
             </p>
           ) : (
-            <p className="micro">
-              消耗品も入れると {mc.ratioWithSupplies?.toFixed(1)}%
-              {pc.ratio != null ? `／先月 ${pc.ratio.toFixed(1)}%` : ""}
-            </p>
+            <ul className="cost-list" aria-label="区間ごとの原価率">
+              {weeks.map((w) => (
+                <WeekRow key={w.from} w={w} />
+              ))}
+            </ul>
           )}
+          {monthSpan?.ratio != null ? (
+            <p className="micro">
+              この月のまとめ（{fmtSpan(monthSpan.from, monthSpan.to)}）：<strong>{monthSpan.ratio.toFixed(1)}%</strong>
+              　消耗品も入れると {monthSpan.ratioWithSupplies?.toFixed(1)}%
+            </p>
+          ) : null}
+          {now?.purchaseRatio != null ? (
+            <p className="micro">
+              今週（{fmtSpan(now.from, now.to)}）の目安：仕入÷売上＝{now.purchaseRatio.toFixed(1)}%（次の棚卸で原価率になります）
+            </p>
+          ) : null}
+        </section>
+
+        <Link className="btn btn-block" href={draft ? `/sales/cost/stock?d=${draft.as_of}` : "/sales/cost/stock"}>
+          {draft ? `棚卸（数えている途中：${fmtDateShort(draft.counted_on)} ${TIMING_LABEL[draft.timing]}）` : "棚卸（毎週日曜）"} ›
+        </Link>
+
+        <section className="card cost-sum" aria-label="この月の仕入">
+          <div className="cost-sum__head">
+            <span className="cost-sum__label">{fmtMonthJa(`${ym}-01`)}の仕入（税抜）</span>
+          </div>
           <dl className="kv cost-kv">
             <dt>売上（税抜）</dt>
             <dd>
@@ -121,12 +139,6 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
             <dd>{fmtYen(mc.food)}</dd>
             <dt>仕入 酒・飲料</dt>
             <dd>{fmtYen(mc.drink)}</dd>
-            <dt>月初の在庫</dt>
-            <dd>{mc.openStock != null ? fmtYen(mc.openStock) : "—"}</dd>
-            <dt>月末の在庫</dt>
-            <dd>{mc.closeStock != null ? fmtYen(mc.closeStock) : closeSt?.status === "draft" ? "数えている途中" : "—"}</dd>
-            <dt>売上原価</dt>
-            <dd>{mc.cogs != null ? fmtYen(mc.cogs) : "—"}</dd>
             <dt>消耗品</dt>
             <dd>{fmtYen(mc.supplies)}</dd>
             {mc.other ? (
@@ -140,8 +152,13 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
               {fmtYen(lossEx)}
               <span className="micro">　{losses.length}件</span>
             </dd>
+            <dt>目安：仕入÷売上</dt>
+            <dd>{mc.purchaseRatio != null ? `${mc.purchaseRatio.toFixed(1)}%` : "—"}</dd>
           </dl>
-          <p className="micro">金額はすべて税抜。税理士の月次報告と同じ物差しです。</p>
+          <p className="micro">
+            金額はすべて税抜（税理士の月次報告と同じ物差し）。目安は在庫の増減を入れていない数字です。
+            {mc.prorated ? "月締めの請求書は、対象の期間で日割りしています。" : ""}
+          </p>
         </section>
 
         {pendingAll || unconfirmedAll ? (
@@ -158,11 +175,6 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
             ))}
           </section>
         ) : null}
-
-        <Link className="btn btn-block" href={`/sales/cost/stock?m=${ym}`}>
-          {fmtMonthJa(`${ym}-01`)}末の棚卸
-          {closeSt?.status === "done" ? "（確定済み）" : closeSt ? "（途中）" : isCurrent ? "（月末に）" : "（まだ）"} ›
-        </Link>
 
         <CostPanels
           ym={ym}
@@ -184,5 +196,21 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
         <div style={{ height: "2rem" }} />
       </div>
     </>
+  );
+}
+
+function WeekRow({ w }: { w: PeriodCost }) {
+  return (
+    <li className="cost-row">
+      <div className="cost-row__main">
+        <span className="cost-row__vendor">{fmtSpan(w.from, w.to)}</span>
+        <span className="cost-row__amt">{w.ratio != null ? `${w.ratio.toFixed(1)}%` : "—"}</span>
+      </div>
+      <span className="micro">
+        売上 {w.salesEx != null ? fmtYen(w.salesEx) : "—"}・原価 {w.cogs != null ? fmtYen(w.cogs) : "—"}
+        {w.ratioWithSupplies != null ? `・消耗品込み ${w.ratioWithSupplies.toFixed(1)}%` : ""}
+        {w.ratio == null && w.missing.length ? `（足りないもの：${w.missing.join("・")}）` : ""}
+      </span>
+    </li>
   );
 }

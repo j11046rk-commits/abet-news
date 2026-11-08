@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { fmtYen } from "@/lib/sales";
 import { stockTotal } from "@/lib/cost";
 import type { StockCount, StockItem } from "@/lib/cost-data";
-import { finishStocktake, reopenStocktake, saveCount, saveStockItem } from "../actions";
+import { deleteStocktake, finishStocktake, reopenStocktake, saveCount, saveStockItem } from "../actions";
 
 type P = {
-  ym: string;
+  asOf: string;
   canWrite: boolean;
   items: StockItem[];
   counts: StockCount[];
@@ -16,6 +16,8 @@ type P = {
   status: "draft" | "done" | null;
   total: number | null;
   prevTotal: number | null;
+  /** 前回の棚卸の日（「前回 3」の見出し） */
+  prevLabel: string | null;
 };
 
 const num = (s: string): number | null => {
@@ -54,7 +56,7 @@ export default function StockSheet(p: P) {
       return;
     }
     start(async () => {
-      const r = await saveCount(p.ym, itemId, n);
+      const r = await saveCount(p.asOf, itemId, n);
       setSaved((s) => ({ ...s, [itemId]: r.ok ? "ok" : "ng" }));
       if (!r.ok) setErr(r.error);
     });
@@ -65,7 +67,7 @@ export default function StockSheet(p: P) {
       setErr(null);
       const blanks = active.length - counted;
       if (blanks > 0 && !window.confirm(`まだ数えていない品が${blanks}つあります（空欄は在庫に入りません）。確定しますか？`)) return;
-      const r = await finishStocktake(p.ym);
+      const r = await finishStocktake(p.asOf);
       if (!r.ok) setErr(r.error);
       else router.refresh();
     });
@@ -73,9 +75,17 @@ export default function StockSheet(p: P) {
   const reopen = () =>
     start(async () => {
       if (!window.confirm("確定を外して、数を直せるようにしますか？")) return;
-      const r = await reopenStocktake(p.ym);
+      const r = await reopenStocktake(p.asOf);
       if (!r.ok) setErr(r.error);
       else router.refresh();
+    });
+
+  const remove = () =>
+    start(async () => {
+      if (!window.confirm("この棚卸を消しますか？（入れた数も消えます）")) return;
+      const r = await deleteStocktake(p.asOf);
+      if (!r.ok) setErr(r.error);
+      else router.push("/sales/cost/stock");
     });
 
   return (
@@ -86,8 +96,8 @@ export default function StockSheet(p: P) {
           <span className="cost-sum__big">{fmtYen(done && p.total != null ? p.total : live)}</span>
         </div>
         <p className="micro">
-          {done ? "確定済み。この額が翌月の月初在庫になります。" : `数えた品 ${counted} / ${active.length}　空欄は「数えていない」で、0とは別です。`}
-          {p.prevTotal != null ? `　先月末 ${fmtYen(p.prevTotal)}` : ""}
+          {done ? "確定済み。この額が次の区間の始めの在庫になります。" : `数えた品 ${counted} / ${active.length}　空欄は「数えていない」で、0とは別です。`}
+          {p.prevTotal != null ? `　前回（${p.prevLabel}）${fmtYen(p.prevTotal)}` : ""}
         </p>
       </section>
 
@@ -105,7 +115,7 @@ export default function StockSheet(p: P) {
               {it.name}
               <span className="micro">
                 　{fmtYen(countPrice.get(it.id) ?? it.unit_price)}/{it.unit}
-                {p.prevQty[it.id] != null ? `　先月 ${p.prevQty[it.id]}` : ""}
+                {p.prevQty[it.id] != null ? `　前回 ${p.prevQty[it.id]}` : ""}
               </span>
             </div>
             <div className="row">
@@ -140,14 +150,19 @@ export default function StockSheet(p: P) {
             確定を外す（数を直す）
           </button>
         ) : (
-          <button type="button" className="btn btn-primary btn-block" disabled={pending || counted === 0} onClick={finish}>
-            この数で確定する（{fmtYen(live)}）
-          </button>
+          <>
+            <button type="button" className="btn btn-primary btn-block" disabled={pending || counted === 0} onClick={finish}>
+              この数で確定する（{fmtYen(live)}）
+            </button>
+            <button type="button" className="linklike micro" disabled={pending} onClick={remove}>
+              この棚卸を消す（日付や開店前／閉店後を間違えたとき）
+            </button>
+          </>
         )
       ) : null}
       {err ? <p className="err">{err}</p> : null}
       <p className="micro">
-        単価は税抜。仕入値が変わったら品目の「単価を直す」で直してください（確定済みの月の在庫額は変わりません）。
+        単価は税抜。仕入値が変わったら品目の「単価を直す」で直してください（確定済みの棚卸の在庫額は変わりません）。
       </p>
       <div style={{ height: "2rem" }} />
     </div>

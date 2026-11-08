@@ -92,18 +92,25 @@ select pg_temp.expect_error(:O, $$insert into cost_purchases (book_date, vendor,
 
 -- 5. 棚卸：数えて確定すると、その月の数は直せない。確定を外せば直せる
 select pg_temp.run_as(:M, $$insert into cost_stock_items (name, unit, unit_price) values ('ぶり', '本', 4000)$$);
-select pg_temp.run_as(:M, $$insert into cost_stocktakes (ym) values ('2026-11')$$);
-select pg_temp.run_as(:M, $$insert into cost_stock_counts (ym, item_id, qty, unit_price) select '2026-11', id, 2.5, unit_price from cost_stock_items where name = 'ぶり'$$);
-select pg_temp.expect_error(:M, $$update cost_stocktakes set status = 'done' where ym = '2026-11'$$, '在庫額なしでは確定できない');
-select pg_temp.run_as(:M, $$update cost_stocktakes set status = 'done', total_ex = 10000 where ym = '2026-11'$$);
-select pg_temp.expect_error(:O, $$update cost_stock_counts set qty = 3 where ym = '2026-11'$$, '確定した棚卸の数は直せない');
-select pg_temp.expect_error(:O, $$delete from cost_stock_counts where ym = '2026-11'$$, '確定した棚卸の数は消せない');
-select pg_temp.run_as(:O, $$update cost_stocktakes set status = 'draft', total_ex = null where ym = '2026-11'$$);
-select pg_temp.run_as(:O, $$update cost_stock_counts set qty = 3 where ym = '2026-11'$$);
-select pg_temp.ok((select qty from cost_stock_counts where ym = '2026-11') = 3, '確定を外せば直せる');
-select pg_temp.expect_error(:S, $$insert into cost_stocktakes (ym) values ('2026-12')$$, 'スタッフは棚卸を始められない');
-select pg_temp.expect_error(:O, $$insert into cost_stocktakes (ym) values ('2026-13')$$, '月の形が不正なら不可');
-select pg_temp.expect_error(:O, $$insert into cost_stock_counts (ym, item_id, qty, unit_price) select '2026-11', id, -1, 1 from cost_stock_items limit 1$$, '数はマイナス不可');
+select pg_temp.run_as(:M, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-14', '2026-11-15', 'before_open')$$);
+select pg_temp.expect_error(:M, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-15', '2026-11-15', 'before_open')$$, '開店前に数えたら前の日までの在庫（区切りの食い違いは不可）');
+select pg_temp.run_as(:M, $$insert into cost_stock_counts (as_of, item_id, qty, unit_price) select '2026-11-14', id, 2.5, unit_price from cost_stock_items where name = 'ぶり'$$);
+select pg_temp.expect_error(:M, $$update cost_stocktakes set status = 'done' where as_of = '2026-11-14'$$, '在庫額なしでは確定できない');
+select pg_temp.expect_error(:M, $$update cost_stocktakes set timing = 'after_close', as_of = '2026-11-15' where as_of = '2026-11-14'$$, '数えた日・タイミングはあとで変えられない');
+select pg_temp.run_as(:M, $$update cost_stocktakes set status = 'done', total_ex = 10000 where as_of = '2026-11-14'$$);
+select pg_temp.expect_error(:O, $$update cost_stock_counts set qty = 3 where as_of = '2026-11-14'$$, '確定した棚卸の数は直せない');
+select pg_temp.expect_error(:O, $$delete from cost_stock_counts where as_of = '2026-11-14'$$, '確定した棚卸の数は消せない');
+select pg_temp.expect_error(:O, $$delete from cost_stocktakes where as_of = '2026-11-14'$$, '確定した棚卸は消せない');
+select pg_temp.run_as(:O, $$update cost_stocktakes set status = 'draft', total_ex = null where as_of = '2026-11-14'$$);
+select pg_temp.run_as(:O, $$update cost_stock_counts set qty = 3 where as_of = '2026-11-14'$$);
+select pg_temp.ok((select qty from cost_stock_counts where as_of = '2026-11-14') = 3, '確定を外せば直せる');
+select pg_temp.run_as(:M, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-22', '2026-11-22', 'after_close')$$);
+select pg_temp.run_as(:M, $$insert into cost_stock_counts (as_of, item_id, qty, unit_price) select '2026-11-22', id, 1, unit_price from cost_stock_items where name = 'ぶり'$$);
+select pg_temp.run_as(:M, $$delete from cost_stocktakes where as_of = '2026-11-22'$$);
+select pg_temp.ok((select count(*) from cost_stock_counts where as_of = '2026-11-22') = 0, '下書きの棚卸は消せて、数も一緒に消える');
+select pg_temp.expect_error(:S, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-29', '2026-11-29', 'after_close')$$, 'スタッフは棚卸を始められない');
+select pg_temp.expect_error(:O, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-29', '2026-11-29', 'midday')$$, '開店前／閉店後以外は不可');
+select pg_temp.expect_error(:O, $$insert into cost_stock_counts (as_of, item_id, qty, unit_price) select '2026-11-14', id, -1, 1 from cost_stock_items limit 1$$, '数はマイナス不可');
 
 -- 6. ロス
 select pg_temp.run_as(:J, $$insert into cost_losses (biz_date, item, amount_ex, reason) values ('2026-11-05', 'ぶり 半身', 2000, 'expired')$$);

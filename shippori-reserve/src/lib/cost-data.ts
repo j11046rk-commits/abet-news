@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { monthRange } from "@/lib/time";
 import type { LossReason, Purchase, Stocktake } from "@/lib/cost";
+import type { SalesDay } from "@/lib/sales";
 
 /*
  * 原価の読み出し。表はすべて利用者のログイン（RLS）で読む——権限の無い人には0行が返る。
@@ -36,6 +37,11 @@ export type StockCount = { item_id: string; qty: number; unit_price: number };
 
 export async function getMonthPurchases(ym: string): Promise<Purchase[]> {
   const { from, to } = monthRange(ym);
+  return getPurchasesRange(from, to);
+}
+
+/** 計上日が from〜to の書類（月締めの請求書の日割りのため、呼ぶ側で to を少し先まで広げて使う） */
+export async function getPurchasesRange(from: string, to: string): Promise<Purchase[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cost_purchases")
@@ -62,11 +68,28 @@ export async function getMonthLosses(ym: string): Promise<Loss[]> {
   return (data ?? []) as Loss[];
 }
 
-export async function getStocktakes(yms: string[]): Promise<Map<string, Stocktake>> {
+/** 棚卸（新しい順・最近の2年ぶん）。週1回なので多くても100件ほど */
+export async function getStocktakes(since: string): Promise<Stocktake[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("cost_stocktakes").select("ym, status, total_ex").in("ym", yms);
+  const { data, error } = await supabase
+    .from("cost_stocktakes")
+    .select("as_of, counted_on, timing, status, total_ex")
+    .gte("as_of", since)
+    .order("as_of", { ascending: false });
   if (error) console.error("[cost] stocktakes", error.message);
-  return new Map((data ?? []).map((r) => [r.ym as string, r as Stocktake]));
+  return (data ?? []) as Stocktake[];
+}
+
+/** 日ごとの売上（from〜to）。原価の期間は月をまたぐので月単位ではなく日付で読む */
+export async function getSalesRange(from: string, to: string): Promise<Map<string, SalesDay>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sales_daily")
+    .select("biz_date, target_yen, actual_yen, tax8_yen, tax10_yen")
+    .gte("biz_date", from)
+    .lte("biz_date", to);
+  if (error) console.error("[cost] sales", error.message);
+  return new Map((data ?? []).map((r) => [r.biz_date as string, r as SalesDay]));
 }
 
 export async function getStockItems(): Promise<StockItem[]> {
@@ -80,9 +103,9 @@ export async function getStockItems(): Promise<StockItem[]> {
   return (data ?? []) as StockItem[];
 }
 
-export async function getStockCounts(ym: string): Promise<StockCount[]> {
+export async function getStockCounts(asOf: string): Promise<StockCount[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("cost_stock_counts").select("item_id, qty, unit_price").eq("ym", ym);
+  const { data, error } = await supabase.from("cost_stock_counts").select("item_id, qty, unit_price").eq("as_of", asOf);
   if (error) console.error("[cost] counts", error.message);
   return (data ?? []).map((r) => ({ item_id: r.item_id as string, qty: Number(r.qty), unit_price: r.unit_price as number }));
 }

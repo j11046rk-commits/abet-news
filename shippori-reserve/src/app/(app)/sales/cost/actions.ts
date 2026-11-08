@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { todayBizDate } from "@/lib/time";
-import { stockTotal, type DocKind, type LossReason } from "@/lib/cost";
+import { asOfFor, stockTotal, type DocKind, type LossReason, type StockTiming } from "@/lib/cost";
 import { issueApiToken } from "@/lib/api-token";
 import { COST_BUCKET } from "@/lib/cost-data";
 
@@ -18,7 +18,6 @@ import { COST_BUCKET } from "@/lib/cost-data";
 export type CResult = { ok: true; id?: string } | { ok: false; error: string };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const YM_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const PHOTO_MAX = 3.5 * 1024 * 1024;
 
@@ -271,59 +270,87 @@ export async function saveStockItem(input: ItemInput): Promise<CResult> {
   return { ok: true, id: data.id as string };
 }
 
-/** 1品の数を入れる。null＝空欄に戻す（数えていない） */
-export async function saveCount(ym: string, itemId: string, qty: number | null): Promise<CResult> {
+/**
+ * 棚卸を始める（基本は毎週日曜）。数えた日と開店前／閉店後から「どの営業日の終わりまでの在庫か」を決める。
+ * 同じ区切りの棚卸がすでにあれば、それを開く。
+ */
+export async function startStocktake(countedOn: string, timing: StockTiming): Promise<CResult & { asOf?: string }> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
-  if (!YM_RE.test(ym)) return { ok: false, error: "月が不正です。" };
+  if (!DATE_RE.test(countedOn)) return { ok: false, error: "数えた日を入れてください。" };
+  if (timing !== "before_open" && timing !== "after_close") return { ok: false, error: "開店前か閉店後かを選んでください。" };
+  if (countedOn > todayBizDate()) return { ok: false, error: "先の日付では始められません。" };
+  const asOf = asOfFor(countedOn, timing);
+  const supabase = await createClient();
+  const { data: have } = await supabase.from("cost_stocktakes").select("as_of").eq("as_of", asOf).maybeSingle();
+  if (!have) {
+    const { error } = await supabase.from("cost_stocktakes").insert({ as_of: asOf, counted_on: countedOn, timing });
+    if (error && error.code !== "23505") return { ok: false, error: dbErr(error.message, "始められませんでした。") };
+  }
+  done();
+  return { ok: true, asOf };
+}
+
+/** 下書きの棚卸を消す（日付や開店前／閉店後を間違えたとき）。確定したものは DB が消させない */
+export async function deleteStocktake(asOf: string): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  if (!DATE_RE.test(asOf)) return { ok: false, error: "日付が不正です。" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("cost_stocktakes").delete().eq("as_of", asOf);
+  if (error) return { ok: false, error: dbErr(error.message, "消せませんでした。") };
+  done();
+  return { ok: true };
+}
+
+/** 1品の数を入れる。null＝空欄に戻す（数えていない） */
+export async function saveCount(asOf: string, itemId: string, qty: number | null): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  if (!DATE_RE.test(asOf)) return { ok: false, error: "日付が不正です。" };
   if (qty != null && (!Number.isFinite(qty) || qty < 0 || qty > 100_000)) return { ok: false, error: "数が不正です。" };
   const supabase = await createClient();
-  const { data: st } = await supabase.from("cost_stocktakes").select("status").eq("ym", ym).maybeSingle();
-  if (st?.status === "done") return { ok: false, error: "確定した棚卸は直せません。先に確定を外してください。" };
-  if (!st) {
-    const { error } = await supabase.from("cost_stocktakes").insert({ ym });
-    if (error && error.code !== "23505") return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
-  }
+  const { data: st } = await supabase.from("cost_stocktakes").select("status").eq("as_of", asOf).maybeSingle();
+  if (!st) return { ok: false, error: "棚卸が見つかりません。もう一度開き直してください。" };
+  if (st.status === "done") return { ok: false, error: "確定した棚卸は直せません。先に確定を外してください。" };
   if (qty == null) {
-    const { error } = await supabase.from("cost_stock_counts").delete().eq("ym", ym).eq("item_id", itemId);
+    const { error } = await supabase.from("cost_stock_counts").delete().eq("as_of", asOf).eq("item_id", itemId);
     if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
   } else {
     const { data: item } = await supabase.from("cost_stock_items").select("unit_price").eq("id", itemId).maybeSingle();
     if (!item) return { ok: false, error: "品目が見つかりません。" };
     const { error } = await supabase
       .from("cost_stock_counts")
-      .upsert({ ym, item_id: itemId, qty: Math.round(qty * 100) / 100, unit_price: item.unit_price as number }, { onConflict: "ym,item_id" });
+      .upsert({ as_of: asOf, item_id: itemId, qty: Math.round(qty * 100) / 100, unit_price: item.unit_price as number }, { onConflict: "as_of,item_id" });
     if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
   }
   revalidatePath("/sales/cost/stock");
   return { ok: true };
 }
 
-/** 確定：数えた分の合計を、その月の在庫額として固定する */
-export async function finishStocktake(ym: string): Promise<CResult> {
+/** 確定：数えた分の合計を、その日の在庫額として固定する */
+export async function finishStocktake(asOf: string): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
-  if (!YM_RE.test(ym)) return { ok: false, error: "月が不正です。" };
+  if (!DATE_RE.test(asOf)) return { ok: false, error: "日付が不正です。" };
   const supabase = await createClient();
-  const { data: counts, error } = await supabase.from("cost_stock_counts").select("qty, unit_price").eq("ym", ym);
+  const { data: counts, error } = await supabase.from("cost_stock_counts").select("qty, unit_price").eq("as_of", asOf);
   if (error) return { ok: false, error: dbErr(error.message, "確定できませんでした。") };
   if (!counts || counts.length === 0) return { ok: false, error: "まだ1品も数えていません。" };
   const total = stockTotal(counts.map((c) => ({ qty: Number(c.qty), unit_price: c.unit_price as number })));
   const { error: e2 } = await supabase
     .from("cost_stocktakes")
     .update({ status: "done", total_ex: total, done_at: new Date().toISOString(), done_by: (await requireProfile()).id })
-    .eq("ym", ym);
+    .eq("as_of", asOf);
   if (e2) return { ok: false, error: dbErr(e2.message, "確定できませんでした。") };
   done();
   return { ok: true };
 }
 
-export async function reopenStocktake(ym: string): Promise<CResult> {
+export async function reopenStocktake(asOf: string): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
-  if (!YM_RE.test(ym)) return { ok: false, error: "月が不正です。" };
+  if (!DATE_RE.test(asOf)) return { ok: false, error: "日付が不正です。" };
   const supabase = await createClient();
   const { error } = await supabase
     .from("cost_stocktakes")
     .update({ status: "draft", total_ex: null, done_at: null, done_by: null })
-    .eq("ym", ym);
+    .eq("as_of", asOf);
   if (error) return { ok: false, error: dbErr(error.message, "確定を外せませんでした。") };
   done();
   return { ok: true };

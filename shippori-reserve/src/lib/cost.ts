@@ -1,13 +1,14 @@
 /**
  * 原価（仕入・棚卸・ロス）の計算。DBにも画面にも依存しない純粋な関数だけを置く。
  *
- * 原価率 ＝（月初の在庫 ＋ その月の仕入 − 月末の在庫）÷ その月の売上
+ * 原価率 ＝（始めの在庫 ＋ その間の仕入 − 終わりの在庫）÷ その間の売上
+ * 棚卸は基本「毎週日曜」（2026-11-09〜）。原価率は確定した棚卸と次の確定した棚卸の間ごとに出す。
  *
  * - 仕入も売上も**税抜**で比べる（税理士の月次報告と同じ物差し）。
  *   食材は8%、売上（店内）は10%なので、税込どうしで割ると約2ポイント低く出てしまう。
  * - 原価に入れるのは 食材＋酒・飲料。消耗品は別に出す（8月の報告で消耗品費が跳ねていたため、
  *   「消耗品込み」も並べて見せる）。
- * - 棚卸が無い月は「原価率」は出さない。仕入÷売上（仕入率）を目安としてだけ出す。
+ * - 棚卸が両端にそろわない期間は「原価率」は出さない。仕入÷売上（仕入率）を目安としてだけ出す。
  *   在庫の増減を無視した数字を原価率と呼ぶと、仕入が多い月に間違った警報を鳴らすことになる。
  */
 import type { SalesDay } from "./sales.ts";
@@ -142,11 +143,65 @@ export function purchaseWarnings(list: Purchase[]): PurchaseWarning[] {
   return out;
 }
 
-export type Stocktake = { ym: string; status: "draft" | "done"; total_ex: number | null };
+export type StockTiming = "before_open" | "after_close";
 
-export type MonthCost = {
+export const TIMING_LABEL: Record<StockTiming, string> = {
+  before_open: "開店前",
+  after_close: "閉店後",
+};
+
+/**
+ * 棚卸。as_of＝この営業日の終わりまでの在庫（日曜の開店前に数えたら土曜、閉店後なら日曜）。
+ * 店主指示 2026-11-09「毎週日曜に棚卸をする仕組みにしたい」。
+ */
+export type Stocktake = {
+  as_of: string;
+  counted_on: string;
+  timing: StockTiming;
+  status: "draft" | "done";
+  total_ex: number | null;
+};
+
+// 日付（YYYY-MM-DD）の計算。暦の日付だけを扱うので UTC で数える（時差の影響を受けない）
+const dayNum = (d: string): number => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86_400_000;
+const fromDayNum = (n: number): string => new Date(n * 86_400_000).toISOString().slice(0, 10);
+export const addDaysStr = (d: string, n: number): string => fromDayNum(dayNum(d) + n);
+export const daysBetween = (from: string, to: string): number => dayNum(to) - dayNum(from) + 1;
+
+/** 数えた日と開店前／閉店後から、どの営業日の終わりまでの在庫かを決める */
+export const asOfFor = (countedOn: string, timing: StockTiming): string =>
+  timing === "after_close" ? countedOn : addDaysStr(countedOn, -1);
+
+/** その日を含む直近の日曜（棚卸の日の初期値） */
+export const lastSunday = (date: string): string => addDaysStr(date, -new Date(dayNum(date) * 86_400_000).getUTCDay());
+
+/** 「11/10〜11/16」 */
+export const fmtSpan = (from: string, to: string): string => {
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  return from === to ? md(from) : `${md(from)}〜${md(to)}`;
+};
+
+/**
+ * 書類の金額のうち、from〜to（両端を含む）に入る割合（0〜1）。
+ * 月締めの請求書は対象期間が読めていれば日割りにする（週ごとの原価率が、締め日の週だけ跳ねないように）。
+ * それ以外（納品書・レシート、期間の読めない請求書）は計上日で丸ごと。
+ */
+export function purchaseShare(p: Pick<Purchase, "doc_kind" | "book_date" | "period_from" | "period_to">, from: string, to: string): number {
+  const pf = p.period_from;
+  const pt = p.period_to;
+  if (p.doc_kind === "invoice" && okDate(pf) && okDate(pt) && pf <= pt) {
+    const lo = pf > from ? pf : from;
+    const hi = pt < to ? pt : to;
+    return lo > hi ? 0 : daysBetween(lo, hi) / daysBetween(pf, pt);
+  }
+  return p.book_date >= from && p.book_date <= to ? 1 : 0;
+}
+
+export type PeriodCost = {
+  from: string;
+  to: string;
   salesEx: number | null;
-  /** 売上の入っていない営業日がある（月の途中・取り込み待ち） */
+  /** 売上の入っている日数 */
   salesDays: number;
   food: number;
   drink: number;
@@ -156,7 +211,7 @@ export type MonthCost = {
   cogsPurchase: number;
   openStock: number | null;
   closeStock: number | null;
-  /** 売上原価（月初在庫＋仕入−月末在庫）。棚卸が両方そろったときだけ */
+  /** 売上原価（始めの在庫＋仕入−終わりの在庫）。棚卸が両方そろったときだけ */
   cogs: number | null;
   /** 原価率（%・小数第1位）。棚卸が両方そろい、売上があるときだけ */
   ratio: number | null;
@@ -166,48 +221,68 @@ export type MonthCost = {
   purchaseRatio: number | null;
   /** 原価率が出ない理由（画面にそのまま出す） */
   missing: string[];
-  loss: number;
+  /** 日割りした請求書がある */
+  prorated: boolean;
 };
 
 const pct = (num: number, den: number | null): number | null =>
   den != null && den > 0 ? Math.round((num / den) * 1000) / 10 : null;
 
-export function monthCost(input: {
-  sales: (SalesDay | null | undefined)[];
+/**
+ * from〜to（営業日・両端を含む）の原価。
+ * 原価率 ＝（始めの在庫 ＋ 期間の仕入 − 終わりの在庫）÷ 期間の売上（どれも税抜）
+ * open は from の前日の終わりまでの棚卸、close は to の終わりまでの棚卸（どちらも確定したものだけ使う）。
+ */
+export function periodCost(input: {
+  from: string;
+  to: string;
+  sales: Map<string, SalesDay | null | undefined>;
   purchases: Purchase[];
   open: Stocktake | null;
   close: Stocktake | null;
-  lossEx?: number;
-}): MonthCost {
+}): PeriodCost {
+  const { from, to } = input;
   let salesEx: number | null = null;
   let salesDays = 0;
-  for (const s of input.sales) {
+  for (const [d, s] of input.sales) {
+    if (d < from || d > to) continue;
     const v = salesExTax(s);
     if (v == null) continue;
     salesEx = (salesEx ?? 0) + v;
     salesDays += 1;
   }
+  const sum = { food: 0, drink: 0, supplies: 0, other: 0 };
+  let prorated = false;
   // 読み取り待ちは金額がまだ無い（0）ので足しても変わらないが、意図をはっきりさせて外す
-  const counted = input.purchases.filter((p) => p.status !== "pending");
-  const sum = (k: "food_ex" | "drink_ex" | "supplies_ex" | "other_ex") =>
-    counted.reduce((a, p) => a + p[k], 0);
-  const food = sum("food_ex");
-  const drink = sum("drink_ex");
-  const supplies = sum("supplies_ex");
-  const other = sum("other_ex");
+  for (const p of input.purchases) {
+    if (p.status === "pending") continue;
+    const share = purchaseShare(p, from, to);
+    if (share === 0) continue;
+    if (share < 1) prorated = true;
+    sum.food += p.food_ex * share;
+    sum.drink += p.drink_ex * share;
+    sum.supplies += p.supplies_ex * share;
+    sum.other += p.other_ex * share;
+  }
+  const food = Math.round(sum.food);
+  const drink = Math.round(sum.drink);
+  const supplies = Math.round(sum.supplies);
+  const other = Math.round(sum.other);
   const cogsPurchase = food + drink;
 
   const openStock = input.open?.status === "done" ? input.open.total_ex : null;
   const closeStock = input.close?.status === "done" ? input.close.total_ex : null;
 
   const missing: string[] = [];
-  if (openStock == null) missing.push("月初の在庫（前の月の棚卸）");
-  if (closeStock == null) missing.push("月末の棚卸");
+  if (openStock == null) missing.push("始めの棚卸");
+  if (closeStock == null) missing.push("終わりの棚卸");
   if (salesEx == null) missing.push("売上");
 
   const cogs = openStock != null && closeStock != null ? openStock + cogsPurchase - closeStock : null;
 
   return {
+    from,
+    to,
     salesEx,
     salesDays,
     food,
@@ -222,19 +297,23 @@ export function monthCost(input: {
     ratioWithSupplies: cogs != null ? pct(cogs + supplies, salesEx) : null,
     purchaseRatio: pct(cogsPurchase, salesEx),
     missing,
-    loss: input.lossEx ?? 0,
+    prorated,
   };
+}
+
+/** 確定した棚卸を古い順に並べ、となり合う2つの間を1区間にする（ふだんは1週間） */
+export function stockPeriods(stocktakes: Stocktake[]): { open: Stocktake; close: Stocktake; from: string; to: string }[] {
+  const done = stocktakes.filter((s) => s.status === "done").sort((a, b) => (a.as_of < b.as_of ? -1 : 1));
+  const out: { open: Stocktake; close: Stocktake; from: string; to: string }[] = [];
+  for (let i = 1; i < done.length; i++) {
+    out.push({ open: done[i - 1]!, close: done[i]!, from: addDaysStr(done[i - 1]!.as_of, 1), to: done[i]!.as_of });
+  }
+  return out;
 }
 
 /** 棚卸の在庫額。空欄（数えていない品）は足さない */
 export function stockTotal(counts: { qty: number | null; unit_price: number }[]): number {
   return Math.round(counts.reduce((a, c) => a + (c.qty != null ? c.qty * c.unit_price : 0), 0));
-}
-
-/** 前の月（YYYY-MM） */
-export function prevYm(ym: string): string {
-  const [y, m] = ym.split("-").map(Number) as [number, number];
-  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
 
 // ── AIの読み取り結果を、保存できる形に整える ──────────────────────
