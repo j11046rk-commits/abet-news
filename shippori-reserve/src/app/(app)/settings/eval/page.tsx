@@ -83,9 +83,11 @@ export default async function EvalPage() {
               <tr>
                 <th>月</th>
                 <th>売上</th>
-                <th>人件費</th>
                 <th>原価</th>
-                <th>店舗評価</th>
+                <th>人件費</th>
+                <th>LINE</th>
+                <th>人時</th>
+                <th>評価</th>
               </tr>
             </thead>
             <tbody>
@@ -95,8 +97,10 @@ export default async function EvalPage() {
                     {Number(e.ym.slice(5))}月{e.current ? "（途中）" : ""}
                   </td>
                   <td>{pts(e, "sales")}</td>
-                  <td>{pts(e, "labor")}</td>
                   <td>{pts(e, "cost")}</td>
+                  <td>{pts(e, "labor")}</td>
+                  <td>{pts(e, "line")}</td>
+                  <td>{pts(e, "perhour")}</td>
                   <td>{e.score != null ? `${e.score.toFixed(1)} ${e.rank}` : "—"}</td>
                 </tr>
               ))}

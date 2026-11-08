@@ -65,6 +65,9 @@ const TABLES = [
   "cost_stocktakes",
   "cost_stock_counts",
   "cost_losses",
+  "star_redemptions",
+  "labor_cost_monthly",
+  "labor_cost_daily",
   "audit_logs",
 ] as const;
 

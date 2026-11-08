@@ -3,6 +3,9 @@ import { apiProfile } from "@/lib/auth";
 import { connectFreee, FREEE_REDIRECT_URI, syncLabor } from "@/lib/freee";
 import { shiftDate, todayBizDate } from "@/lib/time";
 
+/** 給与の設定も読むので時間がかかる（従業員×月ごとに数回呼ぶ） */
+export const maxDuration = 60;
+
 /**
  * freee で「許可する」を押したあとに戻ってくる先。
  * 認可コードをトークンに替えて保存し、直近90日の勤怠をその場で取り込む。

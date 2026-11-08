@@ -1,7 +1,17 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMonthLabor, getMonthlySalesTarget, getMonthSales } from "@/lib/queries";
+import {
+  deriveBusinessDay,
+  getMonthLabor,
+  getMonthLineFollowers,
+  getMonthlySalesTarget,
+  getMonthSales,
+  getMonthSummaries,
+  getSettings,
+} from "@/lib/queries";
+import { lineMonthPlan } from "@/lib/line-kpi";
+import { weekdayOf } from "@/lib/time";
 import { hitOf, salesView } from "@/lib/sales";
 import { fmtSpan, periodCost, salesExTax, stockPeriods, type Purchase, type Stocktake } from "@/lib/cost";
 import type { SalesDay } from "@/lib/sales";
@@ -42,6 +52,15 @@ async function costRatioFor(from: string, to: string, current: boolean): Promise
 }
 
 /**
+ * 日ごとの人件費の合計（freee から・labor_cost_daily）。表は店長・オーナーしか読めないので、
+ * 店舗評価（全員）の率を出すためだけにサーバーの管理キーで読む。金額は画面に返さない（率だけになる）。
+ */
+async function dailyLaborCost(from: string, to: string): Promise<Map<string, number>> {
+  const { data } = await createAdminClient().from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", from).lte("biz_date", to);
+  return new Map((data ?? []).map((r) => [r.biz_date as string, r.cost_yen as number]));
+}
+
+/**
  * 人件費の材料：その月の合計（あれば）と、推定に使う直近の実績の月（合計と労働時間）。
  * 合計は店全体の1つの数字だけ（labor_cost_monthly）。個人の額はどこにも無い。
  */
@@ -69,12 +88,16 @@ export type MonthEval = EvalResult & { ym: string; current: boolean; salesNote: 
 export async function getMonthEval(ym: string, today: string, targets: EvalTargets): Promise<MonthEval> {
   const { from, to } = monthRange(ym);
   const current = ym === fmtYm(today);
-  const [sales, monthlyTarget, labor, cost, laborCost] = await Promise.all([
+  const [sales, monthlyTarget, labor, cost, laborCost, lineMap, summaries, settings, dailyCost] = await Promise.all([
     getMonthSales(ym),
     getMonthlySalesTarget(ym),
     getMonthLabor(ym),
     costRatioFor(from, to, current),
     laborCostInputs(ym),
+    getMonthLineFollowers(ym),
+    getMonthSummaries(ym),
+    getSettings(),
+    dailyLaborCost(from, to),
   ]);
 
   let actual: number | null = null;
@@ -83,6 +106,12 @@ export async function getMonthEval(ym: string, today: string, targets: EvalTarge
   let laborMin = 0;
   let salesExAll: number | null = null;
   let salesExLaborDays: number | null = null;
+  // 人時売上（店内売上 ÷ 労働時間。売上タブと同じ数え方）
+  let phSales = 0;
+  let phMin = 0;
+  // 日ごとの人件費（freee から）がある日の合計と、その日の税抜売上
+  let dcCost = 0;
+  let dcSalesEx: number | null = null;
   for (let d = from; d <= to; d = shiftDate(d, 1)) {
     const v = salesView(sales.get(d));
     if (v.target) dailySum += v.target;
@@ -98,6 +127,15 @@ export async function getMonthEval(ym: string, today: string, targets: EvalTarge
       laborMin += lm;
       salesExLaborDays = (salesExLaborDays ?? 0) + ex;
     }
+    if (lm != null && lm > 0 && v.dineIn != null) {
+      phMin += lm;
+      phSales += v.dineIn;
+    }
+    const dc = dailyCost.get(d);
+    if (dc != null && ex != null) {
+      dcCost += dc;
+      dcSalesEx = (dcSalesEx ?? 0) + ex;
+    }
   }
   let cumTarget = 0;
   if (lastWithActual) {
@@ -106,11 +144,33 @@ export async function getMonthEval(ym: string, today: string, targets: EvalTarge
   const target = current ? (cumTarget || null) : (monthlyTarget ?? (dailySum || null));
   const salesNote = current && lastWithActual ? `${Number(lastWithActual.slice(5, 7))}/${Number(lastWithActual.slice(8))}までの目標と比べています` : current ? "" : "月の目標と比べています";
 
-  const lc = laborCostFor({ actualTotal: laborCost.actual, minutes: laborMin, calib: laborCost.calib, fallbackHourCost: targets.hourCost });
+  // 人件費：給与が確定した月は実際の合計。まだの月は、freee から計算した日ごとの合計（あれば）、無ければ時間単価×労働時間
+  const lc =
+    laborCost.actual == null && dcSalesEx != null
+      ? { cost: dcCost, estimated: true, basis: "freeeの時給・月給・手当・社会保険×勤怠から（日ごとの合計・速報）" }
+      : laborCostFor({ actualTotal: laborCost.actual, minutes: laborMin, calib: laborCost.calib, fallbackHourCost: targets.hourCost });
+  const laborSalesEx = !lc.estimated ? salesExAll : laborCost.actual == null && dcSalesEx != null ? dcSalesEx : salesExLaborDays;
+
+  // LINE友だち：月の増加（最後 − 月初の前日）と、月の目標（今月は今日までの目標）
+  const lineDates = [...lineMap.keys()].sort();
+  const gain = lineDates.length >= 2 ? (lineMap.get(lineDates.at(-1)!) ?? 0) - (lineMap.get(lineDates[0]!) ?? 0) : null;
+  const plan = lineMonthPlan(
+    (() => {
+      const ds: { date: string; dow: number; isClosed: boolean }[] = [];
+      for (let d = from; d <= to; d = shiftDate(d, 1)) {
+        ds.push({ date: d, dow: weekdayOf(d), isClosed: summaries.get(d)?.is_closed ?? deriveBusinessDay(d, settings).is_closed });
+      }
+      return ds;
+    })(),
+    today,
+  );
+
   const r = storeEval({
     sales: { actual, target },
-    labor: { ...lc, salesEx: lc.estimated ? salesExLaborDays : salesExAll },
+    labor: { ...lc, salesEx: laborSalesEx },
     cost,
+    line: { gain, goal: current ? plan.goalToDate : plan.monthGoal },
+    perHour: { sales: phSales, minutes: phMin },
     targets,
   });
   return { ...r, ym, current, salesNote };

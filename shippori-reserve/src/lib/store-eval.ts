@@ -10,7 +10,11 @@
  *            達成率 ＝ 目標の率 ÷ 実際（または推定）の率（低いほど良いので逆数）
  *   原価   … 原価率（棚卸の間ごと・lib/cost）。達成率 ＝ 目標 ÷ 実際
  *
- * 点数 ＝ 達成率（上限120%）の重みつき平均（売上40・人件費30・原価30。出せない物差しは外して割り直す）
+ *   LINE友だち … その月の増加 ÷ 月の友だち目標（売上タブのKPI。月の途中は今日までの目標）
+ *   人時売上 … 店内売上 ÷ 労働時間 ÷ 目標（5,000円）
+ *
+ * 点数 ＝ 達成率（上限120%）の重みつき平均。重み（店主決定 2026-11-09）：
+ *   売上40・原価率25・人件費率20・LINE友だちの増加10・人時売上5（出せない物差しは外して割り直す）
  * ランク：S 105点以上／A 100〜／B 95〜／C 90〜／D 90未満
  */
 
@@ -25,8 +29,10 @@ export type EvalTargets = {
 
 export const DEFAULT_TARGETS: EvalTargets = { laborRatio: 25, hourCost: 1250, costRatio: null };
 
-export type MetricKey = "sales" | "labor" | "cost";
-export const METRIC_WEIGHT: Record<MetricKey, number> = { sales: 40, labor: 30, cost: 30 };
+export type MetricKey = "sales" | "cost" | "labor" | "line" | "perhour";
+export const METRIC_WEIGHT: Record<MetricKey, number> = { sales: 40, cost: 25, labor: 20, line: 10, perhour: 5 };
+/** 人時売上の目標（円/時・店主決定 2026-11-02） */
+export const PER_HOUR_TARGET = 5000;
 export const RATE_CAP = 120;
 
 export type Rank = "S" | "A" | "B" | "C" | "D";
@@ -59,6 +65,10 @@ export type EvalInput = {
   labor: { cost: number | null; salesEx: number | null; estimated: boolean; basis: string | null };
   /** 原価率（%）と、どの期間のものか */
   cost: { ratio: number | null; span: string | null };
+  /** LINE友だちの増加と、その目標（月の途中は今日までの目標） */
+  line?: { gain: number | null; goal: number | null };
+  /** 人時売上の材料：労働時間が取り込めた日の店内売上と労働時間（分） */
+  perHour?: { sales: number; minutes: number };
   targets: EvalTargets;
 };
 
@@ -121,6 +131,40 @@ export function storeEval(i: EvalInput): EvalResult {
     good: c.ratio != null && ct != null ? c.ratio <= ct : null,
     note: ct == null ? "目標が未設定" : c.ratio == null ? "棚卸が2回そろうと出ます" : c.span ? `${c.span}の棚卸から` : null,
   });
+
+  const ln = i.line;
+  if (ln) {
+    const ok = ln.gain != null && ln.goal != null && ln.goal > 0;
+    metrics.push({
+      key: "line",
+      label: "LINE友だちの増加",
+      rate: ok ? r1((Math.max(0, ln.gain!) / ln.goal!) * 100) : null,
+      actual: ln.gain != null ? `${ln.gain >= 0 ? "+" : ""}${ln.gain}人` : "—",
+      target: ln.goal != null ? `+${ln.goal}人` : "—",
+      gap: ok ? (ln.gain! >= ln.goal! ? `目標より＋${ln.gain! - ln.goal!}人` : `目標まであと${ln.goal! - ln.gain!}人`) : null,
+      good: ok ? ln.gain! >= ln.goal! : null,
+      note: ln.gain == null ? "友だちの数がまだ届いていません" : null,
+    });
+  }
+
+  const ph = i.perHour;
+  if (ph) {
+    const v = ph.minutes > 0 ? Math.round(ph.sales / (ph.minutes / 60)) : null;
+    metrics.push({
+      key: "perhour",
+      label: "人時売上",
+      rate: v != null ? r1((v / PER_HOUR_TARGET) * 100) : null,
+      actual: v != null ? yen(v) : "—",
+      target: `${yen(PER_HOUR_TARGET)}以上`,
+      gap: v != null ? (v >= PER_HOUR_TARGET ? `目標より＋${yen(v - PER_HOUR_TARGET)}` : `目標まであと${yen(PER_HOUR_TARGET - v)}`) : null,
+      good: v != null ? v >= PER_HOUR_TARGET : null,
+      note: v == null ? "労働時間がまだ取り込めていません" : "1時間あたりの店内売上",
+    });
+  }
+
+  // 並びは重みの順（売上・原価・人件費・LINE・人時売上）
+  const order: MetricKey[] = ["sales", "cost", "labor", "line", "perhour"];
+  metrics.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   let num = 0;
   let den = 0;

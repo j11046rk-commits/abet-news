@@ -5,6 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { can, ROLE_LABEL, TOTAL_SEATS } from "@/lib/constants";
 import { getCourses, getLaborStatus, getSeatUnits, getSettings } from "@/lib/queries";
 import { minutesToLabel } from "@/lib/time";
+import { freeeStatus } from "@/lib/freee";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,20 @@ export const dynamic = "force-dynamic";
  * 画面から書き換えられるようにするのは、運用が固まってからでよい（設計 §S11）。
  */
 
-export default async function SettingsPage() {
+const FREEE_MSG: Record<string, string> = {
+  connected: "freee とつながりました。労働時間と人件費を取り込みました。",
+  synced: "取り込みました。",
+  noconfig: "freee のアプリの鍵（FREEE_CLIENT_ID / FREEE_CLIENT_SECRET）が Vercel に入っていません。",
+  forbidden: "この操作はオーナー・店長だけです。",
+  error: "freee との連携・取り込みでエラーになりました。",
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ freee?: string; why?: string }> }) {
   const me = await requireProfile();
+  const sp = await searchParams;
   // オーナー・店長だけに見せる欄（人時売上の取り込み状況・HPのダッシュボード）
   const manageFreee = can(me.role, "settings.write");
-  const laborStatus = manageFreee ? await getLaborStatus() : null;
+  const [laborStatus, freee] = manageFreee ? await Promise.all([getLaborStatus(), freeeStatus()]) : [null, null];
   const [settings, courses, seats] = await Promise.all([
     getSettings(),
     getCourses(),
@@ -148,19 +158,44 @@ export default async function SettingsPage() {
             毎日取り込んで /api/labor/ingest へ送る（2026-11-02〜）。ここでは届いている状況だけ見せる */}
         {laborStatus ? (
           <>
-            <h2 className="section-title">人時売上（freee人事労務）</h2>
+            <h2 className="section-title">労働時間・人件費（freee人事労務）</h2>
             <section className="card stack">
+              {sp.freee && FREEE_MSG[sp.freee] ? (
+                <p className={sp.freee === "connected" || sp.freee === "synced" ? "notice micro" : "err"}>
+                  {FREEE_MSG[sp.freee]}
+                  {sp.why ? `（${sp.why}）` : ""}
+                </p>
+              ) : null}
               <dl className="kv">
-                <dt>取り込み</dt>
-                <dd>店のMac（週次レポート）が毎日 freee の勤怠から取り込み</dd>
-                <dt>最新の日</dt>
-                <dd>{laborStatus.latest ?? "まだ届いていません"}</dd>
-                <dt>取り込み済み</dt>
-                <dd>{laborStatus.days}日ぶん</dd>
+                <dt>アプリとfreee</dt>
+                <dd>{freee?.connected ? `つながっています（${freee.companyName ?? ""}）` : "まだつないでいません"}</dd>
+                {freee?.lastSyncAt ? (
+                  <>
+                    <dt>最後の取り込み</dt>
+                    <dd>{new Date(freee.lastSyncAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</dd>
+                  </>
+                ) : null}
+                <dt>労働時間の最新の日</dt>
+                <dd>{laborStatus.latest ?? "まだ届いていません"}（{laborStatus.days}日ぶん）</dd>
               </dl>
+              {freee?.lastError ? <p className="err micro">{freee.lastError}</p> : null}
+              {me.role === "owner" ? (
+                <a href="/api/freee/connect" className="btn" style={{ width: "100%", textAlign: "center" }}>
+                  {freee?.connected ? "freeeとつなぎ直す" : "freeeと連携する（オーナー）"}
+                </a>
+              ) : null}
+              {freee?.connected ? (
+                <form method="post" action="/api/freee/sync">
+                  <button type="submit" className="btn btn-sm">
+                    今すぐ取り込む（直近40日）
+                  </button>
+                </form>
+              ) : null}
               <p className="micro">
-                取り込むのは「その日の全員の労働時間の合計」と「出勤した人数」だけです。
-                人ごとの時間・時給・給与は予約システムに保存しません。
+                毎朝、前日までの勤怠と給与の設定から「その日の人件費の合計」を計算して残します（2026-11-09〜）。
+                一人ずつの時間・時給・給与は計算の中でだけ使い、アプリには保存しません。日ごとの人件費は店長・オーナーだけが見られます。
+                給与が確定した月は、給与明細の合計（総支給額＋会社負担の社会保険など・役員を除く）が月の実際の人件費になります。
+                連携はfreeeで給与まで見られるオーナーのアカウントで行ってください。
               </p>
             </section>
           </>

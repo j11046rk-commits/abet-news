@@ -3,6 +3,9 @@ import { apiProfile } from "@/lib/auth";
 import { syncLabor } from "@/lib/freee";
 import { shiftDate, todayBizDate } from "@/lib/time";
 
+/** 給与の設定も読むので時間がかかる（従業員×月ごとに数回呼ぶ） */
+export const maxDuration = 60;
+
 /** 設定画面の「今すぐ取り込む」。直近40日を取り直す */
 export async function POST(request: Request) {
   const origin = new URL(request.url).origin;

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { syncLabor } from "@/lib/freee";
 import { shiftDate, todayBizDate } from "@/lib/time";
 
+/** 給与の設定も読むので時間がかかる（従業員×月ごとに数回呼ぶ） */
+export const maxDuration = 60;
+
 /**
  * 人時売上の材料（全員の労働時間）を freee人事労務 から取り込む（毎朝・Vercelの定期実行）。
  *

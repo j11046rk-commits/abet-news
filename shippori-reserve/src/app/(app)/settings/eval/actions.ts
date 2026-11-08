@@ -55,7 +55,7 @@ export async function saveLaborCost(ym: string, total: number | null): Promise<E
     if (!Number.isInteger(total) || total < 0 || total > 100_000_000) return { ok: false, error: "人件費の合計は円の整数で入れてください。" };
     const { error } = await admin
       .from("labor_cost_monthly")
-      .upsert({ ym, total_yen: total, updated_by: me.id, updated_at: new Date().toISOString() });
+      .upsert({ ym, total_yen: total, source: "manual", note: null, updated_by: me.id, updated_at: new Date().toISOString() });
     if (error) return { ok: false, error: "保存できませんでした。" };
   }
   done();

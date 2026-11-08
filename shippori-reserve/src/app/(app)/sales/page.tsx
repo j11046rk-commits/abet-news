@@ -22,6 +22,9 @@ import { fmtYen, hitOf, salesView } from "@/lib/sales";
 import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
 import StoreEvalCard from "@/components/StoreEvalCard";
 import MyStars from "@/components/MyStars";
+import LaborCostDaily from "@/components/LaborCostDaily";
+import { salesExTax } from "@/lib/cost";
+import { createClient } from "@/lib/supabase/server";
 import { getMonthEval, getStarRows } from "@/lib/store-eval-data";
 import { starsAvailable, targetsFrom } from "@/lib/store-eval";
 import { chipName } from "@/lib/staff";
@@ -94,6 +97,16 @@ export default async function SalesPage({
     worksShifts(me.role) ? getStarRows() : Promise.resolve(null),
   ]);
   const mine = starRows?.get(me.id) ?? null;
+
+  // 日ごとの人件費（店長・オーナーだけ。表の RLS も shift.write だけ）
+  const seeLaborCost = can(me.role, "shift.write");
+  const laborCostDays = seeLaborCost
+    ? await (async () => {
+        const { from: f, to: t } = monthRange(ym);
+        const { data } = await (await createClient()).from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", f).lte("biz_date", t).order("biz_date");
+        return (data ?? []).map((r) => ({ date: r.biz_date as string, cost: r.cost_yen as number, salesEx: salesExTax(sales.get(r.biz_date as string)) }));
+      })()
+    : null;
 
   const { from, to } = monthRange(ym);
   const days: SalesBoardDay[] = [];
@@ -175,6 +188,7 @@ export default async function SalesPage({
 
       <div className="wrap stack">
         <StoreEvalCard e={evalNow} title={`${Number(ym.slice(5))}月${evalNow.current ? "・今日まで" : ""}`} />
+        {laborCostDays ? <LaborCostDaily days={laborCostDays} targetRatio={targetsFrom(settings).laborRatio} /> : null}
         {starRows ? (
           <MyStars
             earned={mine?.earned ?? 0}

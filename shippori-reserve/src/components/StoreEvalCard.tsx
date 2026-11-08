@@ -52,7 +52,7 @@ export default function StoreEvalCard({ e, title }: { e: MonthEval; title: strin
       </ul>
       <p className="micro">
         {e.salesNote ? `売上は${e.salesNote}。` : ""}
-        各項目は目標どおりで100点（上限120点）。店舗評価はその重みつき平均（売上40・人件費30・原価30）。S 105点〜／A 100〜／B 95〜／C 90〜／D 90未満
+        各項目は目標どおりで100点（上限120点）。店舗評価はその重みつき平均（売上40・原価率25・人件費率20・LINE友だち10・人時売上5）。S 105点〜／A 100〜／B 95〜／C 90〜／D 90未満
       </p>
     </section>
   );

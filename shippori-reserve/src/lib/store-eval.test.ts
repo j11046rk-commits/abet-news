@@ -26,8 +26,8 @@ test("3つの達成率と点数", () => {
   assert.equal(m.labor!.gap, "目標どおり");
   assert.equal(m.cost!.gap, "目標より2%高い");
   assert.equal(m.cost!.good, false);
-  // (110×40 + 100×30 + 93.8×30) ÷ 100
-  assert.equal(r.score, 102.1);
+  // 重み 売上40・原価25・人件費20（LINE・人時売上は無し）：(110×40 + 93.8×25 + 100×20) ÷ 85
+  assert.equal(r.score, 102.9);
   assert.equal(r.rank, "A");
 });
 
@@ -50,8 +50,8 @@ test("人件費率：実績の合計が無い月は、直近の実績の時間�
 
 test("達成率は120%で頭打ち（1つの物差しだけで点数が跳ねない）", () => {
   const r = storeEval({ ...base, sales: { actual: 6_000_000, target: 3_000_000 }, cost: { ratio: null, span: null } });
-  // 売上200%→120で計算。原価は出せないので外して割り直す：(120×40 + 100×30) ÷ 70
-  assert.equal(r.score, 111.4);
+  // 売上200%→120で計算。原価は出せないので外して割り直す：(120×40 + 100×20) ÷ 60
+  assert.equal(r.score, 113.3);
 });
 
 test("出せない物差しは外す。全部出せなければ点数なし", () => {
@@ -59,6 +59,18 @@ test("出せない物差しは外す。全部出せなければ点数なし", ()
   assert.equal(r.score, null);
   assert.equal(r.rank, null);
   assert.equal(r.metrics.find((x) => x.key === "cost")!.note, "目標が未設定");
+});
+
+test("5つの物差し：重み 売上40・原価25・人件費20・LINE10・人時売上5、並びも重みの順", () => {
+  const r = storeEval({ ...base, line: { gain: 24, goal: 30 }, perHour: { sales: 450_000, minutes: 6_000 } });
+  assert.deepEqual(r.metrics.map((m) => m.key), ["sales", "cost", "labor", "line", "perhour"]);
+  const m = Object.fromEntries(r.metrics.map((x) => [x.key, x]));
+  assert.equal(m.line!.rate, 80);
+  assert.equal(m.line!.gap, "目標まであと6人");
+  assert.equal(m.perhour!.rate, 90); // 4,500 ÷ 5,000
+  assert.equal(m.perhour!.actual, "4,500円");
+  // (110×40 + 93.8×25 + 100×20 + 80×10 + 90×5) ÷ 100
+  assert.equal(r.score, 100); // 99.95 → 小数第1位で100.0
 });
 
 test("点は整数・120で頭打ち", () => {
