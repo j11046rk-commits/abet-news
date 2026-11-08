@@ -85,19 +85,41 @@ async function laborCostInputs(ym: string): Promise<{ actual: number | null; cal
 export type MonthEval = EvalResult & { ym: string; current: boolean; salesNote: string };
 
 /** その月の店舗評価。今月は「売上が入っている日まで」の目標と比べる（リアルタイム） */
-export async function getMonthEval(ym: string, today: string, targets: EvalTargets): Promise<MonthEval> {
+export type MonthEvalPreloaded = {
+  sales: Awaited<ReturnType<typeof getMonthSales>>;
+  monthlyTarget: Awaited<ReturnType<typeof getMonthlySalesTarget>>;
+  labor: Awaited<ReturnType<typeof getMonthLabor>>;
+  lineMap: Awaited<ReturnType<typeof getMonthLineFollowers>>;
+  summaries: Awaited<ReturnType<typeof getMonthSummaries>>;
+  settings: Record<string, unknown>;
+};
+
+/**
+ * pre：呼ぶ側がすでに同じ月を読んでいれば渡す（売上タブ。同じ表を2回読まない）
+ * useDailyCost：今月の人件費率に freee の日ごとの人件費の合計を使うか。店長・オーナーの画面だけ true。
+ *   ★スタッフの画面で使うと、前の日との率の差と売上から1日の人件費が逆算でき、出勤が2〜3人の日は
+ *     自分の分を引けば他の人の額が分かってしまう（0075 の決めごと）。スタッフには
+ *     「直近の実績の月の時間単価 × 労働時間」の推定を出す（労働時間は人時売上としてもともと見えている）。
+ */
+export async function getMonthEval(
+  ym: string,
+  today: string,
+  targets: EvalTargets,
+  pre?: MonthEvalPreloaded,
+  useDailyCost = false,
+): Promise<MonthEval> {
   const { from, to } = monthRange(ym);
   const current = ym === fmtYm(today);
   const [sales, monthlyTarget, labor, cost, laborCost, lineMap, summaries, settings, dailyCost] = await Promise.all([
-    getMonthSales(ym),
-    getMonthlySalesTarget(ym),
-    getMonthLabor(ym),
+    pre?.sales ?? getMonthSales(ym),
+    pre ? pre.monthlyTarget : getMonthlySalesTarget(ym),
+    pre?.labor ?? getMonthLabor(ym),
     costRatioFor(from, to, current),
     laborCostInputs(ym),
-    getMonthLineFollowers(ym),
-    getMonthSummaries(ym),
-    getSettings(),
-    dailyLaborCost(from, to),
+    pre?.lineMap ?? getMonthLineFollowers(ym),
+    pre?.summaries ?? getMonthSummaries(ym),
+    pre?.settings ?? getSettings(),
+    useDailyCost ? dailyLaborCost(from, to) : Promise.resolve(new Map<string, number>()),
   ]);
 
   let actual: number | null = null;

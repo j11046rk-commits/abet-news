@@ -163,8 +163,15 @@ export async function POST(request: Request) {
     drafts.push(draftFromAi(parsed.doc, row.book_date as string));
   }
   // 1件目は今の行に、2件目からは同じファイルを指す行を足す（1つのPDFに書類が何枚もあるとき）
-  const { error } = await admin.from("cost_purchases").update(purchaseUpdate(drafts[0]!, now)).eq("id", id).eq("status", "pending");
+  const { data: hit, error } = await admin
+    .from("cost_purchases")
+    .update(purchaseUpdate(drafts[0]!, now))
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
   if (error) return NextResponse.json({ error: `保存できませんでした：${error.message}` }, { status: 400 });
+  // 読んでいる間に人が先に入れた（または消した）ときは、2件目以降も足さない（二重になる）
+  if (!hit?.length) return NextResponse.json({ ok: true, skipped: "読み取り待ちではありません（人が先に入れた）" });
   if (drafts.length > 1) {
     const extra = drafts.slice(1).map((d) => ({ ...purchaseUpdate(d, now), photo_path: row.photo_path, created_by: row.created_by ?? null }));
     const { error: e2 } = await admin.from("cost_purchases").insert(extra);

@@ -31,10 +31,16 @@ export async function saveEvalTargets(input: { laborRatio: number; hourCost: num
   const rows = [
     { key: "eval_labor_ratio", value: input.laborRatio, updated_by: me.id, updated_at: now },
     { key: "eval_hour_cost", value: input.hourCost, updated_by: me.id, updated_at: now },
-    { key: "eval_cost_ratio", value: input.costRatio, updated_by: me.id, updated_at: now },
+    ...(input.costRatio != null ? [{ key: "eval_cost_ratio", value: input.costRatio, updated_by: me.id, updated_at: now }] : []),
   ];
-  const { error } = await createAdminClient().from("settings").upsert(rows);
+  const admin = createAdminClient();
+  const { error } = await admin.from("settings").upsert(rows);
   if (error) return { ok: false, error: "保存できませんでした。" };
+  // settings.value は not null。原価率の目標を空欄（未設定）にしたら行を消す
+  if (input.costRatio == null) {
+    const { error: e2 } = await admin.from("settings").delete().eq("key", "eval_cost_ratio");
+    if (e2) return { ok: false, error: "保存できませんでした。" };
+  }
   done();
   return { ok: true };
 }

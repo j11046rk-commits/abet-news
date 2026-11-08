@@ -31,7 +31,8 @@ export default async function EvalPage() {
   const yms = Array.from({ length: 6 }, (_, i) => fmtYm(shiftMonth(`${thisYm}-01`, -i)));
   const supabase = await createClient();
   const [evals, profiles, stars, requests, { data: lcRows }] = await Promise.all([
-    Promise.all(yms.map((ym) => getMonthEval(ym, today, targets))),
+    // 評価の画面は店長・オーナーだけなので、今月の人件費率は freee の日ごとの合計から
+    Promise.all(yms.map((ym) => getMonthEval(ym, today, targets, undefined, true))),
     getAllProfiles(),
     getStarRows(),
     getOpenStarRequests(),

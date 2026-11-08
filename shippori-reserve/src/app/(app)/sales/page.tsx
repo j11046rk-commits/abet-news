@@ -93,35 +93,33 @@ export default async function SalesPage({
   };
 
   // 店舗評価（全員が見る・店主指定 2026-11-09）と、自分の累計⭐
-  const [evalNow, starRows] = await Promise.all([
-    getMonthEval(ym, today, targetsFrom(settings)),
+  // 日ごとの人件費（店長・オーナーだけ。表の RLS も shift.write だけ）。評価・⭐と並べて読む
+  const seeLaborCost = can(me.role, "shift.write");
+  const laborCostOf = async () => {
+    const { from: f, to: t } = monthRange(ym);
+    const sb = await createClient();
+    const [{ data }, { data: gaps }] = await Promise.all([
+      sb.from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", f).lte("biz_date", t).order("biz_date"),
+      sb.from("timecard_issues").select("biz_date, name, kind").gte("biz_date", f).lte("biz_date", t).is("resolved_at", null),
+    ]);
+    const gapBy = new Map<string, string[]>();
+    for (const g of gaps ?? []) {
+      const label = `${g.name as string}さん${ISSUE_LABEL[g.kind as IssueKind]}`;
+      gapBy.set(g.biz_date as string, [...(gapBy.get(g.biz_date as string) ?? []), label]);
+    }
+    return (data ?? []).map((r) => ({
+      date: r.biz_date as string,
+      cost: r.cost_yen as number,
+      salesEx: salesExTax(sales.get(r.biz_date as string)),
+      gaps: gapBy.get(r.biz_date as string),
+    }));
+  };
+  const [evalNow, starRows, laborCostDays] = await Promise.all([
+    getMonthEval(ym, today, targetsFrom(settings), { sales, monthlyTarget, labor, lineMap, summaries, settings }, seeLaborCost),
     worksShifts(me.role) ? getStarRows() : Promise.resolve(null),
+    seeLaborCost ? laborCostOf() : Promise.resolve(null),
   ]);
   const mine = starRows?.get(me.id) ?? null;
-
-  // 日ごとの人件費（店長・オーナーだけ。表の RLS も shift.write だけ）
-  const seeLaborCost = can(me.role, "shift.write");
-  const laborCostDays = seeLaborCost
-    ? await (async () => {
-        const { from: f, to: t } = monthRange(ym);
-        const sb = await createClient();
-        const [{ data }, { data: gaps }] = await Promise.all([
-          sb.from("labor_cost_daily").select("biz_date, cost_yen").gte("biz_date", f).lte("biz_date", t).order("biz_date"),
-          sb.from("timecard_issues").select("biz_date, name, kind").gte("biz_date", f).lte("biz_date", t).is("resolved_at", null),
-        ]);
-        const gapBy = new Map<string, string[]>();
-        for (const g of gaps ?? []) {
-          const label = `${g.name as string}さん${ISSUE_LABEL[g.kind as IssueKind]}`;
-          gapBy.set(g.biz_date as string, [...(gapBy.get(g.biz_date as string) ?? []), label]);
-        }
-        return (data ?? []).map((r) => ({
-          date: r.biz_date as string,
-          cost: r.cost_yen as number,
-          salesEx: salesExTax(sales.get(r.biz_date as string)),
-          gaps: gapBy.get(r.biz_date as string),
-        }));
-      })()
-    : null;
 
   const { from, to } = monthRange(ym);
   const days: SalesBoardDay[] = [];

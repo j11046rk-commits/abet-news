@@ -20,8 +20,10 @@ export default function LaborCostDaily({ days, targetRatio }: { days: LaborCostD
     );
   }
   const ratio = (d: LaborCostDay) => (d.salesEx != null && d.salesEx > 0 ? Math.round((d.cost / d.salesEx) * 1000) / 10 : null);
-  const sumCost = days.reduce((a, d) => a + d.cost, 0);
-  const sumSales = days.reduce((a, d) => a + (d.salesEx ?? 0), 0);
+  // 累計の率は、売上が入っている日どうしで比べる（売上待ちの日の人件費だけを足すと率が高く出る・店舗評価と同じ数え方）
+  const withSales = days.filter((d) => d.salesEx != null);
+  const sumCost = withSales.reduce((a, d) => a + d.cost, 0);
+  const sumSales = withSales.reduce((a, d) => a + (d.salesEx ?? 0), 0);
   const mtd = sumSales > 0 ? Math.round((sumCost / sumSales) * 1000) / 10 : null;
   return (
     <section className="card" aria-label="日ごとの人件費">

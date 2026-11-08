@@ -381,71 +381,74 @@ async function payrollStatements(token: string, companyId: number, ym: string): 
 async function syncLaborCost(
   token: string,
   companyId: number,
-  employees: { id: number }[],
+  employees: Employee[],
   perEmployee: FreeeWorkRecord[][],
   from: string,
   to: string,
 ): Promise<void> {
   const admin = createAdminClient();
+  // 今日（営業中）はまだ退勤していない人の分が入らず、低く出たまま残ってしまう。日ごとの合計は昨日まで
+  const yesterday = shiftDate(todayBizDate(), -1);
+  const costTo = to < yesterday ? to : yesterday;
+  const days = from <= costTo ? datesIn(from, costTo) : [];
   const months = [...new Set(datesIn(from, to).map(ymOf))];
   const q = (ym: string) => `?company_id=${companyId}&year=${ym.slice(0, 4)}&month=${Number(ym.slice(5))}`;
 
-  // 給与明細：支払月で引く（期間の月から2か月先まで）。役員の見分けと、確定した月の合計に使う
+  // 給与明細：支払月で引く（期間の月から2か月先まで）。役員の見分けと、確定した月の合計に使う。まだ明細の無い月は飛ばす
   const payMonths: string[] = [];
   for (let ym = months[0]!; ym <= addMonth(months.at(-1)!, 2); ym = addMonth(ym, 1)) payMonths.push(ym);
-  const statements: Statement[] = [];
-  for (const ym of payMonths) {
-    try {
-      statements.push(...(await payrollStatements(token, companyId, ym)));
-    } catch {
-      // まだ明細の無い月は飛ばす
-    }
-  }
+  const statements: Statement[] = (
+    await Promise.all(payMonths.map((ym) => payrollStatements(token, companyId, ym).catch(() => [] as Statement[])))
+  ).flat();
   const board = new Set(statements.filter((s) => s.is_board_member).map((s) => s.employee_id));
 
-  // 従業員×月の給与の設定
-  const setup = new Map<string, EmployeeMonth>();
-  for (const e of employees) {
-    if (board.has(e.id)) continue;
-    for (const ym of months) {
-      const get = async <T>(path: string): Promise<T | null> => {
-        try {
-          return await apiGet<T>(path, token);
-        } catch {
-          return null;
-        }
-      };
-      const [pay, al, hi, wp] = await Promise.all([
-        get<{ employee_basic_pay_rule?: PayRule }>(`/employees/${e.id}/basic_pay_rule${q(ym)}`),
-        get<{ employee_allowance_rules?: AllowanceRule[] }>(`/employees/${e.id}/allowance_rules${q(ym)}`),
-        get<{ employee_health_insurance_rule?: { entried?: boolean; standard_monthly_remuneration?: number | null } }>(
-          `/employees/${e.id}/health_insurance_rule${q(ym)}`,
-        ),
-        get<{ employee_welfare_pension_insurance_rule?: { entried?: boolean; standard_monthly_remuneration?: number | null } }>(
-          `/employees/${e.id}/welfare_pension_insurance_rule${q(ym)}`,
-        ),
-      ]);
-      const h = hi?.employee_health_insurance_rule;
-      const w = wp?.employee_welfare_pension_insurance_rule;
-      const insured = h?.entried || w?.entried ? (h?.standard_monthly_remuneration ?? w?.standard_monthly_remuneration ?? null) : null;
-      setup.set(`${e.id}|${ym}`, {
-        pay: pay?.employee_basic_pay_rule ?? null,
-        allowances: al?.employee_allowance_rules ?? [],
-        insuredRemuneration: insured,
-      });
+  // 従業員×月の給与の設定（従業員は数人ずつ並べて引く。1人ずつ順番だと時間切れになりやすい）
+  const get = async <T>(path: string): Promise<T | null> => {
+    try {
+      return await apiGet<T>(path, token);
+    } catch {
+      return null;
     }
+  };
+  const setupOf = async (id: number, ym: string): Promise<EmployeeMonth> => {
+    const [pay, al, hi, wp] = await Promise.all([
+      get<{ employee_basic_pay_rule?: PayRule }>(`/employees/${id}/basic_pay_rule${q(ym)}`),
+      get<{ employee_allowance_rules?: AllowanceRule[] }>(`/employees/${id}/allowance_rules${q(ym)}`),
+      get<{ employee_health_insurance_rule?: { entried?: boolean; standard_monthly_remuneration?: number | null } }>(
+        `/employees/${id}/health_insurance_rule${q(ym)}`,
+      ),
+      get<{ employee_welfare_pension_insurance_rule?: { entried?: boolean; standard_monthly_remuneration?: number | null } }>(
+        `/employees/${id}/welfare_pension_insurance_rule${q(ym)}`,
+      ),
+    ]);
+    const h = hi?.employee_health_insurance_rule;
+    const w = wp?.employee_welfare_pension_insurance_rule;
+    const insured = h?.entried || w?.entried ? (h?.standard_monthly_remuneration ?? w?.standard_monthly_remuneration ?? null) : null;
+    return { pay: pay?.employee_basic_pay_rule ?? null, allowances: al?.employee_allowance_rules ?? [], insuredRemuneration: insured };
+  };
+  const setup = new Map<string, EmployeeMonth>();
+  const targets = employees.filter((e) => !board.has(e.id));
+  const BATCH = 3;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    await Promise.all(
+      targets.slice(i, i + BATCH).map(async (e) => {
+        for (const ym of months) setup.set(`${e.id}|${ym}`, await setupOf(e.id, ym));
+      }),
+    );
   }
 
-  const biz = new Map<string, Set<string>>();
-  for (const ym of months) biz.set(ym, await businessDaysOf(ym));
+  const biz = new Map<string, Set<string>>(await Promise.all(months.map(async (ym) => [ym, await businessDaysOf(ym)] as const)));
 
   const rows: { biz_date: string; cost_yen: number; fetched_at: string }[] = [];
+  const zero: string[] = [];
   const now = new Date().toISOString();
-  for (const d of datesIn(from, to)) {
+  for (const d of days) {
     const ym = ymOf(d);
     const bdays = biz.get(ym)!;
     let total = 0;
     employees.forEach((e, i) => {
+      // 月の途中で入った・辞めた人は、在籍していない日に月給・手当・社会保険を割り振らない
+      if ((e.entry_date && d < e.entry_date) || (e.retire_date && d > e.retire_date)) return;
       const m = setup.get(`${e.id}|${ym}`);
       if (!m) return;
       const rec = (perEmployee[i] ?? []).find((r) => r.date === d);
@@ -454,10 +457,16 @@ async function syncLaborCost(
       total += employeeDayCost(m, work, bdays.has(d), bdays.size);
     });
     if (total > 0) rows.push({ biz_date: d, cost_yen: Math.round(total), fetched_at: now });
+    else zero.push(d);
   }
   if (rows.length > 0) {
     const { error } = await admin.from("labor_cost_daily").upsert(rows);
     if (error) throw new Error(`labor_cost_daily の保存に失敗: ${error.message}`);
+  }
+  // 前の取り込みで額が入っていたのに、直って0になった日（打刻の取り消し・休業日に変えた等）は古い額を消す
+  if (zero.length > 0) {
+    const { error } = await admin.from("labor_cost_daily").delete().in("biz_date", zero);
+    if (error) throw new Error(`labor_cost_daily の整理に失敗: ${error.message}`);
   }
 
   // 確定した給与明細の月の合計（働いた月＝締め日の月）。オーナーが手で入れた月は上書きしない
@@ -512,7 +521,12 @@ async function checkTimecards(employees: Employee[], perEmployee: FreeeWorkRecor
     if (n) scheduled.set(d, [...(scheduled.get(d) ?? []), n]);
   }
 
-  const staff = employees.map((e, i) => ({ id: e.id, name: e.display_name ?? `従業員${e.id}`, records: perEmployee[i] ?? [] }));
+  // 見る期間の勤怠が1日も届いていない人（freee から読めなかった月がある等）は、押し忘れとも直ったとも決めない。
+  // 読めなかっただけで「打刻なし」を店長LINEに流したり、開いている知らせを勝手に閉じたりしないように
+  const staff = employees
+    .map((e, i) => ({ id: e.id, name: e.display_name ?? `従業員${e.id}`, records: perEmployee[i] ?? [] }))
+    .filter((s) => s.records.some((r) => r.date >= start && r.date <= end));
+  const seen = new Set(staff.map((s) => s.id));
   const found = detectIssues(staff, scheduled, start, end);
   const key = (i: { biz_date?: string; date?: string; employee_id?: number; employeeId?: number; kind: string }) =>
     `${i.biz_date ?? i.date}|${i.employee_id ?? i.employeeId}|${i.kind}`;
@@ -527,7 +541,9 @@ async function checkTimecards(employees: Employee[], perEmployee: FreeeWorkRecor
   const foundKeys = new Set(found.map(key));
 
   // 直ったもの
-  const fixed = (open ?? []).filter((r) => !foundKeys.has(key(r as never))).map((r) => r.id as number);
+  const fixed = (open ?? [])
+    .filter((r) => seen.has(r.employee_id as number) && !foundKeys.has(key(r as never)))
+    .map((r) => r.id as number);
   if (fixed.length > 0) await admin.from("timecard_issues").update({ resolved_at: now }).in("id", fixed);
 
   // 見つかったもの（すでにあれば何もしない。直ったあとにまた抜けたら開き直す）
