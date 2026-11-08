@@ -98,7 +98,8 @@ test("売上が1日も無い期間は率を出さない", () => {
   assert.ok(r.missing.includes("売上"));
 });
 
-test("毎週の棚卸：日曜の開店前は土曜まで、閉店後は日曜までの在庫", () => {
+test("毎週の棚卸：営業中・閉店後はその日まで、開店前は前の日までの在庫", () => {
+  assert.equal(asOfFor("2026-11-15", "during"), "2026-11-15");
   assert.equal(asOfFor("2026-11-15", "before_open"), "2026-11-14");
   assert.equal(asOfFor("2026-11-15", "after_close"), "2026-11-15");
   assert.equal(asOfFor("2026-12-01", "before_open"), "2026-11-30");

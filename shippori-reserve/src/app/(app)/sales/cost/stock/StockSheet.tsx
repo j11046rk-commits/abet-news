@@ -155,7 +155,7 @@ export default function StockSheet(p: P) {
               この数で確定する（{fmtYen(live)}）
             </button>
             <button type="button" className="linklike micro" disabled={pending} onClick={remove}>
-              この棚卸を消す（日付や開店前／閉店後を間違えたとき）
+              この棚卸を消す（日付を間違えたとき）
             </button>
           </>
         )

@@ -143,15 +143,17 @@ export function purchaseWarnings(list: Purchase[]): PurchaseWarning[] {
   return out;
 }
 
-export type StockTiming = "before_open" | "after_close";
+/** ふだんは営業中（店主指示 2026-11-09「営業中の暇な時に。開店前・閉店後だと人件費が無駄」）。開店前／閉店後も残す */
+export type StockTiming = "before_open" | "during" | "after_close";
 
 export const TIMING_LABEL: Record<StockTiming, string> = {
   before_open: "開店前",
+  during: "営業中",
   after_close: "閉店後",
 };
 
 /**
- * 棚卸。as_of＝この営業日の終わりまでの在庫（日曜の開店前に数えたら土曜、閉店後なら日曜）。
+ * 棚卸。as_of＝この営業日の終わりまでの在庫（日曜の営業中・閉店後に数えたら日曜、開店前なら土曜）。
  * 店主指示 2026-11-09「毎週日曜に棚卸をする仕組みにしたい」。
  */
 export type Stocktake = {
@@ -168,9 +170,12 @@ const fromDayNum = (n: number): string => new Date(n * 86_400_000).toISOString()
 export const addDaysStr = (d: string, n: number): string => fromDayNum(dayNum(d) + n);
 export const daysBetween = (from: string, to: string): number => dayNum(to) - dayNum(from) + 1;
 
-/** 数えた日と開店前／閉店後から、どの営業日の終わりまでの在庫かを決める */
+/**
+ * 数えた日と、いつ数えたかから、どの営業日の終わりまでの在庫かを決める。
+ * 営業中に数えたら、その日の営業までとして扱う（数えたあとの売上ぶんだけずれるが、毎週同じなら比べ方は変わらない）
+ */
 export const asOfFor = (countedOn: string, timing: StockTiming): string =>
-  timing === "after_close" ? countedOn : addDaysStr(countedOn, -1);
+  timing === "before_open" ? addDaysStr(countedOn, -1) : countedOn;
 
 /** その日を含む直近の日曜（棚卸の日の初期値） */
 export const lastSunday = (date: string): string => addDaysStr(date, -new Date(dayNum(date) * 86_400_000).getUTCDay());

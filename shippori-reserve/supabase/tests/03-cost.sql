@@ -109,7 +109,10 @@ select pg_temp.run_as(:M, $$insert into cost_stock_counts (as_of, item_id, qty, 
 select pg_temp.run_as(:M, $$delete from cost_stocktakes where as_of = '2026-11-22'$$);
 select pg_temp.ok((select count(*) from cost_stock_counts where as_of = '2026-11-22') = 0, '下書きの棚卸は消せて、数も一緒に消える');
 select pg_temp.expect_error(:S, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-29', '2026-11-29', 'after_close')$$, 'スタッフは棚卸を始められない');
-select pg_temp.expect_error(:O, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-29', '2026-11-29', 'midday')$$, '開店前／閉店後以外は不可');
+select pg_temp.expect_error(:O, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-11-29', '2026-11-29', 'midday')$$, '営業中・開店前・閉店後以外は不可');
+select pg_temp.run_as(:M, $$insert into cost_stocktakes (as_of, counted_on) values ('2026-11-29', '2026-11-29')$$);
+select pg_temp.ok((select timing from cost_stocktakes where as_of = '2026-11-29') = 'during', 'ふだんは営業中（その日の営業までの在庫）');
+select pg_temp.expect_error(:M, $$insert into cost_stocktakes (as_of, counted_on, timing) values ('2026-12-05', '2026-12-06', 'during')$$, '営業中に数えたらその日までの在庫');
 select pg_temp.expect_error(:O, $$insert into cost_stock_counts (as_of, item_id, qty, unit_price) select '2026-11-14', id, -1, 1 from cost_stock_items limit 1$$, '数はマイナス不可');
 
 -- 6. ロス

@@ -271,13 +271,13 @@ export async function saveStockItem(input: ItemInput): Promise<CResult> {
 }
 
 /**
- * 棚卸を始める（基本は毎週日曜）。数えた日と開店前／閉店後から「どの営業日の終わりまでの在庫か」を決める。
+ * 棚卸を始める（基本は毎週日曜の営業中）。数えた日といつ数えたかから「どの営業日の終わりまでの在庫か」を決める。
  * 同じ区切りの棚卸がすでにあれば、それを開く。
  */
 export async function startStocktake(countedOn: string, timing: StockTiming): Promise<CResult & { asOf?: string }> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
   if (!DATE_RE.test(countedOn)) return { ok: false, error: "数えた日を入れてください。" };
-  if (timing !== "before_open" && timing !== "after_close") return { ok: false, error: "開店前か閉店後かを選んでください。" };
+  if (timing !== "before_open" && timing !== "during" && timing !== "after_close") return { ok: false, error: "いつ数えるかを選んでください。" };
   if (countedOn > todayBizDate()) return { ok: false, error: "先の日付では始められません。" };
   const asOf = asOfFor(countedOn, timing);
   const supabase = await createClient();
@@ -290,7 +290,7 @@ export async function startStocktake(countedOn: string, timing: StockTiming): Pr
   return { ok: true, asOf };
 }
 
-/** 下書きの棚卸を消す（日付や開店前／閉店後を間違えたとき）。確定したものは DB が消させない */
+/** 下書きの棚卸を消す（日付やタイミングを間違えたとき）。確定したものは DB が消させない */
 export async function deleteStocktake(asOf: string): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
   if (!DATE_RE.test(asOf)) return { ok: false, error: "日付が不正です。" };
