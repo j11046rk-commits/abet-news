@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/auth";
+import { can } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import { planForDate } from "@/lib/haccp";
 import { getPlans } from "@/lib/haccp-data";
@@ -11,11 +12,13 @@ import SensorList, { type SensorView } from "./SensorList";
 export const dynamic = "force-dynamic";
 
 /**
- * 温度計（SwitchBot）と冷蔵庫・冷凍庫の結びつけ（店長・オーナー・0068）。
+ * 温度計（SwitchBot）の一覧（衛生の記録をつける人全員）と、冷蔵庫・冷凍庫との結びつけ（店長・オーナー・0068）。
  * 一覧と「いまの温度」は SwitchBot から直接読む（開いたときだけ）。
  */
 export default async function SensorsPage() {
-  await requirePermission("haccp.manage");
+  // 見るのは衛生の記録をつける人全員。温度計と設備の結びつけ（場所を変える）は店長・オーナーだけ
+  const me = await requirePermission("haccp.record");
+  const canManage = can(me.role, "haccp.manage");
   const today = todayBizDate();
   const plans = await getPlans();
   const plan = planForDate(plans, today);
@@ -96,7 +99,7 @@ export default async function SensorsPage() {
         <img src="/logo-face-96.png" alt="しっぽり亭" width={96} height={96} className="appbar__logo" />
         <div className="appbar__title">温度計（SwitchBot）</div>
       </header>
-      <HaccpTabs current="sensors" canManage />
+      <HaccpTabs current="sensors" canManage={canManage} />
       <div className="wrap stack">
         {!ready ? (
           <section className="notice notice-strong">
@@ -117,7 +120,7 @@ export default async function SensorsPage() {
           <p className="micro">いまの温度（開いた時点）。30分ごとに記録し、毎晩その日の値を衛生の記録に入れます。赤は基準外。</p>
         ) : null}
 
-        {views.length > 0 ? <SensorList views={views} equipment={equipment} /> : ready && !apiError ? (
+        {views.length > 0 ? <SensorList views={canManage ? views : views.filter((v) => v.registered)} equipment={equipment} canManage={canManage} /> : ready && !apiError ? (
           <p className="notice">温度計が見つかりません。SwitchBotアプリで温度計がハブにつながっているか、各温度計の「クラウドサービス」がオンかを確かめてください。</p>
         ) : null}
 

@@ -154,7 +154,7 @@ export async function autoRecord(): Promise<{ date: string; written: string[]; m
 
   if (missing.length > 0) {
     await pushLine(
-      `🌡 今日の冷蔵庫・冷凍庫の温度を自動で記録できませんでした：${missing.join("・")}\n温度計の値が届いていません。アプリの「衛生」→ 温度計の欄から手で記録してください。`,
+      `🌡 今日の冷蔵庫・冷凍庫の温度を自動で記録できませんでした：${missing.join("・")}\n温度計の値が届いていません。アプリの「衛生」→「今日のチェック」で前の日（‹）を開くと、手で記録できます。`,
     );
   }
   return { date: bizDate, written, missing };

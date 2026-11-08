@@ -27,22 +27,22 @@ const hm = (iso: string) => new Date(iso).toLocaleTimeString("ja-JP", { timeZone
  * 温度計の一覧。スマホで6台がひと目で見えるよう、1台1行に詰める（店主指定 2026-11-08）。
  * 置いた場所の選択は普段使わないので「場所を変える」を押したときだけ出す。
  */
-export default function SensorList({ views, equipment }: { views: SensorView[]; equipment: Eq[] }) {
+export default function SensorList({ views, equipment, canManage }: { views: SensorView[]; equipment: Eq[]; canManage: boolean }) {
   const taken = new Map(views.filter((x) => x.equipmentId).map((x) => [x.equipmentId!, x.deviceName]));
   return (
     <ul className="sb-list">
       {views.map((v) => (
-        <SensorRow key={v.deviceId} v={v} equipment={equipment} taken={taken} />
+        <SensorRow key={v.deviceId} v={v} equipment={equipment} taken={taken} canManage={canManage} />
       ))}
     </ul>
   );
 }
 
-function SensorRow({ v, equipment, taken }: { v: SensorView; equipment: Eq[]; taken: Map<string, string> }) {
+function SensorRow({ v, equipment, taken, canManage }: { v: SensorView; equipment: Eq[]; taken: Map<string, string>; canManage: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const [open, setOpen] = useState(!v.registered);
+  const [open, setOpen] = useState(!v.registered && canManage);
   const eq = v.equipmentId ? equipment.find((e) => e.id === v.equipmentId) ?? null : null;
   const out =
     eq && v.temp != null ? (eq.maxC != null && v.temp > eq.maxC) || (eq.minC != null && v.temp < eq.minC) : false;
@@ -82,7 +82,7 @@ function SensorRow({ v, equipment, taken }: { v: SensorView; equipment: Eq[]; ta
         <span className="sb-row__temp">{v.temp != null ? `${v.temp}℃` : "—"}</span>
       </div>
       {v.error ? <p className="err sb-row__err">{v.error}</p> : null}
-      {open ? (
+      {!canManage ? null : open ? (
         <div className="sb-row__edit">
           <select aria-label={`${v.deviceName}を置いた場所`} className="field" value={value} disabled={pending} onChange={(e) => change(e.target.value)}>
             <option value="">使わない</option>

@@ -165,17 +165,18 @@ function AutoTemps(p: Props & { late: boolean; lateAt: string }) {
     .filter(({ e }) => e.auto)
     .sort((a, b) => kindOrder(a.e.kind) - kindOrder(b.e.kind) || a.i - b.i)
     .map(({ e }) => e);
-  if (autoEq.length === 0) return null;
   const all = requiredChecks(plan.content, true);
   const byKey = new Map(p.checks.map((c) => [c.check_key, c]));
+  // 今日のチェックには温度計の値を出さない（温度計タブで見る・店主指定 2026-11-08）。
+  // 出すのは、過ぎた日で自動の記録が入らなかった設備だけ（温度計が止まっていた日の手入力の受け皿）
+  const missingEq = p.date < p.today ? autoEq.filter((e) => !byKey.has(`eq:${e.id}:close`)) : [];
+  if (missingEq.length === 0) return null;
   return (
     <section className="stack" aria-label="冷蔵庫・冷凍庫（温度計）">
-      <h2 className="section-title">
-        冷蔵庫・冷凍庫（温度計で自動記録）
-      </h2>
-      <p className="micro">30分ごとに温度計を読み、毎晩1時ごろにその日の最後の値を記録します。基準を外れた状態が続くと店のLINEに知らせます。</p>
+      <h2 className="section-title">温度計の記録が入らなかった冷蔵庫・冷凍庫</h2>
+      <p className="micro">この日は温度計の値が届かず、自動で記録できませんでした。測った温度があれば、ここから手で記録してください。</p>
       <ul className="hc-auto">
-        {autoEq.map((e) => {
+        {missingEq.map((e) => {
           const key = `eq:${e.id}:close`;
           const row = byKey.get(key) ?? null;
           const rd = p.autoReadings?.[e.id];
