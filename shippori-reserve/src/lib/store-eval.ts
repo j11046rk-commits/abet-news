@@ -3,10 +3,11 @@
  * 3つの物差しの達成率から点数とランクを出す。純粋な関数だけ（node --test で回す）。
  *
  *   売上   … 売上（物販込み）÷ 目標。月の途中は「売上が入っている日までの目標」と比べる
- *   人件費 … 人件費率。アプリは給与を読まない（店主指示 2026-11-02）ので、人時売上から推定する
- *            推定人件費率 ＝ 1時間あたりの人件費の目安 ÷ 人時売上
- *            （人時売上5,000円＝人件費率25%・店主決定 2026-11-02 → 目安は1,250円/時）
- *            達成率 ＝ 目標の率 ÷ 推定の率（低いほど良いので逆数）
+ *   人件費 … 人件費率 ＝ 月の人件費の合計 ÷ 税抜売上（店主指示 2026-11-09「実際の人件費率を」）。
+ *            合計は店全体の1つの数字だけ（labor_cost_monthly・個人の額は持たない）。
+ *            まだ合計が無い月（今月など）は推定：1時間あたりの人件費（直近の実績の月の 合計÷労働時間、
+ *            実績が無ければ設定の目安）× その月の労働時間 ÷ 税抜売上
+ *            達成率 ＝ 目標の率 ÷ 実際（または推定）の率（低いほど良いので逆数）
  *   原価   … 原価率（棚卸の間ごと・lib/cost）。達成率 ＝ 目標 ÷ 実際
  *
  * 点数 ＝ 達成率（上限120%）の重みつき平均（売上40・人件費30・原価30。出せない物差しは外して割り直す）
@@ -16,7 +17,7 @@
 export type EvalTargets = {
   /** 人件費率の目標（%） */
   laborRatio: number;
-  /** 1時間あたりの人件費の目安（円）。推定人件費率の分子 */
+  /** 1時間あたりの人件費の目安（円）。実績の月が1つも無いときだけ推定に使う */
   hourCost: number;
   /** 原価率の目標（%）。未設定なら原価は点数に入れない */
   costRatio: number | null;
@@ -47,8 +48,11 @@ export type Metric = {
 export type EvalInput = {
   /** 売上（物販込み）と、それに対応する目標（月の途中は売上が入っている日までの目標） */
   sales: { actual: number | null; target: number | null };
-  /** 人時売上の材料：労働時間が取り込めた日の店内売上と、その日の労働時間（分） */
-  labor: { sales: number; minutes: number };
+  /**
+   * 人件費率の材料。cost：その月の人件費（実績の合計、または推定）、salesEx：同じ期間の税抜売上、
+   * estimated：推定か、basis：推定の根拠（表示用）
+   */
+  labor: { cost: number | null; salesEx: number | null; estimated: boolean; basis: string | null };
   /** 原価率（%）と、どの期間のものか */
   cost: { ratio: number | null; span: string | null };
   targets: EvalTargets;
@@ -72,15 +76,15 @@ export function storeEval(i: EvalInput): EvalResult {
     note: sa.target == null || sa.target <= 0 ? "目標が入っていません" : sa.actual == null ? "売上がまだ入っていません" : null,
   });
 
-  const perHour = i.labor.minutes > 0 ? i.labor.sales / (i.labor.minutes / 60) : null;
-  const est = perHour != null && perHour > 0 ? (i.targets.hourCost / perHour) * 100 : null;
+  const lb = i.labor;
+  const lr = lb.cost != null && lb.salesEx != null && lb.salesEx > 0 ? (lb.cost / lb.salesEx) * 100 : null;
   metrics.push({
     key: "labor",
     label: "人件費率",
-    rate: est != null ? r1((i.targets.laborRatio / est) * 100) : null,
-    actual: est != null ? `${r1(est)}%（人時売上 ${yen(perHour!)}）` : "—",
+    rate: lr != null && lr > 0 ? r1((i.targets.laborRatio / lr) * 100) : null,
+    actual: lr != null ? `${r1(lr)}%${lb.estimated ? "（推定）" : ""}` : "—",
     target: `${i.targets.laborRatio}%以下`,
-    note: est == null ? "労働時間がまだ取り込めていません" : "人時売上からの推定",
+    note: lr == null ? (lb.estimated ? "労働時間がまだ取り込めていません" : "売上がまだ入っていません") : lb.estimated ? lb.basis : "月の人件費の合計から",
   });
 
   const c = i.cost;
@@ -103,6 +107,26 @@ export function storeEval(i: EvalInput): EvalResult {
   }
   const score = den > 0 ? r1(num / den) : null;
   return { metrics, score, rank: score != null ? rankOf(score) : null };
+}
+
+/**
+ * 人件費の推定。実績の合計がある月はそのまま、無い月は「1時間あたりの人件費 × 労働時間」。
+ * 1時間あたりの人件費は、直近の実績の月（合計 ÷ その月の労働時間）。無ければ設定の目安。
+ */
+export function laborCostFor(input: {
+  actualTotal: number | null;
+  minutes: number;
+  calib: { ym: string; total: number; minutes: number } | null;
+  fallbackHourCost: number;
+}): { cost: number | null; estimated: boolean; basis: string | null } {
+  if (input.actualTotal != null) return { cost: input.actualTotal, estimated: false, basis: null };
+  if (input.minutes <= 0) return { cost: null, estimated: true, basis: null };
+  const c = input.calib && input.calib.minutes > 0 ? input.calib : null;
+  const perHour = c ? c.total / (c.minutes / 60) : input.fallbackHourCost;
+  const basis = c
+    ? `${Number(c.ym.slice(5))}月の実績 1時間あたり${Math.round(perHour).toLocaleString("ja-JP")}円 × 労働時間で推定`
+    : `1時間あたり${Math.round(perHour).toLocaleString("ja-JP")}円（目安）× 労働時間で推定`;
+  return { cost: Math.round(perHour * (input.minutes / 60)), estimated: true, basis };
 }
 
 /** settings の値から目標を読む（壊れた値は既定に戻す） */

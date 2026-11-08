@@ -39,6 +39,29 @@ export async function saveEvalTargets(input: { laborRatio: number; hourCost: num
   return { ok: true };
 }
 
+/**
+ * 月の人件費の合計（店全体の1つの数字だけ）。オーナーだけ。空欄で消す（その月は推定に戻る）。
+ * 個人の額は受け取らない（店主指示 2026-11-09「個人の人件費はちゃんと隠して」）。
+ */
+export async function saveLaborCost(ym: string, total: number | null): Promise<EResult> {
+  const me = await requireProfile();
+  if (me.role !== "owner") return { ok: false, error: "人件費の合計を入れられるのはオーナーだけです。" };
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return { ok: false, error: "月が不正です。" };
+  const admin = createAdminClient();
+  if (total == null) {
+    const { error } = await admin.from("labor_cost_monthly").delete().eq("ym", ym);
+    if (error) return { ok: false, error: "消せませんでした。" };
+  } else {
+    if (!Number.isInteger(total) || total < 0 || total > 100_000_000) return { ok: false, error: "人件費の合計は円の整数で入れてください。" };
+    const { error } = await admin
+      .from("labor_cost_monthly")
+      .upsert({ ym, total_yen: total, updated_by: me.id, updated_at: new Date().toISOString() });
+    if (error) return { ok: false, error: "保存できませんでした。" };
+  }
+  done();
+  return { ok: true };
+}
+
 /** ⭐の交換を始める／止める（申請ボタンを出すか）。オーナーだけ。既定は止めている（店主指示「まだ掲載しないで」） */
 export async function setStarExchange(enabled: boolean): Promise<EResult> {
   const me = await requireProfile();

@@ -9,6 +9,8 @@ import { rankOf, starsAvailable, targetsFrom } from "@/lib/store-eval";
 import { fmtYm, shiftMonth, todayBizDate } from "@/lib/time";
 import EvalTargetsForm from "./EvalTargetsForm";
 import StarAdmin from "./StarAdmin";
+import LaborCostForm from "./LaborCostForm";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +29,15 @@ export default async function EvalPage() {
   const targets = targetsFrom(settings);
   const thisYm = fmtYm(today);
   const yms = Array.from({ length: 6 }, (_, i) => fmtYm(shiftMonth(`${thisYm}-01`, -i)));
-  const [evals, profiles, stars, requests] = await Promise.all([
+  const supabase = await createClient();
+  const [evals, profiles, stars, requests, { data: lcRows }] = await Promise.all([
     Promise.all(yms.map((ym) => getMonthEval(ym, today, targets))),
     getAllProfiles(),
     getStarRows(),
     getOpenStarRequests(),
+    supabase.from("labor_cost_monthly").select("ym, total_yen").in("ym", yms),
   ]);
+  const lcBy = new Map((lcRows ?? []).map((r) => [r.ym as string, r.total_yen as number]));
   const scored = evals.filter((e) => e.score != null);
   const avg = scored.length ? Math.round((scored.reduce((a, e) => a + e.score!, 0) / scored.length) * 10) / 10 : null;
   const name = new Map(profiles.map((p) => [p.id, p.display_name]));
@@ -97,7 +102,7 @@ export default async function EvalPage() {
             </tbody>
           </table>
           <p className="micro" style={{ marginTop: "0.5rem" }}>
-            6か月の平均：{avg != null ? `${avg}点（${rankOf(avg)}）` : "—"}。人件費は人時売上からの推定（9月から）、原価は棚卸が2回そろった月から入ります。
+            6か月の平均：{avg != null ? `${avg}点（${rankOf(avg)}）` : "—"}。人件費は月の合計を入れた月は実際の率、入れていない月は推定。原価は棚卸が2回そろった月から入ります。
           </p>
         </section>
 
@@ -105,6 +110,11 @@ export default async function EvalPage() {
           <h2 className="section-title">昇給（店長）</h2>
           <p className="micro">昇給の決め方は、いま店主と相談中です。決まったら、ここに半年の平均点から昇給の目安が出ます。</p>
         </section>
+
+        <LaborCostForm
+          canEdit={me.role === "owner"}
+          rows={evals.map((e) => ({ ym: e.ym, total: lcBy.get(e.ym) ?? null, ratio: e.metrics.find((m) => m.key === "labor")?.actual ?? "—" }))}
+        />
 
         <EvalTargetsForm targets={targets} canEdit={me.role === "owner"} />
 

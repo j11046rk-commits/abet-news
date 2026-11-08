@@ -26,11 +26,11 @@ export default function EvalTargetsForm({ targets, canEdit }: { targets: EvalTar
       <input id="ev-cost" className="field" inputMode="decimal" disabled={!canEdit} value={f.cost} placeholder="未設定" onChange={(e) => setF({ ...f, cost: e.target.value })} />
       <label className="field-label" htmlFor="ev-labor">人件費率の目標（%）</label>
       <input id="ev-labor" className="field" inputMode="decimal" disabled={!canEdit} value={f.labor} onChange={(e) => setF({ ...f, labor: e.target.value })} />
-      <label className="field-label" htmlFor="ev-hour">1時間あたりの人件費の目安（円）</label>
+      <label className="field-label" htmlFor="ev-hour">1時間あたりの人件費の目安（円・実績の月が無いときだけ使う）</label>
       <input id="ev-hour" className="field" inputMode="numeric" disabled={!canEdit} value={f.hour} onChange={(e) => setF({ ...f, hour: e.target.value })} />
       <p className="micro">
-        アプリは給与を読まないので、人件費率は「1時間あたりの人件費の目安 ÷ 人時売上」で推定します（人時売上5,000円＝25%が1,250円）。
-        売上の目標は、売上タブの日ごと・月の目標をそのまま使います。
+        人件費率＝月の人件費の合計 ÷ 税抜売上。合計をまだ入れていない月は「直近の実績の月の1時間あたりの人件費 × 労働時間」で推定し、
+        実績の月が1つも無いときだけ上の目安を使います。売上の目標は、売上タブの日ごと・月の目標をそのまま使います。
       </p>
       {canEdit ? (
         <button type="button" className="btn btn-primary" disabled={pending} onClick={save}>

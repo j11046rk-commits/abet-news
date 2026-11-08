@@ -3,12 +3,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_TARGETS, rankOf, starsAvailable, starsEarned, storeEval, targetsFrom } from "./store-eval.ts";
+import { DEFAULT_TARGETS, laborCostFor, rankOf, starsAvailable, starsEarned, storeEval, targetsFrom } from "./store-eval.ts";
 
 const base = {
   sales: { actual: 3_300_000, target: 3_000_000 },
-  // 人時売上 5,000円（50万円 ÷ 100時間）→ 推定人件費率 25%
-  labor: { sales: 500_000, minutes: 6_000 },
+  // 人件費 75万円 ÷ 税抜売上 300万円 ＝ 25%
+  labor: { cost: 750_000, salesEx: 3_000_000, estimated: false, basis: null },
   cost: { ratio: 32, span: "11/2〜11/29" },
   targets: { ...DEFAULT_TARGETS, costRatio: 30 },
 };
@@ -17,18 +17,30 @@ test("3つの達成率と点数", () => {
   const r = storeEval(base);
   const m = Object.fromEntries(r.metrics.map((x) => [x.key, x]));
   assert.equal(m.sales!.rate, 110);
-  assert.equal(m.labor!.rate, 100); // 目標25% ÷ 推定25%
+  assert.equal(m.labor!.rate, 100); // 目標25% ÷ 実際25%
+  assert.equal(m.labor!.actual, "25%");
+  assert.equal(m.labor!.note, "月の人件費の合計から");
   assert.equal(m.cost!.rate, 93.8); // 30 ÷ 32
   // (110×40 + 100×30 + 93.8×30) ÷ 100
   assert.equal(r.score, 102.1);
   assert.equal(r.rank, "A");
 });
 
-test("人件費率は人時売上から推定。人時売上が高いほど率は低く、達成率は高い", () => {
-  const r = storeEval({ ...base, labor: { sales: 600_000, minutes: 6_000 } }); // 6,000円/時 → 約20.8%
+test("人件費率：実績の合計が無い月は、直近の実績の時間単価×労働時間で推定", () => {
+  // 10月の実績：62万円 ÷ 500時間 ＝ 1,240円/時。11月は200時間 → 248,000円
+  const est = laborCostFor({ actualTotal: null, minutes: 200 * 60, calib: { ym: "2026-10", total: 620_000, minutes: 500 * 60 }, fallbackHourCost: 1250 });
+  assert.equal(est.cost, 248_000);
+  assert.equal(est.estimated, true);
+  assert.ok(est.basis!.startsWith("10月の実績 1時間あたり1,240円"));
+  // 実績が1つも無ければ設定の目安
+  assert.equal(laborCostFor({ actualTotal: null, minutes: 60, calib: null, fallbackHourCost: 1250 }).cost, 1250);
+  // 実績があればそのまま
+  assert.deepEqual(laborCostFor({ actualTotal: 700_000, minutes: 1, calib: null, fallbackHourCost: 1250 }), { cost: 700_000, estimated: false, basis: null });
+
+  const r = storeEval({ ...base, labor: { ...est, salesEx: 1_000_000 } });
   const m = r.metrics.find((x) => x.key === "labor")!;
-  assert.equal(m.rate, 120);
-  assert.ok(m.actual.startsWith("20.8%"));
+  assert.equal(m.actual, "24.8%（推定）");
+  assert.equal(m.rate, 100.8);
 });
 
 test("達成率は120%で頭打ち（1つの物差しだけで点数が跳ねない）", () => {
@@ -38,7 +50,7 @@ test("達成率は120%で頭打ち（1つの物差しだけで点数が跳ねな
 });
 
 test("出せない物差しは外す。全部出せなければ点数なし", () => {
-  const r = storeEval({ sales: { actual: null, target: null }, labor: { sales: 0, minutes: 0 }, cost: { ratio: null, span: null }, targets: DEFAULT_TARGETS });
+  const r = storeEval({ sales: { actual: null, target: null }, labor: { cost: null, salesEx: null, estimated: true, basis: null }, cost: { ratio: null, span: null }, targets: DEFAULT_TARGETS });
   assert.equal(r.score, null);
   assert.equal(r.rank, null);
   assert.equal(r.metrics.find((x) => x.key === "cost")!.note, "目標が未設定");
