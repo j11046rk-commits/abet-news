@@ -42,6 +42,19 @@ export default async function SettingsPage() {
       </header>
 
       <div className="wrap stack">
+        {/* 評価（店長・オーナーだけ・店主指定 2026-11-09）：店舗評価の推移・昇給・目標・⭐の交換 */}
+        {me.role === "owner" || me.role === "manager" ? (
+          <>
+            <h2 className="section-title">評価</h2>
+            <div className="card">
+              <Link href="/settings/eval" className="btn" style={{ width: "100%", textAlign: "center" }}>
+                評価を開く（店舗評価・昇給・⭐の交換）
+              </Link>
+              <p className="micro" style={{ marginTop: "0.5rem" }}>店長とオーナーだけに見えます。</p>
+            </div>
+          </>
+        ) : null}
+
         <h2 className="section-title">店舗の既定値</h2>
         <section className="card">
           <dl className="kv">

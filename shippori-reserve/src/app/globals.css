@@ -116,6 +116,22 @@ textarea {
 }
 
 /* アプリ名の帯（店主指定 2026-11-04：どのタブでも「しっぽり亭店舗管理アプリ」） */
+/* 右端の⚙（設定）。帯の文字は中央のまま、⚙だけ右に置く（店主指定 2026-11-09） */
+.brandbar__gear {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0;
+  height: calc(var(--brand-h) - var(--safe-t));
+  min-width: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-family: var(--font-sans, system-ui);
+  font-size: 1.15rem;
+}
+.brandbar__gear[aria-current="page"] { color: var(--gold); }
+
 .brandbar {
   position: sticky;
   top: 0;
@@ -232,8 +248,6 @@ textarea {
   color: var(--gold);
 }
 
-/* 6つ並ぶとき（オーナー・店長）は字間を詰めて「カレンダー」を1行に収める */
-.tabbar--6 .tabbar__item { letter-spacing: 0; font-size: 0.66rem; }
 
 .tabbar__ico {
   font-size: 1.15rem;
@@ -2936,3 +2950,22 @@ textarea.field:-webkit-autofill {
 .sb-alert { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; flex-wrap: wrap; padding: 0.5rem 0.8rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-3); font-size: 0.9rem; }
 .sb-alert--paused { border-color: var(--warn); }
 .sb-alert--paused strong { color: var(--warn); }
+
+/* ───────────────────────── 店舗評価・⭐（2026-11-09） ───────────────────────── */
+.eval-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+.eval-card__score { display: inline-flex; align-items: baseline; gap: 0.5rem; }
+.eval-card__pts { font-size: 1rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.eval-rank { font-size: 1.8rem; font-weight: 700; font-family: var(--font-serif); color: var(--gold); line-height: 1; }
+.eval-rank--C, .eval-rank--D { color: var(--warn); }
+.eval-list { list-style: none; margin: 0.6rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.eval-row__top { display: flex; justify-content: space-between; align-items: baseline; }
+.eval-row__label { font-weight: 600; }
+.eval-row__rate { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--warn); }
+.eval-row__rate--ok { color: var(--gold); }
+.eval-bar { position: relative; height: 0.4rem; border-radius: 999px; background: var(--bg-3); overflow: visible; margin: 0.25rem 0; }
+.eval-bar span { display: block; height: 100%; border-radius: 999px; background: var(--gold); }
+.eval-bar i { position: absolute; top: -0.15rem; bottom: -0.15rem; width: 2px; background: var(--text-dim); }
+.mystars__num { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.eval-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.eval-table th, .eval-table td { padding: 0.35rem 0.3rem; border-bottom: 1px solid var(--line); text-align: right; }
+.eval-table th:first-child, .eval-table td:first-child { text-align: left; }

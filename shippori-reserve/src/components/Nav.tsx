@@ -12,22 +12,22 @@ import { usePathname } from "next/navigation";
  */
 // 今日タブ・予約タブは廃止（店主指定 2026-08-08 その12）。
 // カレンダーで日付をタップ→日別、が基本動線。予約の検索はカレンダー上部から。
+// 設定は下のタブから外し、上の帯の右端の⚙へ（店主指定 2026-11-09）。
+// 並びは カレンダー｜シフト｜売上｜原価｜衛生（原価・衛生は使う人にだけ出す）
 const TABS = [
   { href: "/", label: "カレンダー", icon: "▦" },
   { href: "/shifts", label: "シフト", icon: "◷" },
   { href: "/sales", label: "売上", icon: "¥" },
-  { href: "/settings", label: "設定", icon: "⚙" },
 ];
 
 export default function Nav({ haccp = false, cost = false }: { haccp?: boolean; cost?: boolean }) {
   const pathname = usePathname();
-  // 原価（2026-11-09・店主指定「原価タブを作って毎日のロスを登録する」）。見られる人（オーナー・店長・事務）にだけ出す
-  // 衛生管理（2026-11・店主要望）。記録する人（オーナー・店長・スタッフ）にだけ出す
+  // 原価（2026-11-09・店主指定「売上タブのすぐ右に原価タブ」）。見られる人（オーナー・店長・事務）にだけ出す
+  // 衛生管理（2026-11・店主要望「一番右に衛生タブ」）。記録する人（オーナー・店長・スタッフ）にだけ出す
   const tabs = [
-    ...TABS.slice(0, 3),
+    ...TABS,
     ...(cost ? [{ href: "/sales/cost", label: "原価", icon: "％" }] : []),
     ...(haccp ? [{ href: "/haccp", label: "衛生", icon: "✓" }] : []),
-    TABS[3]!,
   ];
 
   const isCurrent = (href: string) =>
@@ -42,7 +42,7 @@ export default function Nav({ haccp = false, cost = false }: { haccp?: boolean; 
         : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className={`tabbar${tabs.length >= 6 ? " tabbar--6" : ""}`} aria-label="メインナビゲーション">
+    <nav className="tabbar" aria-label="メインナビゲーション">
       {tabs.map((t) => (
         <Link
           key={t.href}

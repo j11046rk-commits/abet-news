@@ -20,6 +20,10 @@ import {
 } from "@/lib/queries";
 import { fmtYen, hitOf, salesView } from "@/lib/sales";
 import { WEATHER_ICON, WEATHER_JA } from "@/lib/weather";
+import StoreEvalCard from "@/components/StoreEvalCard";
+import MyStars from "@/components/MyStars";
+import { getMonthEval, getStarRows } from "@/lib/store-eval-data";
+import { starsAvailable, targetsFrom } from "@/lib/store-eval";
 import { chipName } from "@/lib/staff";
 import {
   fmtMonthJa,
@@ -83,6 +87,13 @@ export default async function SalesPage({
     const prev = lineMap.get(shiftDate(d, -1));
     return now != null && prev != null ? now - prev : null;
   };
+
+  // 店舗評価（全員が見る・店主指定 2026-11-09）と、自分の累計⭐
+  const [evalNow, starRows] = await Promise.all([
+    getMonthEval(ym, today, targetsFrom(settings)),
+    worksShifts(me.role) ? getStarRows() : Promise.resolve(null),
+  ]);
+  const mine = starRows?.get(me.id) ?? null;
 
   const { from, to } = monthRange(ym);
   const days: SalesBoardDay[] = [];
@@ -160,14 +171,18 @@ export default async function SalesPage({
         <Link className="btn btn-sm" href={`/sales/year?y=${ym.slice(0, 4)}`}>
           年間
         </Link>
-        {can(me.role, "cost.read") ? (
-          <Link className="btn btn-sm" href={`/sales/cost?m=${ym}`}>
-            原価
-          </Link>
-        ) : null}
       </header>
 
       <div className="wrap stack">
+        <StoreEvalCard e={evalNow} title={`${Number(ym.slice(5))}月${evalNow.current ? "・今日まで" : ""}`} />
+        {starRows ? (
+          <MyStars
+            earned={mine?.earned ?? 0}
+            available={starsAvailable(mine?.earned ?? 0, mine?.used ?? 0, mine?.requested ?? 0)}
+            enabled={settings.star_exchange_enabled === true}
+            openRequestId={mine?.openRequestId ?? null}
+          />
+        ) : null}
         {/* LINE友だち（店主要望 2026-08-28）。友だち集めの成果を売上と同じ画面で追う。
             目標（KPI・2026-08-29）までの残りと進捗バーも出す */}
         <LineFollowersKpi
