@@ -5,7 +5,7 @@ import { requireProfile } from "@/lib/auth";
 import { worksShifts } from "@/lib/constants";
 import { getAllProfiles, getSettings } from "@/lib/queries";
 import { getMonthEval, getOpenStarRequests, getStarRows } from "@/lib/store-eval-data";
-import { rankOf, starsAvailable, targetsFrom } from "@/lib/store-eval";
+import { pointsOf, rankOf, starsAvailable, targetsFrom } from "@/lib/store-eval";
 import { fmtYm, shiftMonth, todayBizDate } from "@/lib/time";
 import EvalTargetsForm from "./EvalTargetsForm";
 import StarAdmin from "./StarAdmin";
@@ -55,9 +55,10 @@ export default async function EvalPage() {
       };
     })
     .sort((a, b) => b.earned - a.earned);
-  const rate = (e: (typeof evals)[number], k: string) => {
-    const m = e.metrics.find((x) => x.key === k);
-    return m?.rate != null ? `${m.rate.toFixed(0)}%` : "—";
+  // 表は「点」で並べる（目標どおり＝100点）。率（%）は下の「人件費（月の合計）」とカードに出す
+  const pts = (e: (typeof evals)[number], k: string) => {
+    const p = pointsOf(e.metrics.find((x) => x.key === k)?.rate ?? null);
+    return p != null ? String(p) : "—";
   };
 
   return (
@@ -84,7 +85,7 @@ export default async function EvalPage() {
                 <th>売上</th>
                 <th>人件費</th>
                 <th>原価</th>
-                <th>点数</th>
+                <th>店舗評価</th>
               </tr>
             </thead>
             <tbody>
@@ -93,16 +94,16 @@ export default async function EvalPage() {
                   <td>
                     {Number(e.ym.slice(5))}月{e.current ? "（途中）" : ""}
                   </td>
-                  <td>{rate(e, "sales")}</td>
-                  <td>{rate(e, "labor")}</td>
-                  <td>{rate(e, "cost")}</td>
+                  <td>{pts(e, "sales")}</td>
+                  <td>{pts(e, "labor")}</td>
+                  <td>{pts(e, "cost")}</td>
                   <td>{e.score != null ? `${e.score.toFixed(1)} ${e.rank}` : "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="micro" style={{ marginTop: "0.5rem" }}>
-            6か月の平均：{avg != null ? `${avg}点（${rankOf(avg)}）` : "—"}。人件費は月の合計を入れた月は実際の率、入れていない月は推定。原価は棚卸が2回そろった月から入ります。
+            数字はすべて点（目標どおり＝100点）。6か月の平均：{avg != null ? `${avg}点（${rankOf(avg)}）` : "—"}。人件費は月の合計を入れた月は実際の率、入れていない月は推定。原価は棚卸が2回そろった月から入ります。
           </p>
         </section>
 

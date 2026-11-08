@@ -3,7 +3,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_TARGETS, laborCostFor, rankOf, starsAvailable, starsEarned, storeEval, targetsFrom } from "./store-eval.ts";
+import { DEFAULT_TARGETS, laborCostFor, pointsOf, rankOf, starsAvailable, starsEarned, storeEval, targetsFrom } from "./store-eval.ts";
 
 const base = {
   sales: { actual: 3_300_000, target: 3_000_000 },
@@ -21,6 +21,11 @@ test("3つの達成率と点数", () => {
   assert.equal(m.labor!.actual, "25%");
   assert.equal(m.labor!.note, "月の人件費の合計から");
   assert.equal(m.cost!.rate, 93.8); // 30 ÷ 32
+  // 表示：率は率、出来は点。差は言葉で
+  assert.equal(m.sales!.gap, "目標より＋300,000円");
+  assert.equal(m.labor!.gap, "目標どおり");
+  assert.equal(m.cost!.gap, "目標より2%高い");
+  assert.equal(m.cost!.good, false);
   // (110×40 + 100×30 + 93.8×30) ÷ 100
   assert.equal(r.score, 102.1);
   assert.equal(r.rank, "A");
@@ -54,6 +59,10 @@ test("出せない物差しは外す。全部出せなければ点数なし", ()
   assert.equal(r.score, null);
   assert.equal(r.rank, null);
   assert.equal(r.metrics.find((x) => x.key === "cost")!.note, "目標が未設定");
+});
+
+test("点は整数・120で頭打ち", () => {
+  assert.deepEqual([pointsOf(91.5), pointsOf(161.6), pointsOf(null)], [92, 120, null]);
 });
 
 test("ランクの区切り", () => {

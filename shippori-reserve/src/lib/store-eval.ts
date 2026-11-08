@@ -35,12 +35,16 @@ export const rankOf = (score: number): Rank => (score >= 105 ? "S" : score >= 10
 export type Metric = {
   key: MetricKey;
   label: string;
-  /** 達成率（%・小数第1位）。出せなければ null */
+  /** 達成率（%・小数第1位）。出せなければ null。画面では「点」（目標どおり＝100点・上限120点）として出す */
   rate: number | null;
-  /** 実際（表示用） */
+  /** 実際（表示用）。人件費率・原価率は率そのもの（%）、売上は金額 */
   actual: string;
   /** 目標（表示用） */
   target: string;
+  /** 目標との差（表示用）。例：「目標より2.3%高い」「あと12,000円」 */
+  gap: string | null;
+  /** 目標を満たしているか */
+  good: boolean | null;
   /** 出せない理由・補足 */
   note: string | null;
 };
@@ -63,6 +67,15 @@ export type EvalResult = { metrics: Metric[]; score: number | null; rank: Rank |
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const yen = (n: number) => `${Math.round(n).toLocaleString("ja-JP")}円`;
 
+/** 率（低いほど良い）と目標の差を言葉で。「2.3%」は率どうしの差（ポイント差） */
+const ratioGap = (actual: number, target: number): string => {
+  const d = r1(actual - target);
+  return d > 0 ? `目標より${d}%高い` : d < 0 ? `目標より${-d}%低い` : "目標どおり";
+};
+
+/** 達成率 → 画面に出す点（整数・上限120） */
+export const pointsOf = (rate: number | null): number | null => (rate == null ? null : Math.round(Math.min(rate, RATE_CAP)));
+
 export function storeEval(i: EvalInput): EvalResult {
   const metrics: Metric[] = [];
 
@@ -73,6 +86,13 @@ export function storeEval(i: EvalInput): EvalResult {
     rate: sa.actual != null && sa.target != null && sa.target > 0 ? r1((sa.actual / sa.target) * 100) : null,
     actual: sa.actual != null ? yen(sa.actual) : "—",
     target: sa.target != null ? yen(sa.target) : "—",
+    gap:
+      sa.actual != null && sa.target != null && sa.target > 0
+        ? sa.actual >= sa.target
+          ? `目標より＋${yen(sa.actual - sa.target)}`
+          : `目標まであと${yen(sa.target - sa.actual)}`
+        : null,
+    good: sa.actual != null && sa.target != null && sa.target > 0 ? sa.actual >= sa.target : null,
     note: sa.target == null || sa.target <= 0 ? "目標が入っていません" : sa.actual == null ? "売上がまだ入っていません" : null,
   });
 
@@ -84,6 +104,8 @@ export function storeEval(i: EvalInput): EvalResult {
     rate: lr != null && lr > 0 ? r1((i.targets.laborRatio / lr) * 100) : null,
     actual: lr != null ? `${r1(lr)}%${lb.estimated ? "（推定）" : ""}` : "—",
     target: `${i.targets.laborRatio}%以下`,
+    gap: lr != null ? ratioGap(r1(lr), i.targets.laborRatio) : null,
+    good: lr != null ? r1(lr) <= i.targets.laborRatio : null,
     note: lr == null ? (lb.estimated ? "労働時間がまだ取り込めていません" : "売上がまだ入っていません") : lb.estimated ? lb.basis : "月の人件費の合計から",
   });
 
@@ -95,6 +117,8 @@ export function storeEval(i: EvalInput): EvalResult {
     rate: c.ratio != null && c.ratio > 0 && ct != null ? r1((ct / c.ratio) * 100) : null,
     actual: c.ratio != null ? `${c.ratio}%` : "—",
     target: ct != null ? `${ct}%以下` : "未設定",
+    gap: c.ratio != null && ct != null ? ratioGap(c.ratio, ct) : null,
+    good: c.ratio != null && ct != null ? c.ratio <= ct : null,
     note: ct == null ? "目標が未設定" : c.ratio == null ? "棚卸が2回そろうと出ます" : c.span ? `${c.span}の棚卸から` : null,
   });
 
