@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { shrinkImage } from "@/lib/image";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,6 @@ import {
   DOC_KIND_LABEL,
   isPdfPath,
   LOSS_REASON_LABEL,
-  STATUS_LABEL,
   lossTotal,
   purchaseEx,
   totalMismatch,
@@ -34,6 +33,7 @@ import {
   savePurchase,
   updateLoss,
 } from "./actions";
+import LossCapture from "./LossCapture";
 
 type P = {
   ym: string;
@@ -43,6 +43,10 @@ type P = {
   losses: Loss[];
   photos: Record<string, string>;
   warnIds: string[];
+  /** ロスを撮る枠を出す（スタッフも・今月だけ） */
+  lossOn: boolean;
+  /** 上の数字（サーバー側で作った要約） */
+  summary?: ReactNode;
 };
 
 const CATS: CostCategory[] = ["food", "drink", "supplies", "other"];
@@ -110,38 +114,43 @@ export default function CostPanels(p: P) {
   const [form, setForm] = useState<FormState | null>(null);
   const unconfirmed = p.purchases.filter((x) => x.status === "unconfirmed").length;
   const [onlyUnconfirmed, setOnlyUnconfirmed] = useState(false);
+  const shown = p.purchases.filter((x) => !onlyUnconfirmed || x.status === "unconfirmed");
   return (
     <>
-      {p.canWrite ? (
-        form && !form.id ? (
-          <PurchaseForm
-            key={form.id ?? "new"}
-            init={form}
-            photoUrl={form.photo_path ? p.photos[form.photo_path] : undefined}
-            onClose={() => setForm(null)}
-          />
-        ) : (
-          <Capture {...p} onManual={() => setForm(blank(p.today))} />
-        )
+      {/* 撮る：仕入とロスの2つの大きいボタン */}
+      {p.canWrite || p.lossOn ? (
+        <section className={`snap${p.canWrite && p.lossOn ? "" : " snap--one"}`} aria-label="撮る" id="upload">
+          {p.canWrite ? <Capture {...p} onManual={() => setForm(blank(p.today))} /> : null}
+          {p.lossOn ? <LossCapture /> : null}
+        </section>
+      ) : null}
+      {p.canWrite && form && !form.id ? (
+        <PurchaseForm key="new" init={form} onClose={() => setForm(null)} />
       ) : null}
 
-      <h2 className="section-title">
-        仕入（{p.purchases.length}件{unconfirmed ? `・うち未確認 ${unconfirmed}` : ""}）
-      </h2>
-      <div className="cat-chips" aria-label="区分の色">
-        <span className="cat-chip cat-chip--food">食材<span className="cat-chip__kind">原価</span></span>
-        <span className="cat-chip cat-chip--drink">酒・飲料<span className="cat-chip__kind">原価</span></span>
-        <span className="cat-chip cat-chip--supplies">消耗品<span className="cat-chip__kind">経費</span></span>
-        <span className="cat-chip cat-chip--other">その他<span className="cat-chip__kind">経費</span></span>
+      {p.summary}
+
+      <div className="list-head">
+        <h2 className="section-title">📦 仕入 {p.purchases.length}件</h2>
+        {unconfirmed ? (
+          <div className="seg seg--sm" role="group" aria-label="表示">
+            <button type="button" className="seg__btn" aria-pressed={!onlyUnconfirmed} onClick={() => setOnlyUnconfirmed(false)}>
+              全部
+            </button>
+            <button type="button" className="seg__btn" aria-pressed={onlyUnconfirmed} onClick={() => setOnlyUnconfirmed(true)}>
+              未確認 {unconfirmed}
+            </button>
+          </div>
+        ) : null}
       </div>
-      {unconfirmed ? (
-        <button type="button" className={`btn btn-sm${onlyUnconfirmed ? " btn-primary" : ""}`} onClick={() => setOnlyUnconfirmed(!onlyUnconfirmed)}>
-          {onlyUnconfirmed ? "すべて表示する" : `未確認だけ見る（${unconfirmed}件）`}
-        </button>
+      {unconfirmed && p.canWrite ? (
+        <p className="check-hint">
+          写真と見比べて <b>📅日付</b> <b>¥合計</b> <b>🎨色</b> が合えば <b className="check-hint__ok">✓</b>
+        </p>
       ) : null}
-      {p.purchases.length === 0 ? <p className="micro">この月の仕入はまだありません。</p> : null}
+      {p.purchases.length === 0 ? <p className="micro">まだありません</p> : null}
       <ul className="cost-list">
-        {p.purchases.filter((x) => !onlyUnconfirmed || x.status === "unconfirmed").map((x) =>
+        {shown.map((x) =>
           form?.id === x.id ? (
             <li key={x.id}>
               <PurchaseForm init={form} photoUrl={x.photo_path ? p.photos[x.photo_path] : undefined} onClose={() => setForm(null)} />
@@ -166,7 +175,7 @@ export default function CostPanels(p: P) {
 
 // ── 撮る（撮るだけ。読むのは毎朝の定期実行）────────────────────────
 
-function Capture(p: P & { onManual: () => void }) {
+function Capture(p: { onManual: () => void }) {
   const router = useRouter();
   const cam = useRef<HTMLInputElement>(null);
   const lib = useRef<HTMLInputElement>(null);
@@ -195,7 +204,7 @@ function Capture(p: P & { onManual: () => void }) {
         added += r.added ?? 0;
       }
       if (added) {
-        setMsg(`${added}枚を保存しました。明朝、AIが読んで金額を入れます（未確認として並びます）。`);
+        setMsg(`${added}枚 保存（明朝AIが読みます）`);
         router.refresh();
       }
     } catch {
@@ -239,7 +248,7 @@ function Capture(p: P & { onManual: () => void }) {
         added += 1;
       }
       if (added) {
-        setMsg(`PDFを${added}つ保存しました。明朝AIが読み、書類1枚ずつに分けて金額を入れます。`);
+        setMsg(`PDF ${added}つ 保存（明朝AIが読みます）`);
         router.refresh();
       }
     } finally {
@@ -249,31 +258,29 @@ function Capture(p: P & { onManual: () => void }) {
   };
 
   return (
-    <section className="card stack" aria-label="仕入を入れる" id="upload" style={{ scrollMarginTop: "4rem" }}>
-      <button type="button" className="btn btn-primary btn-block" disabled={!!busy} onClick={() => cam.current?.click()}>
-        {busy ?? "📷 納品書・レシートを撮る"}
+    <div className="snap__col">
+      <button type="button" className="snap__tile" disabled={!!busy} onClick={() => cam.current?.click()}>
+        <span className="snap__icon" aria-hidden>📷</span>
+        <span className="snap__name">{busy ? "送信中…" : "仕入"}</span>
+        <span className="snap__sub">納品書・レシート</span>
       </button>
-      <div className="row" style={{ justifyContent: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn btn-sm" disabled={!!busy} onClick={() => lib.current?.click()}>
-          保存した写真から選ぶ（まとめて可）
+      <div className="snap__more">
+        <button type="button" disabled={!!busy} onClick={() => lib.current?.click()} aria-label="保存した写真から選ぶ">
+          🖼 写真
         </button>
-        <button type="button" className="btn btn-sm" disabled={!!busy} onClick={() => pdf.current?.click()}>
-          PDFを選ぶ（スキャンした請求書など）
+        <button type="button" disabled={!!busy} onClick={() => pdf.current?.click()} aria-label="PDFを選ぶ">
+          📄 PDF
         </button>
-        <button type="button" className="btn btn-sm btn-ghost" disabled={!!busy} onClick={p.onManual}>
-          写真なしで手で入れる
+        <button type="button" disabled={!!busy} onClick={p.onManual} aria-label="写真なしで手で入れる">
+          ✏️ 手入力
         </button>
       </div>
       <input ref={cam} type="file" accept="image/*" capture="environment" hidden aria-label="書類を撮る" onChange={(e) => onFiles(e.target.files)} />
       <input ref={lib} type="file" accept="image/*" multiple hidden aria-label="写真を選ぶ" onChange={(e) => onFiles(e.target.files)} />
       <input ref={pdf} type="file" accept="application/pdf,.pdf" multiple hidden aria-label="PDFを選ぶ" onChange={(e) => onPdfs(e.target.files)} />
-      <p className="micro">
-        撮るだけでOK。毎朝AIがまとめて読み、金額が入ります。写真と見比べて「確認した」を押してください。
-        PDFは1つに何枚入っていても大丈夫です（1つ20MBまで）。
-      </p>
-      {msg ? <p className="notice micro">{msg}</p> : null}
+      {msg ? <p className="snap__msg">✓ {msg}</p> : null}
       {err ? <p className="err">{err}</p> : null}
-    </section>
+    </div>
   );
 }
 
@@ -410,13 +417,29 @@ function PurchaseForm({ init, photoUrl, onClose }: { init: FormState; photoUrl?:
 
 // ── 一覧の1行 ─────────────────────────────────────────────────
 
+const kindOf = (c: CostCategory) => (c === "food" || c === "drink" ? "原価" : "経費");
+
+/** 区分の色チップ（金額は税抜） */
+function CatChips({ p }: { p: Purchase }) {
+  return (
+    <div className="cat-chips">
+      {CATS.filter((c) => p[`${c}_ex` as const] !== 0).map((c) => (
+        <span key={c} className={`cat-chip cat-chip--${c}`}>
+          {CATEGORY_LABEL[c]}
+          <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
+          <span className="cat-chip__kind">{kindOf(c)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; warn: boolean; photoUrl?: string; canWrite: boolean; onEdit: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
   const status = p.status ?? "confirmed";
-  const name = p.vendor ?? "撮った写真";
   const used = CATS.filter((c) => p[`${c}_ex` as const] !== 0);
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -428,143 +451,101 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
         router.refresh();
       }
     });
+  const name = status === "pending" ? (isPdfPath(p.photo_path) ? "送ったPDF" : "撮った写真") : (p.vendor ?? "");
   const del = () => {
-    if (!window.confirm(`${name}（${md(p.book_date)}）を消しますか？\n店のものではない・二重に入っている、などのときに。写真も消えます。`)) return;
+    if (!window.confirm(`${name}（${md(p.book_date)}）を消しますか？`)) return;
     run(() => deletePurchase(p.id));
   };
-  const confirm = () => run(() => confirmPurchase(p.id));
-  const move = (from: CostCategory, to: CostCategory) => run(() => moveCategory(p.id, from, to));
-  const fromRakuten = (p.memo ?? "").startsWith("楽天 注文番号");
-  const kindOf = (c: CostCategory) => (c === "food" || c === "drink" ? "原価" : "経費");
-
-  // 区分をその場で直す：区分ごとに「→ ほかの区分」のボタン。押したら保存して確認済み
-  const fixer = fixing ? (
-    <div className="cat-fix" role="group" aria-label="区分を直す">
-      <p className="cat-fix__title">{used.length > 1 ? "直したい区分の行で、正しい区分を押してください" : "正しい区分を押してください（押すとすぐ保存）"}</p>
-      {used.map((c) => (
-        <div key={c} className="cat-fix__line">
-          <span className={`cat-chip cat-chip--${c}`}>
-            {CATEGORY_LABEL[c]}
-            <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
-          </span>
-          <span aria-hidden>→</span>
-          {CATS.filter((t) => t !== c).map((t) => (
-            <button key={t} type="button" className={`cat-chip cat-chip--${t} cat-chip--btn`} disabled={pending} onClick={() => move(c, t)} aria-label={`${CATEGORY_LABEL[c]}を${CATEGORY_LABEL[t]}にする`}>
-              {CATEGORY_LABEL[t]}
-              <span className="cat-chip__kind">{kindOf(t)}</span>
-            </button>
-          ))}
-        </div>
-      ))}
-      <div className="row" style={{ gap: "1rem", flexWrap: "wrap" }}>
-        <button type="button" className="linklike micro" onClick={() => setFixing(false)}>
-          やめる
-        </button>
-        <button type="button" className="linklike micro" onClick={onEdit}>
-          日付・金額も直す（くわしく）
-        </button>
-      </div>
-    </div>
-  ) : null;
 
   return (
-    <li className={`cost-row${warn ? " cost-row--warn" : ""} cost-row--${status}`}>
+    <li className={`cost-row cost-row--${status}${warn ? " cost-row--warn" : ""}`}>
       <div className="cost-row__main">
         <span className="cost-row__date">{md(p.book_date)}</span>
-        <span className="cost-row__vendor">
+        <span className="cost-row__vendor cost-row__vendor--one">
           {warn ? "⚠ " : ""}
-          {status === "pending" ? (isPdfPath(p.photo_path) ? "送ったPDF" : "撮った写真") : p.vendor}
-          {status === "pending" ? null : <span className="micro">　{fromRakuten ? "楽天の注文メール" : DOC_KIND_LABEL[p.doc_kind]}</span>}
-          {status !== "confirmed" ? <span className={`cost-pill cost-pill--${status}`}>{STATUS_LABEL[status]}</span> : <span className="cost-pill cost-pill--confirmed">✓ 確認済み</span>}
+          {status === "pending" ? "📷 " : ""}
+          {name}
         </span>
         <span className="cost-row__amt">
-          {status === "pending" ? "—" : p.total_in != null ? fmtYen(p.total_in) : fmtYen(purchaseEx(p))}
-          {status !== "pending" ? <span className="micro cost-row__amtsub">{p.total_in != null ? `税込（税抜 ${fmtYen(purchaseEx(p))}）` : "税抜"}</span> : null}
+          {status === "pending" ? <span className="cost-row__wait">明朝AI</span> : fmtYen(p.total_in ?? purchaseEx(p))}
+          {status === "confirmed" ? <span className="cost-row__ok" aria-label="確認済み">✓</span> : null}
         </span>
       </div>
-      {status === "pending" ? (
-        <div className="micro">明朝AIが読みます（{md(p.book_date)}に撮影）。急ぐときは「手で入れる」。</div>
-      ) : (
-        <div className="cat-chips" aria-label="区分">
-          {used.map((c) => (
-            <span key={c} className={`cat-chip cat-chip--${c}`}>
-              {CATEGORY_LABEL[c]}
-              <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
-              <span className="cat-chip__kind">{kindOf(c)}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      {status === "unconfirmed" ? (
-        <div className="confirm-box">
-          <p className="confirm-box__title">{photoUrl ? "写真と見比べて、次の3つが合っていればOK" : "次の3つが合っていればOK"}</p>
-          <ol className="confirm-box__list">
-            <li>
-              日付 <strong>{md(p.book_date)}</strong>・業者 <strong>{p.vendor}</strong>
-            </li>
-            <li>
-              合計 <strong>{p.total_in != null ? `${fmtYen(p.total_in)}（税込）` : `${fmtYen(purchaseEx(p))}（税抜）`}</strong>
-            </li>
-            <li>色の区分：食材・酒飲料は<strong>原価</strong>、消耗品・その他は<strong>経費</strong>に入る</li>
-          </ol>
-          {p.ai_note ? <p className="micro cost-row__note">AIから：{p.ai_note}</p> : null}
-          {canWrite ? (
-            fixing ? (
-              fixer
-            ) : (
-              <>
-                <button type="button" className="btn btn-primary confirm-btn" disabled={pending} onClick={confirm}>
-                  ✓ 合っている（確認した）
-                </button>
-                <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-                  <button type="button" className="btn btn-sm" disabled={pending} onClick={() => setFixing(true)}>
-                    区分が違う
-                  </button>
-                  <button type="button" className="btn btn-sm btn-danger" disabled={pending} onClick={del}>
-                    🗑 消す
-                  </button>
-                  {photoUrl ? (
-                    <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer">
-                      {isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}
-                    </a>
-                  ) : null}
-                </div>
-                <button type="button" className="linklike micro" style={{ alignSelf: "flex-start" }} onClick={onEdit}>
-                  日付・金額が違うとき（くわしく直す）
-                </button>
-              </>
-            )
-          ) : null}
-        </div>
-      ) : null}
-      {p.memo && !fromRakuten ? <div className="micro">{p.memo}</div> : null}
-      {status !== "unconfirmed" ? (
-        fixing ? (
-          fixer
-        ) : (
-          <div className="row" style={{ gap: "1rem", flexWrap: "wrap" }}>
+      <div className="cost-row__line">
+        {status !== "pending" ? <CatChips p={p} /> : <span />}
+        {canWrite && !fixing && status !== "unconfirmed" ? (
+          <span className="icon-acts">
             {photoUrl ? (
-              <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
-                {isPdfPath(p.photo_path) ? "PDF" : "写真"}
+              <a className="icon-btn" href={photoUrl} target="_blank" rel="noreferrer" aria-label={isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}>
+                {isPdfPath(p.photo_path) ? "📄" : "🖼"}
               </a>
             ) : null}
-            {canWrite ? (
-              <>
-                {status === "confirmed" ? (
-                  <button type="button" className="linklike" disabled={pending} onClick={() => setFixing(true)}>
-                    区分を直す
-                  </button>
-                ) : null}
-                <button type="button" className="linklike" onClick={onEdit}>
-                  {status === "pending" ? "手で入れる" : "くわしく直す"}
-                </button>
-                <button type="button" className="linklike" disabled={pending} onClick={del}>
-                  消す
-                </button>
-              </>
-            ) : null}
+            <button type="button" className="icon-btn" onClick={() => setFixing(true)} aria-label="直す">
+              ✏️
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {status === "unconfirmed" && p.ai_note ? <p className="cost-row__ai">💬 {p.ai_note}</p> : null}
+
+      {canWrite && fixing ? (
+        <div className="fix" role="group" aria-label="直す">
+          {status !== "pending" ? (
+            <>
+              <span className="fix__label">🎨 区分を変える</span>
+              {used.map((c) => (
+                <div key={c} className="cat-fix__line">
+                  <span className={`cat-chip cat-chip--${c}`}>
+                    {CATEGORY_LABEL[c]}
+                    <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
+                  </span>
+                  <span aria-hidden>→</span>
+                  {CATS.filter((t) => t !== c).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`cat-chip cat-chip--${t} cat-chip--btn`}
+                      disabled={pending}
+                      onClick={() => run(() => moveCategory(p.id, c, t))}
+                      aria-label={`${CATEGORY_LABEL[c]}を${CATEGORY_LABEL[t]}にする`}
+                    >
+                      {CATEGORY_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </>
+          ) : null}
+          <div className="fix__acts">
+            <button type="button" className="btn btn-sm" onClick={onEdit}>
+              ✏️ {status === "pending" ? "手で入れる" : "日付・金額"}
+            </button>
+            <button type="button" className="btn btn-sm btn-danger" disabled={pending} onClick={del}>
+              🗑 消す
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setFixing(false)}>
+              閉じる
+            </button>
           </div>
-        )
+        </div>
+      ) : canWrite && status === "unconfirmed" ? (
+        <div className="cost-row__acts">
+          <button type="button" className="btn btn-primary ok-btn" disabled={pending} onClick={() => run(() => confirmPurchase(p.id))}>
+            ✓ OK
+          </button>
+          <button type="button" className="btn" onClick={() => setFixing(true)}>
+            ✏️ 直す
+          </button>
+          {photoUrl ? (
+            <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer" aria-label={isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}>
+              {isPdfPath(p.photo_path) ? "📄" : "🖼"}
+            </a>
+          ) : null}
+        </div>
+      ) : !canWrite && photoUrl ? (
+        <a className="linklike micro" href={photoUrl} target="_blank" rel="noreferrer">
+          {isPdfPath(p.photo_path) ? "📄 PDF" : "🖼 写真"}
+        </a>
       ) : null}
       {err ? <p className="err">{err}</p> : null}
     </li>
@@ -580,7 +561,6 @@ function LossSection(p: P) {
   const [err, setErr] = useState<string | null>(null);
   const [f, setF] = useState({ date: p.today.slice(0, 7) === p.ym ? p.today : `${p.ym}-01`, item: "", amount: "", reason: "expired" as LossReason, memo: "" });
   const total = lossTotal(p.losses);
-  const waiting = p.losses.filter((l) => l.status === "pending").length;
 
   const save = () =>
     start(async () => {
@@ -607,10 +587,10 @@ function LossSection(p: P) {
 
   return (
     <>
-      <h2 className="section-title">
-        ロス（廃棄・まかない）{p.losses.length}件・{fmtYen(total)}
-        {waiting ? <span className="micro">　うち読み取り待ち {waiting}</span> : null}
-      </h2>
+      <div className="list-head">
+        <h2 className="section-title">🗑 ロス {p.losses.length}件</h2>
+        <span className="list-head__sum">{fmtYen(total)}</span>
+      </div>
       <ul className="cost-list">
         {p.losses.map((l) => (
           <LossRow key={l.id} l={l} photoUrl={l.photo_path ? p.photos[l.photo_path] : undefined} canWrite={p.canWrite} />
@@ -634,7 +614,7 @@ function LossSection(p: P) {
           </section>
         ) : (
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => setOpen(true)}>
-            ＋ 写真なしで手で記録
+            ✏️ 写真なしで記録
           </button>
         )
       ) : null}
@@ -694,76 +674,88 @@ function LossRow({ l, photoUrl, canWrite }: { l: Loss; photoUrl?: string; canWri
     run(() => updateLoss({ id: l.id, item: edit.item, amount_ex: amount, reason: edit.reason, memo: edit.memo }));
   };
 
+  const openEdit = () =>
+    setEdit({
+      item: status === "pending" || l.item === "（読み取れず）" ? "" : (l.item ?? ""),
+      amount: l.amount_ex != null && status !== "pending" ? String(l.amount_ex) : "",
+      reason: l.reason ?? "expired",
+      memo: l.memo ?? "",
+    });
+
   return (
     <li className={`cost-row cost-row--${status}`}>
       <div className="cost-row__main">
         <span className="cost-row__date">{md(l.biz_date)}</span>
-        <span className="cost-row__vendor">
+        <span className="cost-row__vendor cost-row__vendor--one">
+          {status === "pending" ? "📷 " : ""}
           {name}
-          {l.reason && status !== "pending" ? <span className="micro">　{LOSS_REASON_LABEL[l.reason]}</span> : null}
-          {status !== "confirmed" ? <span className={`cost-pill cost-pill--${status}`}>{STATUS_LABEL[status]}</span> : null}
         </span>
-        <span className="cost-row__amt">{status === "pending" || l.amount_ex == null ? "—" : fmtYen(l.amount_ex)}</span>
+        <span className="cost-row__amt">
+          {status === "pending" || l.amount_ex == null ? <span className="cost-row__wait">明朝AI</span> : fmtYen(l.amount_ex)}
+          {status === "confirmed" ? <span className="cost-row__ok" aria-label="確認済み">✓</span> : null}
+        </span>
       </div>
-      {l.memo ? <div className="micro">{l.memo}</div> : null}
-      {status === "pending" ? <div className="micro">明朝AIが品名と金額の目安を入れます。</div> : null}
-      {status === "unconfirmed" && l.ai_note ? <div className="micro cost-row__note">AIから：{l.ai_note}</div> : null}
+      <div className="cost-row__line">
+        <div className="cat-chips">
+          {l.reason && status !== "pending" ? <span className="cat-chip cat-chip--loss">{LOSS_REASON_LABEL[l.reason]}</span> : null}
+          {l.memo && l.memo !== l.item ? <span className="micro">{l.memo}</span> : null}
+        </div>
+        {canWrite && !edit && status !== "unconfirmed" ? (
+          <span className="icon-acts">
+            {photoUrl ? (
+              <a className="icon-btn" href={photoUrl} target="_blank" rel="noreferrer" aria-label="写真を見る">
+                🖼
+              </a>
+            ) : null}
+            <button type="button" className="icon-btn" onClick={openEdit} aria-label={status === "pending" ? "手で入れる" : "直す"}>
+              ✏️
+            </button>
+          </span>
+        ) : null}
+      </div>
+      {status === "unconfirmed" && l.ai_note ? <p className="cost-row__ai">💬 {l.ai_note}</p> : null}
       {edit ? (
         <div className="stack">
           <LossFields f={edit} setF={(x) => setEdit({ ...edit, ...x })} />
-          <div className="row">
+          <div className="fix__acts">
             <button type="button" className="btn btn-sm btn-primary" disabled={pending} onClick={saveEdit}>
               保存
             </button>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit(null)}>
-              閉じる
-            </button>
-          </div>
-        </div>
-      ) : null}
-      <div className="row" style={{ gap: "1rem" }}>
-        {photoUrl ? (
-          <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
-            写真
-          </a>
-        ) : null}
-        {canWrite ? (
-          <>
-            {status === "unconfirmed" ? (
-              <button type="button" className="btn btn-primary btn-sm confirm-btn" disabled={pending} onClick={() => run(() => confirmLoss(l.id))}>
-                ✓ 合っている（確認した）
-              </button>
-            ) : null}
-            {!edit ? (
-              <button
-                type="button"
-                className="linklike"
-                onClick={() =>
-                  setEdit({
-                    item: status === "pending" || l.item === "（読み取れず）" ? "" : (l.item ?? ""),
-                    amount: l.amount_ex != null && status !== "pending" ? String(l.amount_ex) : "",
-                    reason: l.reason ?? "expired",
-                    memo: l.memo ?? "",
-                  })
-                }
-              >
-                {status === "pending" ? "手で入れる" : "直す"}
-              </button>
-            ) : null}
             <button
               type="button"
-              className="linklike"
+              className="btn btn-sm btn-danger"
               disabled={pending}
               onClick={() => {
                 if (!window.confirm(`${name} の記録を消しますか？`)) return;
                 run(() => deleteLoss(l.id));
               }}
             >
-              消す
+              🗑 消す
             </button>
-          </>
-        ) : null}
-      </div>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEdit(null)}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      ) : canWrite && status === "unconfirmed" ? (
+        <div className="cost-row__acts">
+          <button type="button" className="btn btn-primary ok-btn" disabled={pending} onClick={() => run(() => confirmLoss(l.id))}>
+            ✓ OK
+          </button>
+          <button type="button" className="btn" onClick={openEdit}>
+            ✏️ 直す
+          </button>
+          {photoUrl ? (
+            <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer" aria-label="写真を見る">
+              🖼
+            </a>
+          ) : null}
+        </div>
+      ) : !canWrite && photoUrl ? (
+        <a className="linklike micro" href={photoUrl} target="_blank" rel="noreferrer">
+          🖼 写真
+        </a>
+      ) : null}
       {err ? <p className="err">{err}</p> : null}
     </li>
   );

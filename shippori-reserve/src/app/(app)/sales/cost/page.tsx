@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDateShort, fmtMonthJa, fmtYm, monthRange, shiftDate, shiftMonth, todayBizDate } from "@/lib/time";
 import CostPanels from "./CostPanels";
 import ReaderSetup from "./ReaderSetup";
-import LossCapture from "./LossCapture";
 
 export const dynamic = "force-dynamic";
 
@@ -92,123 +91,126 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
       </header>
 
       <div className="wrap stack">
-        {/* 仕入の書類を上げる枠は下の方にあるので、上から飛べるようにする（事務の方が迷った・2026-11-09） */}
-        {canWrite ? (
-          <a href="#upload" className="btn btn-primary btn-block">
-            📷 納品書・レシート・PDFを上げる ↓
-          </a>
-        ) : null}
-        {canLoss && isCurrent ? <LossCapture /> : null}
-
-        <section className="card cost-sum" aria-label="原価率">
-          <div className="cost-sum__head">
-            <span className="cost-sum__label">原価率（棚卸の間ごと）</span>
-            {weeks[0]?.ratio != null ? (
-              <span className="cost-sum__big">{weeks[0].ratio.toFixed(1)}%</span>
-            ) : (
-              <span className="cost-sum__none">まだ出せません</span>
-            )}
-          </div>
-          {weeks.length === 0 ? (
-            <p className="micro">
-              確定した棚卸が2回そろうと、その間の原価率が出ます（毎週日曜に数えると、1週間ごと）。
-              {doneCount === 1 ? "　いま確定した棚卸は1回です。次の日曜で出ます。" : ""}
-            </p>
-          ) : (
-            <ul className="cost-list" aria-label="区間ごとの原価率">
-              {weeks.map((w) => (
-                <WeekRow key={w.from} w={w} />
-              ))}
-            </ul>
-          )}
-          {monthSpan?.ratio != null ? (
-            <p className="micro">
-              この月のまとめ（{fmtSpan(monthSpan.from, monthSpan.to)}）：<strong>{monthSpan.ratio.toFixed(1)}%</strong>
-              　消耗品も入れると {monthSpan.ratioWithSupplies?.toFixed(1)}%
-            </p>
-          ) : null}
-          {now?.purchaseRatio != null ? (
-            <p className="micro">
-              今週（{fmtSpan(now.from, now.to)}）の目安：仕入÷売上＝{now.purchaseRatio.toFixed(1)}%（次の棚卸で原価率になります）
-            </p>
-          ) : null}
-        </section>
-
-        <Link className="btn btn-block" href={draft ? `/sales/cost/stock?d=${draft.as_of}` : "/sales/cost/stock"}>
-          {draft ? `棚卸（数えている途中：${fmtDateShort(draft.counted_on)} ${TIMING_LABEL[draft.timing]}）` : "棚卸（毎週日曜）"} ›
-        </Link>
-
-        <section className="card cost-sum" aria-label="この月の仕入">
-          <div className="cost-sum__head">
-            <span className="cost-sum__label">{fmtMonthJa(`${ym}-01`)}の仕入（税抜）</span>
-          </div>
-          <dl className="kv cost-kv">
-            <dt>売上（税抜）</dt>
-            <dd>
-              {mc.salesEx != null ? fmtYen(mc.salesEx) : "—"}
-              <span className="micro">　{mc.salesDays}日分</span>
-            </dd>
-            <dt>仕入 食材</dt>
-            <dd>{fmtYen(mc.food)}</dd>
-            <dt>仕入 酒・飲料</dt>
-            <dd>{fmtYen(mc.drink)}</dd>
-            <dt>消耗品</dt>
-            <dd>{fmtYen(mc.supplies)}</dd>
-            {mc.other ? (
-              <>
-                <dt>その他</dt>
-                <dd>{fmtYen(mc.other)}</dd>
-              </>
-            ) : null}
-            <dt>ロス（廃棄・まかない）</dt>
-            <dd>
-              {fmtYen(lossEx)}
-              <span className="micro">　{losses.length}件</span>
-            </dd>
-            <dt>目安：仕入÷売上</dt>
-            <dd>{mc.purchaseRatio != null ? `${mc.purchaseRatio.toFixed(1)}%` : "—"}</dd>
-          </dl>
-          <p className="micro">
-            金額はすべて税抜（税理士の月次報告と同じ物差し）。目安は在庫の増減を入れていない数字です。
-            {mc.prorated ? "月締めの請求書は、対象の期間で日割りしています。" : ""}
-          </p>
-        </section>
-
-        {pendingAll || unconfirmedAll || lossPending || lossUnconfirmed ? (
-          <section className="notice" aria-label="読み取りの状況">
-            {pendingAll ? <p>📷 読み取り待ち {pendingAll}枚（明朝AIが読みます。読むまでは原価に入りません）</p> : null}
-            {unconfirmedAll ? <p>✓ 未確認 {unconfirmedAll}件（原価には入っています。写真と見比べて「確認した」を）</p> : null}
-            {lossPending ? <p>🗑 ロスの読み取り待ち {lossPending}枚（明朝AIが品名と金額の目安を入れます）</p> : null}
-            {lossUnconfirmed ? <p>🗑 ロスの未確認 {lossUnconfirmed}件（写真と見比べて「確認した」か「直す」を）</p> : null}
-          </section>
-        ) : null}
-
-        {warnings.length > 0 ? (
-          <section className="notice notice-strong" aria-label="二重のおそれ">
-            {warnings.map((w) => (
-              <p key={w.text}>⚠ {w.text}</p>
-            ))}
-          </section>
-        ) : null}
-
         <CostPanels
           ym={ym}
           today={today}
           canWrite={canWrite}
+          lossOn={canLoss && isCurrent}
           purchases={purchases}
           losses={losses}
           photos={photos}
           warnIds={warnings.flatMap((w) => w.ids)}
+          summary={
+            <>
+              <section className="card cost-hero" aria-label="原価率">
+                <div className="cost-hero__nums">
+                  <div>
+                    <div className="cost-hero__label">原価率</div>
+                    <div className="cost-hero__big">{weeks[0]?.ratio != null ? `${weeks[0].ratio.toFixed(1)}%` : "—"}</div>
+                    <div className="cost-hero__sub">
+                      {weeks[0] ? fmtSpan(weeks[0].from, weeks[0].to) : doneCount === 1 ? "次の棚卸で出ます" : "棚卸2回で出ます"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="cost-hero__label">今月 仕入÷売上</div>
+                    <div className="cost-hero__mid">{mc.purchaseRatio != null ? `${mc.purchaseRatio.toFixed(1)}%` : "—"}</div>
+                    <div className="cost-hero__sub">売上 {mc.salesEx != null ? fmtYen(mc.salesEx) : "—"}</div>
+                  </div>
+                </div>
+                <CostBar
+                  parts={[
+                    { key: "food", label: "食材", v: mc.food },
+                    { key: "drink", label: "酒・飲料", v: mc.drink },
+                    { key: "supplies", label: "消耗品", v: mc.supplies },
+                    { key: "other", label: "その他", v: mc.other },
+                    { key: "loss", label: "ロス", v: lossEx },
+                  ]}
+                />
+                {weeks.length || now?.purchaseRatio != null ? (
+                  <details className="cost-more">
+                    <summary>週ごと</summary>
+                    <ul className="cost-list">
+                      {weeks.map((w) => (
+                        <WeekRow key={w.from} w={w} />
+                      ))}
+                    </ul>
+                    {monthSpan?.ratio != null ? (
+                      <p className="micro">
+                        月まとめ {fmtSpan(monthSpan.from, monthSpan.to)}：<strong>{monthSpan.ratio.toFixed(1)}%</strong>（消耗品込み {monthSpan.ratioWithSupplies?.toFixed(1)}%）
+                      </p>
+                    ) : null}
+                    {now?.purchaseRatio != null ? (
+                      <p className="micro">
+                        今週 {fmtSpan(now.from, now.to)}：仕入÷売上 {now.purchaseRatio.toFixed(1)}%
+                      </p>
+                    ) : null}
+                  </details>
+                ) : null}
+                <p className="cost-hero__foot">税抜{mc.prorated ? "・請求書は日割り" : ""}</p>
+              </section>
+
+              <Link className="btn btn-block" href={draft ? `/sales/cost/stock?d=${draft.as_of}` : "/sales/cost/stock"}>
+                📋 {draft ? `棚卸（途中：${fmtDateShort(draft.counted_on)} ${TIMING_LABEL[draft.timing]}）` : "棚卸（毎週日曜）"} ›
+              </Link>
+
+              {pendingAll || unconfirmedAll || lossPending || lossUnconfirmed ? (
+                <div className="cost-badges" aria-label="状況">
+                  {unconfirmedAll ? <span className="cost-badge cost-badge--warn">✓ 未確認 {unconfirmedAll}</span> : null}
+                  {pendingAll ? <span className="cost-badge">📷 読み取り待ち {pendingAll}</span> : null}
+                  {lossUnconfirmed ? <span className="cost-badge cost-badge--warn">🗑 ロス未確認 {lossUnconfirmed}</span> : null}
+                  {lossPending ? <span className="cost-badge">🗑 ロス読み取り待ち {lossPending}</span> : null}
+                </div>
+              ) : null}
+
+              {warnings.length > 0 ? (
+                <section className="notice notice-strong" aria-label="二重のおそれ">
+                  {warnings.map((w) => (
+                    <p key={w.text}>⚠ {w.text}</p>
+                  ))}
+                </section>
+              ) : null}
+            </>
+          }
         />
 
-        <section className="notice micro">
-          使い方：<strong>納品書とレシートを毎日撮る</strong>（撮るだけ）。毎朝AIがまとめて読み、未確認として並びます。
-          請求書は撮らずに、月初に納品書と紙で突き合わせる（両方入れると二重になり、上に⚠が出ます）。
-          納品書が無い月締めの業者だけ、請求書を撮ってください。
-        </section>
+        <details className="card cost-more">
+          <summary>❓ 使い方</summary>
+          <ul className="howto">
+            <li>📷 納品書・レシートを毎日撮る（撮るだけ）</li>
+            <li>🤖 毎朝AIが読んで、未確認として並ぶ</li>
+            <li>✓ 写真と見比べて OK を押す</li>
+            <li>🗑 捨てた物・まかないも撮る</li>
+            <li>📄 請求書は、納品書が無い業者だけ（両方入れると⚠）</li>
+          </ul>
+        </details>
 
         {me.role === "owner" ? <ReaderSetup issuedAt={reader?.created_at ?? null} lastUsedAt={reader?.last_used_at ?? null} /> : null}
         <div style={{ height: "2rem" }} />
+      </div>
+    </>
+  );
+}
+
+/** 仕入とロスの内訳を1本の帯で（色は区分の色） */
+function CostBar({ parts }: { parts: { key: string; label: string; v: number }[] }) {
+  const shown = parts.filter((x) => x.v > 0);
+  const sum = shown.reduce((a, x) => a + x.v, 0);
+  if (sum === 0) return <p className="micro">今月の仕入はまだありません</p>;
+  return (
+    <>
+      <div className="cost-bar" aria-hidden>
+        {shown.map((x) => (
+          <span key={x.key} className={`cost-bar__seg cost-bar__seg--${x.key}`} style={{ flexGrow: x.v }} />
+        ))}
+      </div>
+      <div className="cat-chips">
+        {shown.map((x) => (
+          <span key={x.key} className={`cat-chip cat-chip--${x.key}`}>
+            {x.label}
+            <strong>{fmtYen(x.v)}</strong>
+            <span className="cat-chip__kind">{x.key === "food" || x.key === "drink" ? "原価" : x.key === "loss" ? "" : "経費"}</span>
+          </span>
+        ))}
       </div>
     </>
   );
