@@ -233,7 +233,7 @@ function Capture(p: P & { onManual: () => void }) {
   };
 
   return (
-    <section className="card stack" aria-label="仕入を入れる">
+    <section className="card stack" aria-label="仕入を入れる" id="upload" style={{ scrollMarginTop: "4rem" }}>
       <button type="button" className="btn btn-primary btn-block" disabled={!!busy} onClick={() => cam.current?.click()}>
         {busy ?? "📷 納品書・レシートを撮る"}
       </button>

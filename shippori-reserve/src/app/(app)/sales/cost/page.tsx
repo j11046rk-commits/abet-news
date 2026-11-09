@@ -92,6 +92,12 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
       </header>
 
       <div className="wrap stack">
+        {/* 仕入の書類を上げる枠は下の方にあるので、上から飛べるようにする（事務の方が迷った・2026-11-09） */}
+        {canWrite ? (
+          <a href="#upload" className="btn btn-primary btn-block">
+            📷 納品書・レシート・PDFを上げる ↓
+          </a>
+        ) : null}
         {canLoss && isCurrent ? <LossCapture /> : null}
 
         <section className="card cost-sum" aria-label="原価率">
