@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
   // 取り込みに失敗しても連携自体は済んでいる（毎朝の定期実行で取り直す）
   try {
     const today = todayBizDate();
-    await syncLabor(shiftDate(today, -90), shiftDate(today, -1));
+    // ここでは直近14日だけ（90日まとめて取ると時間切れになった・2026-11-09）。古い分は毎朝の取り込み（40日）で埋まる
+    await syncLabor(shiftDate(today, -14), shiftDate(today, -1));
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("freee_initial_sync_failed", msg);

@@ -261,22 +261,28 @@ export async function syncLabor(from: string, to: string): Promise<{ days: numbe
     const months: string[] = [];
     for (let ym = from.slice(0, 7); ym <= addMonth(to.slice(0, 7), 2); ym = addMonth(ym, 1)) months.push(ym);
 
-    const perEmployee: FreeeWorkRecord[][] = [];
-    for (const e of employees) {
-      const records: FreeeWorkRecord[] = [];
-      for (const ym of months) {
-        const [y, m] = ym.split("-");
-        try {
-          const s = await apiGet<{ work_records?: FreeeWorkRecord[] }>(
-            `/employees/${e.id}/work_record_summaries/${y}/${Number(m)}?company_id=${companyId}&work_records=true`,
-            token,
-          );
-          records.push(...(s.work_records ?? []));
-        } catch {
-          // その月にまだ勤怠が無い・対象外の従業員は飛ばす
-        }
-      }
-      perEmployee.push(records);
+    // 従業員ごとの勤怠。数人ずつ並べて引く（1人ずつ順番だと、許可した直後の取り込みが時間切れになった・2026-11-09）
+    const perEmployee: FreeeWorkRecord[][] = employees.map(() => []);
+    const BATCH = 4;
+    for (let i = 0; i < employees.length; i += BATCH) {
+      await Promise.all(
+        employees.slice(i, i + BATCH).map(async (e, j) => {
+          const records: FreeeWorkRecord[] = [];
+          for (const ym of months) {
+            const [y, m] = ym.split("-");
+            try {
+              const s = await apiGet<{ work_records?: FreeeWorkRecord[] }>(
+                `/employees/${e.id}/work_record_summaries/${y}/${Number(m)}?company_id=${companyId}&work_records=true`,
+                token,
+              );
+              records.push(...(s.work_records ?? []));
+            } catch {
+              // その月にまだ勤怠が無い・対象外の従業員は飛ばす
+            }
+          }
+          perEmployee[i + j] = records;
+        }),
+      );
     }
 
     const sums = sumByDate(perEmployee, from, to);
@@ -354,6 +360,7 @@ type Statement = {
   is_board_member?: boolean | null;
   fixed?: boolean | null;
   closing_date?: string | null;
+  variable_pay_closing_date?: string | null;
   pay_date?: string | null;
   gross_payment_amount?: string | null;
   total_deduction_employer_share?: string | null;
@@ -473,7 +480,9 @@ async function syncLaborCost(
   const byMonth = new Map<string, Statement[]>();
   for (const s of statements) {
     if (!s.fixed) continue;
-    const ym = (s.closing_date ?? s.pay_date ?? "").slice(0, 7);
+    // 働いた月＝変動給（時給・残業など）の締め日の月。固定給の締め日は支払いの月と同じで、時給の人だと1か月ずれる
+    // （2026-11-09：11月払いの明細＝10月に働いた分が「11月」に入っていた）
+    const ym = (s.variable_pay_closing_date ?? s.closing_date ?? s.pay_date ?? "").slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
     byMonth.set(ym, [...(byMonth.get(ym) ?? []), s]);
   }
