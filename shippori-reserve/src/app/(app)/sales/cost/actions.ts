@@ -334,7 +334,16 @@ export async function deleteLoss(id: string): Promise<CResult> {
 
 // ── 棚卸 ─────────────────────────────────────────────────────
 
-export type ItemInput = { id?: string; name: string; unit: string; unit_price: number; category: "food" | "drink"; active?: boolean };
+export type ItemInput = {
+  id?: string;
+  name: string;
+  unit: string;
+  unit_price: number;
+  category: "food" | "drink";
+  active?: boolean;
+  /** 置いている場所。undefined＝変えない、null＝場所なし */
+  location_id?: string | null;
+};
 
 export async function saveStockItem(input: ItemInput): Promise<CResult> {
   if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
@@ -349,6 +358,7 @@ export async function saveStockItem(input: ItemInput): Promise<CResult> {
     unit_price: input.unit_price,
     category: input.category === "drink" ? "drink" : "food",
     ...(input.active === undefined ? {} : { active: input.active }),
+    ...(input.location_id === undefined ? {} : { location_id: input.location_id }),
   };
   const supabase = await createClient();
   if (input.id) {
@@ -357,7 +367,9 @@ export async function saveStockItem(input: ItemInput): Promise<CResult> {
     done();
     return { ok: true, id: input.id };
   }
-  const { data: last } = await supabase.from("cost_stock_items").select("sort").order("sort", { ascending: false }).limit(1).maybeSingle();
+  // 新しい品目は、その場所のいちばん後ろへ
+  const lastQ = supabase.from("cost_stock_items").select("sort").order("sort", { ascending: false }).limit(1);
+  const { data: last } = await (input.location_id ? lastQ.eq("location_id", input.location_id) : lastQ.is("location_id", null)).maybeSingle();
   const { data, error } = await supabase
     .from("cost_stock_items")
     .insert({ ...row, sort: ((last?.sort as number | undefined) ?? 0) + 10 })
@@ -366,6 +378,77 @@ export async function saveStockItem(input: ItemInput): Promise<CResult> {
   if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
   done();
   return { ok: true, id: data.id as string };
+}
+
+// ── 棚卸の場所と並び順（店長が使いやすい順に・店主指示 2026-11-09）──────────────
+
+/** 場所を足す・名前を変える */
+export async function saveStockLocation(input: { id?: string; name: string }): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const name = input.name.trim().slice(0, 30);
+  if (!name) return { ok: false, error: "場所の名前を入れてください。" };
+  const supabase = await createClient();
+  if (input.id) {
+    const { error } = await supabase.from("cost_stock_locations").update({ name }).eq("id", input.id);
+    if (error) return { ok: false, error: error.code === "23505" ? "同じ名前の場所があります。" : dbErr(error.message, "保存できませんでした。") };
+  } else {
+    const { data: last } = await supabase.from("cost_stock_locations").select("sort").order("sort", { ascending: false }).limit(1).maybeSingle();
+    const { error } = await supabase.from("cost_stock_locations").insert({ name, sort: ((last?.sort as number | undefined) ?? 0) + 10 });
+    if (error) return { ok: false, error: error.code === "23505" ? "同じ名前の場所があります。" : dbErr(error.message, "保存できませんでした。") };
+  }
+  done();
+  return { ok: true };
+}
+
+/** 場所を消す（品目は消さずに「場所なし」へ） */
+export async function deleteStockLocation(id: string): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("cost_stock_locations").delete().eq("id", id);
+  if (error) return { ok: false, error: dbErr(error.message, "消せませんでした。") };
+  done();
+  return { ok: true };
+}
+
+/** 並べ直す：ids の順に 10, 20, 30… を振る */
+async function renumber(table: "cost_stock_locations" | "cost_stock_items", ids: string[]): Promise<CResult> {
+  const supabase = await createClient();
+  for (const [i, id] of ids.entries()) {
+    const { error } = await supabase.from(table).update({ sort: (i + 1) * 10 }).eq("id", id);
+    if (error) return { ok: false, error: dbErr(error.message, "並べ替えられませんでした。") };
+  }
+  done();
+  return { ok: true };
+}
+
+const moved = (ids: string[], id: string, dir: -1 | 1): string[] | null => {
+  const i = ids.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return null;
+  const next = [...ids];
+  [next[i], next[j]] = [next[j]!, next[i]!];
+  return next;
+};
+
+/** 場所を1つ上・下へ */
+export async function moveStockLocation(id: string, dir: -1 | 1): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const supabase = await createClient();
+  const { data } = await supabase.from("cost_stock_locations").select("id").order("sort").order("created_at");
+  const next = moved((data ?? []).map((r) => r.id as string), id, dir);
+  return next ? renumber("cost_stock_locations", next) : { ok: true };
+}
+
+/** 品目を、同じ場所の中で1つ上・下へ */
+export async function moveStockItem(id: string, dir: -1 | 1): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const supabase = await createClient();
+  const { data: me } = await supabase.from("cost_stock_items").select("location_id").eq("id", id).maybeSingle();
+  if (!me) return { ok: false, error: "品目が見つかりません。" };
+  const q = supabase.from("cost_stock_items").select("id").order("sort").order("created_at");
+  const { data } = await (me.location_id ? q.eq("location_id", me.location_id as string) : q.is("location_id", null));
+  const next = moved((data ?? []).map((r) => r.id as string), id, dir);
+  return next ? renumber("cost_stock_items", next) : { ok: true };
 }
 
 /**

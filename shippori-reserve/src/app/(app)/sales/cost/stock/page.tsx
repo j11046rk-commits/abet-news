@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { fmtYen } from "@/lib/sales";
 import { lastSunday, TIMING_LABEL } from "@/lib/cost";
-import { getStockCounts, getStockItems, getStocktakes } from "@/lib/cost-data";
+import { getStockCounts, getStockItems, getStockLocations, getStocktakes } from "@/lib/cost-data";
 import { fmtDateShort, shiftDate, todayBizDate } from "@/lib/time";
 import StockSheet from "./StockSheet";
 import StockStart from "./StockStart";
@@ -18,7 +18,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  *   ?d=as_of … その棚卸の数を入れる。品目と単価は引き継ぐので、毎回は「数」を入れるだけ
  * 空欄＝数えていない（0とは別）。確定した在庫額が、次の区間の始めの在庫になる。
  */
-export default async function StockPage({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
+export default async function StockPage({ searchParams }: { searchParams: Promise<{ d?: string; items?: string }> }) {
   const me = await requirePermission("cost.read");
   const sp = await searchParams;
   const today = todayBizDate();
@@ -43,6 +43,29 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
     </header>
   );
 
+  // 数えずに、品目と場所の並び替え・編集だけ（最初の棚卸の前の準備・店長が使いやすい順に）
+  if (sp.items === "1" && canWrite) {
+    const [items, locations] = await Promise.all([getStockItems(), getStockLocations()]);
+    return (
+      <>
+        {header("品目と場所", "並び替え・場所ごとに分ける", "/sales/cost/stock")}
+        <StockSheet
+          asOf=""
+          locations={locations}
+          canWrite={canWrite}
+          items={items}
+          counts={[]}
+          prevQty={{}}
+          status={null}
+          total={null}
+          prevTotal={null}
+          prevLabel={null}
+          itemsOnly
+        />
+      </>
+    );
+  }
+
   if (!cur) {
     const draft = stocks.find((s) => s.status === "draft") ?? null;
     return (
@@ -56,6 +79,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             </Link>
           ) : null}
           {canWrite ? <StockStart defaultDate={lastSunday(today)} today={today} /> : null}
+          {canWrite ? (
+            <Link className="btn btn-block" href="/sales/cost/stock?items=1">
+              品目と場所の編集（並び替え・場所ごとに分ける）›
+            </Link>
+          ) : null}
           <section className="card" aria-label="これまでの棚卸">
             <h2 className="section-title">これまでの棚卸</h2>
             {stocks.length === 0 ? (
@@ -86,10 +114,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
 
   // 前回＝この棚卸より前の、確定した棚卸
   const prev = stocks.find((s) => s.as_of < cur.as_of && s.status === "done") ?? null;
-  const [items, counts, prevCounts] = await Promise.all([
+  const [items, counts, prevCounts, locations] = await Promise.all([
     getStockItems(),
     getStockCounts(cur.as_of),
     prev ? getStockCounts(prev.as_of) : Promise.resolve([]),
+    getStockLocations(),
   ]);
 
   return (
@@ -97,6 +126,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
       {header(`${fmtDateShort(cur.counted_on)} ${TIMING_LABEL[cur.timing]}の棚卸`, `${fmtDateShort(cur.as_of)}の営業までの在庫`, "/sales/cost/stock")}
       <StockSheet
         asOf={cur.as_of}
+        locations={locations}
         canWrite={canWrite}
         items={items}
         counts={counts}

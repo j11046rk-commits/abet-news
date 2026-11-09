@@ -35,7 +35,19 @@ export type StockItem = {
   category: "food" | "drink";
   sort: number;
   active: boolean;
+  /** 置いている場所（cost_stock_locations）。null＝場所なし */
+  location_id: string | null;
 };
+
+/** 棚卸の場所（冷蔵庫①・乾物の棚など）。sort の順に並べる */
+export type StockLocation = { id: string; name: string; sort: number };
+
+export async function getStockLocations(): Promise<StockLocation[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("cost_stock_locations").select("id, name, sort").order("sort").order("created_at");
+  if (error) console.error("[cost] locations", error.message);
+  return (data ?? []) as StockLocation[];
+}
 
 export type StockCount = { item_id: string; qty: number; unit_price: number };
 
@@ -100,7 +112,7 @@ export async function getStockItems(): Promise<StockItem[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cost_stock_items")
-    .select("id, name, unit, unit_price, category, sort, active")
+    .select("id, name, unit, unit_price, category, sort, active, location_id")
     .order("sort")
     .order("created_at");
   if (error) console.error("[cost] items", error.message);

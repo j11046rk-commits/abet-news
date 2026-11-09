@@ -62,6 +62,7 @@ const TABLES = [
   "haccp_temp_readings",
   "cost_purchases",
   "cost_stock_items",
+  "cost_stock_locations",
   "cost_stocktakes",
   "cost_stock_counts",
   "cost_losses",
