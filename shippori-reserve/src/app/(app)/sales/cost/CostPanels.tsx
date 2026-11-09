@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { shrinkImage } from "@/lib/image";
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +29,7 @@ import {
   confirmPurchase,
   deleteLoss,
   deletePurchase,
+  moveCategory,
   pdfUploadTicket,
   savePurchase,
   updateLoss,
@@ -112,7 +113,7 @@ export default function CostPanels(p: P) {
   return (
     <>
       {p.canWrite ? (
-        form ? (
+        form && !form.id ? (
           <PurchaseForm
             key={form.id ?? "new"}
             init={form}
@@ -140,19 +141,22 @@ export default function CostPanels(p: P) {
       ) : null}
       {p.purchases.length === 0 ? <p className="micro">この月の仕入はまだありません。</p> : null}
       <ul className="cost-list">
-        {p.purchases.filter((x) => !onlyUnconfirmed || x.status === "unconfirmed").map((x) => (
-          <PurchaseRow
-            key={x.id}
-            p={x}
-            warn={p.warnIds.includes(x.id)}
-            photoUrl={x.photo_path ? p.photos[x.photo_path] : undefined}
-            canWrite={p.canWrite}
-            onEdit={() => {
-              setForm(fromRow(x));
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-          />
-        ))}
+        {p.purchases.filter((x) => !onlyUnconfirmed || x.status === "unconfirmed").map((x) =>
+          form?.id === x.id ? (
+            <li key={x.id}>
+              <PurchaseForm init={form} photoUrl={x.photo_path ? p.photos[x.photo_path] : undefined} onClose={() => setForm(null)} />
+            </li>
+          ) : (
+            <PurchaseRow
+              key={x.id}
+              p={x}
+              warn={p.warnIds.includes(x.id)}
+              photoUrl={x.photo_path ? p.photos[x.photo_path] : undefined}
+              canWrite={p.canWrite}
+              onEdit={() => setForm(fromRow(x))}
+            />
+          ),
+        )}
       </ul>
 
       <LossSection {...p} />
@@ -281,6 +285,11 @@ function PurchaseForm({ init, photoUrl, onClose }: { init: FormState; photoUrl?:
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const localUrl = photoUrl;
+  // 一覧の行の場所で開く。開いた欄の頭が見えるように合わせる（ページの上には飛ばない）
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (init.id) box.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [init.id]);
 
   const amounts = Object.fromEntries(CATS.map((c) => [c, toYen(f.amounts[c])])) as Record<CostCategory, number | null>;
   const totalIn = f.total_in.trim() === "" ? null : toYen(f.total_in);
@@ -322,7 +331,7 @@ function PurchaseForm({ init, photoUrl, onClose }: { init: FormState; photoUrl?:
 
 
   return (
-    <section className="card stack cost-form" aria-label="仕入の確認">
+    <section ref={box} className="card stack cost-form" aria-label="仕入の確認" style={{ scrollMarginTop: "5rem" }}>
       <h2 className="section-title">{f.id ? "仕入を直す" : "仕入を手で入れる"}</h2>
       {f.note ? <p className="notice notice-strong micro">AIからの確認：{f.note}</p> : null}
       {localUrl && isPdfPath(f.photo_path) ? (
@@ -405,24 +414,59 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const parts = CATS.filter((c) => p[`${c}_ex` as const] !== 0).map((c) => `${CATEGORY_LABEL[c]} ${fmtYen(p[`${c}_ex` as const])}`);
+  const [fixing, setFixing] = useState(false);
   const status = p.status ?? "confirmed";
   const name = p.vendor ?? "撮った写真";
+  const used = CATS.filter((c) => p[`${c}_ex` as const] !== 0);
+  const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
+    start(async () => {
+      setErr(null);
+      const r = await fn();
+      if (!r.ok) setErr(r.error ?? "保存できませんでした。");
+      else {
+        setFixing(false);
+        router.refresh();
+      }
+    });
   const del = () => {
-    if (!window.confirm(`${name}（${md(p.book_date)}）を消しますか？写真も消えます。`)) return;
-    start(async () => {
-      const r = await deletePurchase(p.id);
-      if (!r.ok) setErr(r.error);
-      else router.refresh();
-    });
+    if (!window.confirm(`${name}（${md(p.book_date)}）を消しますか？\n店のものではない・二重に入っている、などのときに。写真も消えます。`)) return;
+    run(() => deletePurchase(p.id));
   };
-  const confirm = () =>
-    start(async () => {
-      const r = await confirmPurchase(p.id);
-      if (!r.ok) setErr(r.error);
-      else router.refresh();
-    });
+  const confirm = () => run(() => confirmPurchase(p.id));
+  const move = (from: CostCategory, to: CostCategory) => run(() => moveCategory(p.id, from, to));
   const fromRakuten = (p.memo ?? "").startsWith("楽天 注文番号");
+  const kindOf = (c: CostCategory) => (c === "food" || c === "drink" ? "原価" : "経費");
+
+  // 区分をその場で直す：区分ごとに「→ ほかの区分」のボタン。押したら保存して確認済み
+  const fixer = fixing ? (
+    <div className="cat-fix" role="group" aria-label="区分を直す">
+      <p className="cat-fix__title">{used.length > 1 ? "直したい区分の行で、正しい区分を押してください" : "正しい区分を押してください（押すとすぐ保存）"}</p>
+      {used.map((c) => (
+        <div key={c} className="cat-fix__line">
+          <span className={`cat-chip cat-chip--${c}`}>
+            {CATEGORY_LABEL[c]}
+            <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
+          </span>
+          <span aria-hidden>→</span>
+          {CATS.filter((t) => t !== c).map((t) => (
+            <button key={t} type="button" className={`cat-chip cat-chip--${t} cat-chip--btn`} disabled={pending} onClick={() => move(c, t)} aria-label={`${CATEGORY_LABEL[c]}を${CATEGORY_LABEL[t]}にする`}>
+              {CATEGORY_LABEL[t]}
+              <span className="cat-chip__kind">{kindOf(t)}</span>
+            </button>
+          ))}
+        </div>
+      ))}
+      <div className="row" style={{ gap: "1rem", flexWrap: "wrap" }}>
+        <button type="button" className="linklike micro" onClick={() => setFixing(false)}>
+          やめる
+        </button>
+        <button type="button" className="linklike micro" onClick={onEdit}>
+          日付・金額も直す（くわしく）
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <li className={`cost-row${warn ? " cost-row--warn" : ""} cost-row--${status}`}>
       <div className="cost-row__main">
@@ -442,11 +486,11 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
         <div className="micro">明朝AIが読みます（{md(p.book_date)}に撮影）。急ぐときは「手で入れる」。</div>
       ) : (
         <div className="cat-chips" aria-label="区分">
-          {CATS.filter((c) => p[`${c}_ex` as const] !== 0).map((c) => (
+          {used.map((c) => (
             <span key={c} className={`cat-chip cat-chip--${c}`}>
               {CATEGORY_LABEL[c]}
               <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
-              <span className="cat-chip__kind">{c === "food" || c === "drink" ? "原価" : "経費"}</span>
+              <span className="cat-chip__kind">{kindOf(c)}</span>
             </span>
           ))}
         </div>
@@ -465,45 +509,62 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
           </ol>
           {p.ai_note ? <p className="micro cost-row__note">AIから：{p.ai_note}</p> : null}
           {canWrite ? (
-            <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
-              <button type="button" className="btn btn-primary confirm-btn" disabled={pending} onClick={confirm}>
-                ✓ 合っている（確認した）
-              </button>
-              <button type="button" className="btn btn-sm" onClick={onEdit}>
-                違う → 直す
-              </button>
-              {photoUrl ? (
-                <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer">
-                  {isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}
-                </a>
-              ) : null}
-            </div>
+            fixing ? (
+              fixer
+            ) : (
+              <>
+                <button type="button" className="btn btn-primary confirm-btn" disabled={pending} onClick={confirm}>
+                  ✓ 合っている（確認した）
+                </button>
+                <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+                  <button type="button" className="btn btn-sm" disabled={pending} onClick={() => setFixing(true)}>
+                    区分が違う
+                  </button>
+                  <button type="button" className="btn btn-sm btn-danger" disabled={pending} onClick={del}>
+                    🗑 消す
+                  </button>
+                  {photoUrl ? (
+                    <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer">
+                      {isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}
+                    </a>
+                  ) : null}
+                </div>
+                <button type="button" className="linklike micro" style={{ alignSelf: "flex-start" }} onClick={onEdit}>
+                  日付・金額が違うとき（くわしく直す）
+                </button>
+              </>
+            )
           ) : null}
         </div>
       ) : null}
       {p.memo && !fromRakuten ? <div className="micro">{p.memo}</div> : null}
       {status !== "unconfirmed" ? (
-        <div className="row" style={{ gap: "1rem" }}>
-          {photoUrl ? (
-            <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
-              {isPdfPath(p.photo_path) ? "PDF" : "写真"}
-            </a>
-          ) : null}
-          {canWrite ? (
-            <>
-              <button type="button" className="linklike" onClick={onEdit}>
-                {status === "pending" ? "手で入れる" : "直す"}
-              </button>
-              <button type="button" className="linklike" disabled={pending} onClick={del}>
-                消す
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : canWrite ? (
-        <button type="button" className="linklike micro" disabled={pending} onClick={del} style={{ alignSelf: "flex-start" }}>
-          消す
-        </button>
+        fixing ? (
+          fixer
+        ) : (
+          <div className="row" style={{ gap: "1rem", flexWrap: "wrap" }}>
+            {photoUrl ? (
+              <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
+                {isPdfPath(p.photo_path) ? "PDF" : "写真"}
+              </a>
+            ) : null}
+            {canWrite ? (
+              <>
+                {status === "confirmed" ? (
+                  <button type="button" className="linklike" disabled={pending} onClick={() => setFixing(true)}>
+                    区分を直す
+                  </button>
+                ) : null}
+                <button type="button" className="linklike" onClick={onEdit}>
+                  {status === "pending" ? "手で入れる" : "くわしく直す"}
+                </button>
+                <button type="button" className="linklike" disabled={pending} onClick={del}>
+                  消す
+                </button>
+              </>
+            ) : null}
+          </div>
+        )
       ) : null}
       {err ? <p className="err">{err}</p> : null}
     </li>

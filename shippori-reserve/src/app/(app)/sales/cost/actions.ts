@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/constants";
 import { todayBizDate } from "@/lib/time";
-import { asOfFor, PDF_MAX, stockTotal, type DocKind, type LossReason, type StockTiming } from "@/lib/cost";
+import { asOfFor, PDF_MAX, stockTotal, type CostCategory, type DocKind, type LossReason, type StockTiming } from "@/lib/cost";
 import { issueApiToken } from "@/lib/api-token";
 import { COST_BUCKET } from "@/lib/cost-data";
 
@@ -132,6 +132,38 @@ export async function confirmPurchase(id: string): Promise<CResult> {
   const supabase = await createClient();
   const { error } = await supabase.from("cost_purchases").update({ status: "confirmed" }).eq("id", id).eq("status", "unconfirmed");
   if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+  done();
+  return { ok: true };
+}
+
+/**
+ * 区分だけをその場で直す（ワンタッチ）。from の金額をそのまま to へ移す（合計は変わらない）。
+ * 未確認の行は、人が見て直した＝確認済みにする。読み取り待ちの行は対象外。
+ */
+export async function moveCategory(id: string, from: CostCategory, to: CostCategory): Promise<CResult> {
+  if (!(await canWrite())) return { ok: false, error: "権限がありません。" };
+  const cats: CostCategory[] = ["food", "drink", "supplies", "other"];
+  if (!cats.includes(from) || !cats.includes(to) || from === to) return { ok: false, error: "区分の指定が不正です。" };
+  const supabase = await createClient();
+  const { data: row, error: e1 } = await supabase
+    .from("cost_purchases")
+    .select("status, food_ex, drink_ex, supplies_ex, other_ex")
+    .eq("id", id)
+    .maybeSingle();
+  if (e1 || !row) return { ok: false, error: "見つかりませんでした。" };
+  if (row.status === "pending") return { ok: false, error: "読み取り待ちの行は直せません。" };
+  const amt = Number(row[`${from}_ex`]) || 0;
+  if (amt === 0) return { ok: false, error: "その区分の金額はありません。" };
+  const { data: upd, error } = await supabase
+    .from("cost_purchases")
+    .update({ [`${from}_ex`]: 0, [`${to}_ex`]: (Number(row[`${to}_ex`]) || 0) + amt, status: "confirmed" })
+    .eq("id", id)
+    // 読む間に誰かが直していたら上書きしない
+    .eq(`${from}_ex`, amt)
+    .neq("status", "pending")
+    .select("id");
+  if (error) return { ok: false, error: dbErr(error.message, "保存できませんでした。") };
+  if (!upd?.length) return { ok: false, error: "ほかの人が先に直したようです。画面を開き直してください。" };
   done();
   return { ok: true };
 }
