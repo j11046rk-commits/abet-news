@@ -108,6 +108,7 @@ const toYen = (s: string): number | null => {
 export default function CostPanels(p: P) {
   const [form, setForm] = useState<FormState | null>(null);
   const unconfirmed = p.purchases.filter((x) => x.status === "unconfirmed").length;
+  const [onlyUnconfirmed, setOnlyUnconfirmed] = useState(false);
   return (
     <>
       {p.canWrite ? (
@@ -126,9 +127,20 @@ export default function CostPanels(p: P) {
       <h2 className="section-title">
         仕入（{p.purchases.length}件{unconfirmed ? `・うち未確認 ${unconfirmed}` : ""}）
       </h2>
+      <div className="cat-chips" aria-label="区分の色">
+        <span className="cat-chip cat-chip--food">食材<span className="cat-chip__kind">原価</span></span>
+        <span className="cat-chip cat-chip--drink">酒・飲料<span className="cat-chip__kind">原価</span></span>
+        <span className="cat-chip cat-chip--supplies">消耗品<span className="cat-chip__kind">経費</span></span>
+        <span className="cat-chip cat-chip--other">その他<span className="cat-chip__kind">経費</span></span>
+      </div>
+      {unconfirmed ? (
+        <button type="button" className={`btn btn-sm${onlyUnconfirmed ? " btn-primary" : ""}`} onClick={() => setOnlyUnconfirmed(!onlyUnconfirmed)}>
+          {onlyUnconfirmed ? "すべて表示する" : `未確認だけ見る（${unconfirmed}件）`}
+        </button>
+      ) : null}
       {p.purchases.length === 0 ? <p className="micro">この月の仕入はまだありません。</p> : null}
       <ul className="cost-list">
-        {p.purchases.map((x) => (
+        {p.purchases.filter((x) => !onlyUnconfirmed || x.status === "unconfirmed").map((x) => (
           <PurchaseRow
             key={x.id}
             p={x}
@@ -404,6 +416,13 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
       else router.refresh();
     });
   };
+  const confirm = () =>
+    start(async () => {
+      const r = await confirmPurchase(p.id);
+      if (!r.ok) setErr(r.error);
+      else router.refresh();
+    });
+  const fromRakuten = (p.memo ?? "").startsWith("楽天 注文番号");
   return (
     <li className={`cost-row${warn ? " cost-row--warn" : ""} cost-row--${status}`}>
       <div className="cost-row__main">
@@ -411,53 +430,81 @@ function PurchaseRow({ p, warn, photoUrl, canWrite, onEdit }: { p: Purchase; war
         <span className="cost-row__vendor">
           {warn ? "⚠ " : ""}
           {status === "pending" ? (isPdfPath(p.photo_path) ? "送ったPDF" : "撮った写真") : p.vendor}
-          {status === "pending" ? null : <span className="micro">　{DOC_KIND_LABEL[p.doc_kind]}</span>}
-          {status !== "confirmed" ? <span className={`cost-pill cost-pill--${status}`}>{STATUS_LABEL[status]}</span> : null}
+          {status === "pending" ? null : <span className="micro">　{fromRakuten ? "楽天の注文メール" : DOC_KIND_LABEL[p.doc_kind]}</span>}
+          {status !== "confirmed" ? <span className={`cost-pill cost-pill--${status}`}>{STATUS_LABEL[status]}</span> : <span className="cost-pill cost-pill--confirmed">✓ 確認済み</span>}
         </span>
-        <span className="cost-row__amt">{status === "pending" ? "—" : fmtYen(purchaseEx(p))}</span>
+        <span className="cost-row__amt">
+          {status === "pending" ? "—" : p.total_in != null ? fmtYen(p.total_in) : fmtYen(purchaseEx(p))}
+          {status !== "pending" ? <span className="micro cost-row__amtsub">{p.total_in != null ? `税込（税抜 ${fmtYen(purchaseEx(p))}）` : "税抜"}</span> : null}
+        </span>
       </div>
       {status === "pending" ? (
         <div className="micro">明朝AIが読みます（{md(p.book_date)}に撮影）。急ぐときは「手で入れる」。</div>
       ) : (
-        <div className="micro">
-          {parts.join("・")}
-          {p.memo ? `　${p.memo}` : ""}
+        <div className="cat-chips" aria-label="区分">
+          {CATS.filter((c) => p[`${c}_ex` as const] !== 0).map((c) => (
+            <span key={c} className={`cat-chip cat-chip--${c}`}>
+              {CATEGORY_LABEL[c]}
+              <strong>{fmtYen(p[`${c}_ex` as const])}</strong>
+              <span className="cat-chip__kind">{c === "food" || c === "drink" ? "原価" : "経費"}</span>
+            </span>
+          ))}
         </div>
       )}
-      {status === "unconfirmed" && p.ai_note ? <div className="micro cost-row__note">AIから：{p.ai_note}</div> : null}
-      <div className="row" style={{ gap: "1rem" }}>
-        {photoUrl ? (
-          <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
-            {isPdfPath(p.photo_path) ? "PDF" : "写真"}
-          </a>
-        ) : null}
-        {canWrite ? (
-          <>
-            {status === "unconfirmed" ? (
-              <button
-                type="button"
-                className="linklike cost-confirm"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const r = await confirmPurchase(p.id);
-                    if (!r.ok) setErr(r.error);
-                    else router.refresh();
-                  })
-                }
-              >
-                ✓ 確認した
+      {status === "unconfirmed" ? (
+        <div className="confirm-box">
+          <p className="confirm-box__title">{photoUrl ? "写真と見比べて、次の3つが合っていればOK" : "次の3つが合っていればOK"}</p>
+          <ol className="confirm-box__list">
+            <li>
+              日付 <strong>{md(p.book_date)}</strong>・業者 <strong>{p.vendor}</strong>
+            </li>
+            <li>
+              合計 <strong>{p.total_in != null ? `${fmtYen(p.total_in)}（税込）` : `${fmtYen(purchaseEx(p))}（税抜）`}</strong>
+            </li>
+            <li>色の区分：食材・酒飲料は<strong>原価</strong>、消耗品・その他は<strong>経費</strong>に入る</li>
+          </ol>
+          {p.ai_note ? <p className="micro cost-row__note">AIから：{p.ai_note}</p> : null}
+          {canWrite ? (
+            <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+              <button type="button" className="btn btn-primary confirm-btn" disabled={pending} onClick={confirm}>
+                ✓ 合っている（確認した）
               </button>
-            ) : null}
-            <button type="button" className="linklike" onClick={onEdit}>
-              {status === "pending" ? "手で入れる" : "直す"}
-            </button>
-            <button type="button" className="linklike" disabled={pending} onClick={del}>
-              消す
-            </button>
-          </>
-        ) : null}
-      </div>
+              <button type="button" className="btn btn-sm" onClick={onEdit}>
+                違う → 直す
+              </button>
+              {photoUrl ? (
+                <a className="btn btn-sm btn-ghost" href={photoUrl} target="_blank" rel="noreferrer">
+                  {isPdfPath(p.photo_path) ? "PDFを見る" : "写真を見る"}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {p.memo && !fromRakuten ? <div className="micro">{p.memo}</div> : null}
+      {status !== "unconfirmed" ? (
+        <div className="row" style={{ gap: "1rem" }}>
+          {photoUrl ? (
+            <a className="linklike" href={photoUrl} target="_blank" rel="noreferrer">
+              {isPdfPath(p.photo_path) ? "PDF" : "写真"}
+            </a>
+          ) : null}
+          {canWrite ? (
+            <>
+              <button type="button" className="linklike" onClick={onEdit}>
+                {status === "pending" ? "手で入れる" : "直す"}
+              </button>
+              <button type="button" className="linklike" disabled={pending} onClick={del}>
+                消す
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : canWrite ? (
+        <button type="button" className="linklike micro" disabled={pending} onClick={del} style={{ alignSelf: "flex-start" }}>
+          消す
+        </button>
+      ) : null}
       {err ? <p className="err">{err}</p> : null}
     </li>
   );
@@ -622,8 +669,8 @@ function LossRow({ l, photoUrl, canWrite }: { l: Loss; photoUrl?: string; canWri
         {canWrite ? (
           <>
             {status === "unconfirmed" ? (
-              <button type="button" className="linklike cost-confirm" disabled={pending} onClick={() => run(() => confirmLoss(l.id))}>
-                ✓ 確認した
+              <button type="button" className="btn btn-primary btn-sm confirm-btn" disabled={pending} onClick={() => run(() => confirmLoss(l.id))}>
+                ✓ 合っている（確認した）
               </button>
             ) : null}
             {!edit ? (

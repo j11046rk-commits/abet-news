@@ -2972,3 +2972,19 @@ textarea.field:-webkit-autofill {
 .eval-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .eval-table th, .eval-table td { padding: 0.35rem 0.3rem; border-bottom: 1px solid var(--line); text-align: right; }
 .eval-table th:first-child, .eval-table td:first-child { text-align: left; }
+
+/* ───────────── 原価：区分の色・確認の枠（2026-11-09 店主「何を確認したらいいか分からない」） ───────────── */
+.cat-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.cat-chip { display: inline-flex; align-items: baseline; gap: 0.35rem; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.78rem; border: 1px solid currentColor; }
+.cat-chip strong { font-variant-numeric: tabular-nums; }
+.cat-chip__kind { font-size: 0.66rem; opacity: 0.8; }
+.cat-chip--food { color: #7fbf7a; background: color-mix(in srgb, #7fbf7a 12%, transparent); }
+.cat-chip--drink { color: #6fa8dc; background: color-mix(in srgb, #6fa8dc 12%, transparent); }
+.cat-chip--supplies { color: #e0a458; background: color-mix(in srgb, #e0a458 12%, transparent); }
+.cat-chip--other { color: #b0a8c0; background: color-mix(in srgb, #b0a8c0 12%, transparent); }
+.cost-row__amtsub { display: block; text-align: right; font-weight: 400; }
+.cost-pill--confirmed { color: #7fbf7a; }
+.confirm-box { border: 1px dashed var(--warn); border-radius: var(--radius); padding: 0.6rem 0.7rem; display: flex; flex-direction: column; gap: 0.4rem; background: color-mix(in srgb, var(--warn) 6%, transparent); }
+.confirm-box__title { font-weight: 600; font-size: 0.85rem; margin: 0; }
+.confirm-box__list { margin: 0; padding-left: 1.2rem; font-size: 0.82rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.confirm-btn { font-weight: 700; }
