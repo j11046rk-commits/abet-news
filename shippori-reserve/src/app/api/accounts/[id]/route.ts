@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ALL_ROLES, assignableRoles, canManage } from "@/lib/account-scope";
 import type { UserRole } from "@/lib/types";
-
-const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
 
 /** 表示名・ロール・有効/無効・オーナー直通の対象かどうかを変更する */
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -18,7 +17,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   if (typeof body?.display_name === "string" && body.display_name.trim()) {
     patch.display_name = body.display_name.trim();
   }
-  if (ROLES.includes(body?.role)) patch.role = body.role;
+  if (ALL_ROLES.includes(body?.role)) patch.role = body.role as UserRole;
   if (typeof body?.is_active === "boolean") patch.is_active = body.is_active;
   if (typeof body?.is_owner_contact === "boolean") patch.is_owner_contact = body.is_owner_contact;
 
@@ -35,6 +34,16 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   }
 
   const admin = createAdminClient();
+  // 店長はスタッフ・事務・閲覧のみの人だけ。オーナー・店長にすることもできない
+  const { data: target } = await admin.from("profiles").select("role").eq("id", id).maybeSingle();
+  if (!target) return NextResponse.json({ error: "アカウントが見つかりません。" }, { status: 404 });
+  if (!canManage(me.role, target.role as UserRole)) {
+    return NextResponse.json({ error: "オーナー・店長のアカウントはオーナーだけが変更できます。" }, { status: 403 });
+  }
+  if (patch.role !== undefined && !assignableRoles(me.role).includes(patch.role as UserRole)) {
+    return NextResponse.json({ error: "オーナー・店長にできるのはオーナーだけです。" }, { status: 403 });
+  }
+
   const { error } = await admin.from("profiles").update(patch).eq("id", id);
   if (error) return NextResponse.json({ error: "更新できませんでした。" }, { status: 400 });
 

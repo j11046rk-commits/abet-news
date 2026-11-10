@@ -128,7 +128,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionCode[]> = {
   // 原価（仕入・棚卸・ロス）：記録はオーナー・店長・事務（0065）。
   // スタッフは見ることと、ロス（廃棄・まかない）の写真を撮ることだけ（cost.loss・0073・店主指示 2026-11-09「原価タブはスタッフにも出て大丈夫」）
   owner: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "haccp.approve", "cost.read", "cost.write", "cost.loss"],
-  manager: [...ALL_PERMISSIONS.filter((p) => p !== "account.write"), "haccp.record", "haccp.manage", "cost.read", "cost.write", "cost.loss"],
+  // 店長もアカウント管理（スタッフ・事務・閲覧のみの人だけ。範囲は src/lib/account-scope.ts と 0079 の trigger・店主指示 2026-11-10）
+  manager: [...ALL_PERMISSIONS, "haccp.record", "haccp.manage", "cost.read", "cost.write", "cost.loss"],
   staff: [
     "reservation.read",
     "reservation.write",

@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ROLE_LABEL } from "@/lib/constants";
+import { assignableRoles, canManage } from "@/lib/account-scope";
 import type { Profile, UserRole } from "@/lib/types";
 
-const ROLES: UserRole[] = ["owner", "manager", "staff", "jimu", "viewer"];
 
 /**
  * 初期パスワードは発行時に1度だけ画面に出す。DBにも平文では残らない。
  * 口頭で本人に渡し、本人が初回ログインで変更する。
  */
-export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; meId: string }) {
+export default function AccountAdmin({ profiles, meId, meRole }: { profiles: Profile[]; meId: string; meRole: UserRole }) {
+  const ROLES = assignableRoles(meRole);
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<{ login_id: string; password: string } | null>(null);
@@ -185,6 +186,9 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
               {p.must_change_password ? <span className="badge badge--tentative">初回PW</span> : null}
             </div>
 
+            {!canManage(meRole, p.role) ? (
+              <p className="micro" style={{ margin: "0.5rem 0 0" }}>オーナー・店長のアカウントはオーナーが管理します</p>
+            ) : (
             <div className="chips" style={{ marginTop: "0.7rem" }}>
               <select
                 className="field"
@@ -235,6 +239,7 @@ export default function AccountAdmin({ profiles, meId }: { profiles: Profile[]; 
                 </button>
               ) : null}
             </div>
+            )}
           </article>
         ))}
       </div>

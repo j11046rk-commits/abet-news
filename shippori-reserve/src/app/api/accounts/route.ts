@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { apiProfile, generateInitialPassword, isValidLoginId, loginIdToEmail } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ALL_ROLES, assignableRoles } from "@/lib/account-scope";
 import type { UserRole } from "@/lib/types";
-
-const ROLES: UserRole[] = ["owner", "manager", "staff", "viewer"];
 
 /**
  * スタッフアカウントの発行。
@@ -19,7 +18,12 @@ export async function POST(request: Request) {
     .trim()
     .toLowerCase();
   const displayName = String(body?.display_name ?? "").trim();
-  const role: UserRole = ROLES.includes(body?.role) ? body.role : "staff";
+  // 事務(jimu)も受け付ける（以前は ROLES に無く、事務で発行してもスタッフになっていた）
+  const role: UserRole = ALL_ROLES.includes(body?.role) ? body.role : "staff";
+  // 店長が発行できるのはスタッフ・事務・閲覧のみ（オーナー・店長はオーナーだけ）
+  if (!assignableRoles(gate.me.role).includes(role)) {
+    return NextResponse.json({ error: "オーナー・店長のアカウントはオーナーだけが発行できます。" }, { status: 403 });
+  }
   const isOwnerContact = body?.is_owner_contact === true;
 
   if (!isValidLoginId(loginId)) {

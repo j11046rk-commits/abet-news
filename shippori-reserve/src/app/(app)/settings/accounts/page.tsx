@@ -5,7 +5,7 @@ import { getAllProfiles } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-/** S12 アカウント管理（account.write を持つ人だけ＝初期はオーナー3名） */
+/** S12 アカウント管理（account.write＝オーナー・店長。店長はスタッフ・事務・閲覧のみの人だけ） */
 export default async function AccountsPage() {
   const me = await requirePermission("account.write");
   const profiles = await getAllProfiles();
@@ -20,7 +20,7 @@ export default async function AccountsPage() {
       </header>
 
       <div className="wrap">
-        <AccountAdmin profiles={profiles} meId={me.id} />
+        <AccountAdmin profiles={profiles} meId={me.id} meRole={me.role} />
         <div style={{ height: "2rem" }} />
       </div>
     </>
