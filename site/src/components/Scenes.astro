@@ -1,8 +1,13 @@
 ---
 import site from '../../data/site.json';
-import Icon from './Icon.astro';
 import { withBase } from '../lib/text.js';
 const sc = site.利用シーン;
+/*
+ * こんな日に、しっぽり亭。
+ * 丸アイコン＋一文のカードを並べると AI 生成感が強い（店主指摘・2026-11-11）。
+ * 実店舗の写真と、確定した事実のひとこと（席数・値段）で、品書きのように並べる。
+ * 枠や背景のカードにはしない。罫線で区切るだけ。
+ */
 ---
 <section class="section section--alt" id="scenes" aria-labelledby="scenes-title">
   <div class="container">
@@ -12,33 +17,55 @@ const sc = site.利用シーン;
       <p class="section__lead">{sc.リード}</p>
     </div>
     <ul class="scenes">
-      {sc.items.map((item) => (
-        <li class="scenes__item">
-          <span class="scenes__ico"><Icon name={item.アイコン} size={24} /></span>
-          {/* リンク先があるシーンは、そのページへ（ひとり飲み・二次会・宴会の入口ページ） */}
-          {item.リンク
-            ? <a class="scenes__text scenes__link" href={withBase(item.リンク)}>{item.テキスト}</a>
-            : <span class="scenes__text">{item.テキスト}</span>}
-        </li>
-      ))}
+      {sc.items.map((item) => {
+        const body = (
+          <>
+            <span class="scenes__photo">
+              <img src={withBase(item.写真)} alt={item.alt} width="400" height="300" loading="lazy" decoding="async" style={`object-position:${item.位置 || 'center'};transform-origin:${item.位置 || 'center'};--z:${item.拡大 || 1}`} />
+            </span>
+            <span class="scenes__words">
+              <span class="scenes__text">{item.テキスト}</span>
+              <span class="scenes__note">{item.ひとこと}</span>
+            </span>
+            {item.リンク ? <span class="scenes__go" aria-hidden="true">詳しく</span> : null}
+          </>
+        );
+        return (
+          <li class="scenes__item">
+            {/* リンク先があるシーンは、そのページへ（ひとり飲み・二次会・宴会の入口ページ） */}
+            {item.リンク ? <a class="scenes__row scenes__row--link" href={withBase(item.リンク)}>{body}</a> : <div class="scenes__row">{body}</div>}
+          </li>
+        );
+      })}
     </ul>
   </div>
 </section>
 
 <style>
-  .scenes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 0.7rem; }
-  .scenes__item {
-    display: flex; align-items: center; gap: 0.9rem;
-    background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 0.95rem 1.1rem;
+  .scenes { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: 1fr; column-gap: 3rem; max-width: 980px; }
+  .scenes__item { border-top: 1px solid var(--line); }
+  .scenes__item:last-child { border-bottom: 1px solid var(--line); }
+  .scenes__row {
+    display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 1rem;
+    padding: 0.9rem 0; color: inherit; text-decoration: none;
   }
-  .scenes__ico {
-    flex: none; display: inline-flex; align-items: center; justify-content: center;
-    width: 2.4rem; height: 2.4rem; border-radius: 50%;
-    color: var(--gold); background: rgba(210,162,92,0.12); border: 1px solid var(--line);
+  .scenes__photo { display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 3px; background: var(--bg-3); }
+  .scenes__photo img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(var(--z, 1)); transition: transform .5s ease; }
+  .scenes__words { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+  .scenes__text { font-family: var(--font-serif); font-size: 1.05rem; color: var(--text); letter-spacing: 0.04em; line-height: 1.45; }
+  .scenes__note { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
+  .scenes__go {
+    font-size: 0.75rem; color: var(--gold-soft); white-space: nowrap;
+    border-bottom: 1px solid color-mix(in srgb, var(--gold) 55%, transparent); padding-bottom: 1px;
   }
-  .scenes__text { font-size: 0.95rem; color: var(--text); }
-  .scenes__link { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--gold) 55%, transparent); text-underline-offset: 0.25em; }
-  @media (min-width: 620px) { .scenes { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 900px) { .scenes { grid-template-columns: 1fr 1fr 1fr; } }
+  .scenes__go::after { content: " ›"; }
+  .scenes__row--link:hover .scenes__photo img, .scenes__row--link:focus-visible .scenes__photo img { transform: scale(calc(var(--z, 1) * 1.06)); }
+  .scenes__row--link:hover .scenes__text { color: var(--gold-soft); }
+  @media (min-width: 760px) {
+    .scenes { grid-template-columns: 1fr 1fr; }
+    /* 2列のとき、2行目以降の上罫線だけを各列に（左右で1本ずつ） */
+    .scenes__item:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+    .scenes__row { grid-template-columns: 8rem 1fr auto; padding: 1.1rem 0; }
+    .scenes__text { font-size: 1.12rem; }
+  }
 </style>
