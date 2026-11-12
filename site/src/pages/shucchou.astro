@@ -32,11 +32,11 @@ const faqs: [string, string][] = [
   badges={['ホテルNo.1新居浜から徒歩約4分', 'おひとり様歓迎', 'インボイス対応の領収書', '金・土は25時まで']}
   heroImage="/images/gallery-gaikan-yoru.jpg"
   points={[
-    { icon: 'pin', title: 'ホテルから歩いてすぐ', body: a.ホテルから },
-    { icon: 'user', title: 'ひとりでも気軽に', body: 'カウンター10席。出張先でも、ひとりで気兼ねなく過ごせます。' },
+    { icon: 'pin', title: 'ホテルから歩いてすぐ', body: a.ホテルから, photo: '/images/gallery-gaikan-yoru.jpg', pos: 'center 35%' },
+    { icon: 'user', title: 'ひとりでも気軽に', body: 'カウンター10席。出張先でも、ひとりで気兼ねなく過ごせます。', photo: '/images/gallery-counter.jpg', pos: 'center 60%' },
     { icon: 'receipt', title: '経費精算OK', body: b.領収書対応 },
-    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: f.items.find((i: any) => i.見出し.includes('黒ラベル'))?.本文 ?? '' },
-    { icon: 'utensils', title: '名物のだし巻き', body: '名物のだし巻きと日替わりのおばんざい、本日のお刺身などをどうぞ。' },
+    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: f.items.find((i: any) => i.見出し.includes('黒ラベル'))?.本文 ?? '', photo: '/images/nikai-set.jpg', pos: '27% 62%', zoom: 1.9 },
+    { icon: 'utensils', title: '名物のだし巻き', body: '名物のだし巻きと日替わりのおばんざい、本日のお刺身などをどうぞ。', photo: '/images/menu-dashimaki.jpg' },
     { icon: 'clock', title: '遅くまで営業', body: `${hours}。到着が遅くなっても寄りやすい時間です。` },
   ]}
   facts={[
@@ -48,9 +48,9 @@ const faqs: [string, string][] = [
     ['seats', '駐車場', a.駐車場],
   ]}
   photos={[
-    { src: '/images/gallery-gaikan-yoru.jpg', alt: '夜のお店の外観' },
-    { src: '/images/gallery-counter.jpg', alt: 'カウンター席' },
     { src: '/images/menu-sashimi.jpg', alt: '本日のお刺身' },
+    { src: '/images/menu-kanimiso.jpg', alt: 'かに味噌の甲羅盛り' },
+    { src: '/images/gallery-amaebi.jpg', alt: '甘えび' },
   ]}
   faqs={faqs}
   related={[

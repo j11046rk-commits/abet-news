@@ -32,10 +32,10 @@ const faqs: [string, string][] = [
   badges={['おひとり様大歓迎', 'カウンター10席', 'サッポロ黒ラベル(生)', '名物だし巻き', `${h.定休日}定休`]}
   heroImage="/images/gallery-counter.jpg"
   points={[
-    { icon: 'user', title: 'おひとり様、大歓迎', body: feat('おひとり様') },
-    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: feat('黒ラベル') },
-    { icon: 'utensils', title: '名物のだし巻きとおばんざい', body: `${feat('だし巻き')} 日替わりのおばんざいもあります。` },
-    { icon: 'tv', title: 'スポーツ中継を見ながら', body: 'カウンターに55インチの大型テレビ。中継を見ながら一杯楽しめます。' },
+    { icon: 'user', title: 'おひとり様、大歓迎', body: feat('おひとり様'), photo: '/images/gallery-counter.jpg', pos: 'center 60%' },
+    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: feat('黒ラベル'), photo: '/images/nikai-set.jpg', pos: '27% 62%', zoom: 1.9 },
+    { icon: 'utensils', title: '名物のだし巻きとおばんざい', body: `${feat('だし巻き')} 日替わりのおばんざいもあります。`, photo: '/images/menu-dashimaki.jpg' },
+    { icon: 'tv', title: 'スポーツ中継を見ながら', body: 'カウンターに55インチの大型テレビ。中継を見ながら一杯楽しめます。', photo: '/images/hero.jpg', pos: '27% 30%', zoom: 2.4 },
     { icon: 'smile', title: '敷居の低いお店', body: feat('幅広い客層') },
     { icon: 'clock', title: '遅くまで営業', body: `${hours}。仕事帰りにも寄りやすい時間です。` },
   ]}
@@ -48,9 +48,9 @@ const faqs: [string, string][] = [
     ['seats', '駐車場', a.駐車場],
   ]}
   photos={[
-    { src: '/images/gallery-counter.jpg', alt: 'カウンター席' },
-    { src: '/images/menu-dashimaki.jpg', alt: '名物のだし巻き' },
+    { src: '/images/gallery-gaikan-yoru.jpg', alt: '夜のお店の入口' },
     { src: '/images/menu-ebinira.jpg', alt: '海老にら豆腐' },
+    { src: '/images/gallery-sashimi-mori.jpg', alt: 'お刺身の盛り合わせ' },
   ]}
   faqs={faqs}
   related={[
