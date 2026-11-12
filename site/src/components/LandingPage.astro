@@ -9,6 +9,7 @@ import Header from './Header.astro';
 import Footer from './Footer.astro';
 import BottomNav from './BottomNav.astro';
 import Icon from './Icon.astro';
+import BigPoints from './BigPoints.astro';
 import site from '../../data/site.json';
 import { withBase } from '../lib/text.js';
 
@@ -22,8 +23,8 @@ interface Props {
   lead: string;
   badges: string[];
   heroImage: string;
-  // photo があるものは写真つきの行、無いものは文章だけの行（丸アイコンのカードは AI 生成感が強いと店主指摘・2026-11-12）
-  points: { icon?: string; title: string; body: string; photo?: string; pos?: string; zoom?: number }[];
+  // 大きな一言（数字や1〜3文字）＋名前＋ひとこと。説明は FAQ へ（BigPoints.astro・2026-11-12）
+  points: { big: string; name: string; sub?: string }[];
   facts: [string, string, string][];
   photos: { src: string; alt: string }[];
   faqs: [string, string][];
@@ -84,31 +85,7 @@ const crumbLd = {
           <p class="section__kicker">POINT</p>
           <h2 class="section__title">しっぽり亭のここがいい</h2>
         </div>
-        {p.points.some((pt) => pt.photo) && (
-          <ul class="lp-pics">
-            {p.points.filter((pt) => pt.photo).map((pt) => (
-              <li class="lp-pics__item">
-                <span class="lp-pics__photo">
-                  <img src={withBase(pt.photo!)} alt="" width="400" height="300" loading="lazy" decoding="async" style={`object-position:${pt.pos || 'center'};transform-origin:${pt.pos || 'center'};transform:scale(${pt.zoom || 1})`} />
-                </span>
-                <span class="lp-pics__words">
-                  <h3>{pt.title}</h3>
-                  <p>{pt.body}</p>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {p.points.some((pt) => !pt.photo) && (
-          <ul class="lp-notes">
-            {p.points.filter((pt) => !pt.photo).map((pt) => (
-              <li>
-                <h3>{pt.title}</h3>
-                <p>{pt.body}</p>
-              </li>
-            ))}
-          </ul>
-        )}
+        <BigPoints items={p.points} />
       </div>
     </section>
 
@@ -210,21 +187,6 @@ const crumbLd = {
   .btn--line { background: #06c755; color: #fff; }
   .btn--line:hover { background: #05b14c; color: #fff; }
 
-  /* ここがいい：トップの「こんな日に」と同じ、写真＋文章を罫線で区切る形。カードの枠・丸アイコンは使わない */
-  .lp-pics, .lp-notes { list-style: none; margin: 0 auto; padding: 0; max-width: 980px; display: grid; grid-template-columns: 1fr; column-gap: 3rem; }
-  .lp-pics__item { display: grid; grid-template-columns: 7rem 1fr; gap: 1.1rem; align-items: center; padding: 1rem 0; border-top: 1px solid var(--line); }
-  .lp-pics__photo { display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 3px; background: var(--bg-3); }
-  .lp-pics__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .lp-pics__words { min-width: 0; }
-  .lp-pics h3, .lp-notes h3 { margin: 0; font-size: 1.08rem; color: var(--text); }
-  .lp-pics p, .lp-notes p { margin: 0.35rem 0 0; font-size: 0.9rem; line-height: 1.8; color: var(--text-dim); }
-  .lp-notes li { padding: 1rem 0; border-top: 1px solid var(--line); }
-  /* 最後の一覧の下にだけ罫線 */
-  .lp-pics:last-child, .lp-notes:last-child { border-bottom: 1px solid var(--line); }
-  @media (min-width: 760px) {
-    .lp-pics, .lp-notes { grid-template-columns: 1fr 1fr; }
-    .lp-pics__item { grid-template-columns: 9rem 1fr; }
-  }
 
   .lp-facts { margin: 0; border-top: 1px solid var(--line); }
   .lp-facts__row { display: grid; gap: 0.2rem; padding: 0.9rem 0.2rem; border-bottom: 1px solid var(--line); }

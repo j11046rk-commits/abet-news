@@ -32,12 +32,12 @@ const faqs: [string, string][] = [
   badges={['おひとり様大歓迎', 'カウンター10席', 'サッポロ黒ラベル(生)', '名物だし巻き', `${h.定休日}定休`]}
   heroImage="/images/gallery-counter.jpg"
   points={[
-    { icon: 'user', title: 'おひとり様、大歓迎', body: feat('おひとり様'), photo: '/images/gallery-counter.jpg', pos: 'center 60%' },
-    { icon: 'beer', title: 'サッポロ黒ラベル(生)', body: feat('黒ラベル'), photo: '/images/nikai-set.jpg', pos: '27% 62%', zoom: 1.9 },
-    { icon: 'utensils', title: '名物のだし巻きとおばんざい', body: `${feat('だし巻き')} 日替わりのおばんざいもあります。`, photo: '/images/menu-dashimaki.jpg' },
-    { icon: 'tv', title: 'スポーツ中継を見ながら', body: 'カウンターに55インチの大型テレビ。中継を見ながら一杯楽しめます。', photo: '/images/hero.jpg', pos: '27% 30%', zoom: 2.4 },
-    { icon: 'smile', title: '敷居の低いお店', body: feat('幅広い客層') },
-    { icon: 'clock', title: '遅くまで営業', body: `${hours}。仕事帰りにも寄りやすい時間です。` },
+    { big: '10席', name: 'カウンター', sub: 'おひとり様、大歓迎' },
+    { big: '生', name: 'サッポロ黒ラベル', sub: '新居浜ではめずらしい生' },
+    { big: '名物', name: 'だし巻き', sub: '日替わりのおばんざいも' },
+    { big: '55型', name: '大型テレビ', sub: 'スポーツ中継を見ながら' },
+    { big: '気軽', name: '敷居の低いお店', sub: '若い方から年配の方まで' },
+    { big: '24時', name: '遅くまで営業', sub: '金・土は25時まで' },
   ]}
   facts={[
     ['seats', 'お席', 'カウンター10席（ほかにテーブル席・掘りごたつ個室あり）'],
