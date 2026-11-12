@@ -25,8 +25,17 @@ export default async function SensorsPage() {
   const plan = planForDate(plans, today);
   // 並びは 冷蔵庫①②③ → 冷凍庫①②③（店主指定 2026-11-08）。同じ種類の中は計画の順
   const kindOrder = (k: string) => (k === "fridge" ? 0 : k === "freezer" ? 1 : 2);
-  const equipment = (plan?.content.equipment ?? [])
-    .map((e, i) => ({ id: e.id, name: e.name, auto: !!e.auto, kind: e.kind as string, maxC: e.maxC, minC: e.minC, i }))
+  // 承認済みで適用開始が先の版（例：11/13から）で増える設備も、前もって温度計を結びつけられるようにする
+  // （承認したのに選べない、と店主指摘・2026-11-12）。基準の判定・自動記録は適用開始日から
+  const upcoming = plans
+    .filter((x) => x.status === "approved" && x.effective_from && x.effective_from > today)
+    .sort((a, b) => a.effective_from!.localeCompare(b.effective_from!))[0];
+  const nowEq = (plan?.content.equipment ?? []).map((e) => ({ ...e, from: null as string | null }));
+  const laterEq = (upcoming?.content.equipment ?? [])
+    .filter((e) => !nowEq.some((x) => x.id === e.id))
+    .map((e) => ({ ...e, from: upcoming!.effective_from }));
+  const equipment = [...nowEq, ...laterEq]
+    .map((e, i) => ({ id: e.id, name: e.name, auto: !!e.auto, kind: e.kind as string, maxC: e.maxC, minC: e.minC, from: e.from, i }))
     .sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.i - b.i);
 
   const supabase = await createClient();

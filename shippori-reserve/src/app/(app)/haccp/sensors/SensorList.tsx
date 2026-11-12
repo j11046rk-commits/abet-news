@@ -17,7 +17,8 @@ export type SensorView = {
   lastSavedAt: string | null;
 };
 
-type Eq = { id: string; name: string; auto: boolean; kind: string; maxC: number | null; minC: number | null };
+/** from：承認済みで適用開始が先の版にだけある設備は、その開始日（それまでは基準の判定・自動記録はしない） */
+type Eq = { id: string; name: string; auto: boolean; kind: string; maxC: number | null; minC: number | null; from?: string | null };
 
 /** 全角・半角のかっこ等の違いは同じ名前として扱う（SwitchBotは「冷蔵庫①(キッチン)」、計画は「冷蔵庫①（キッチン）」） */
 const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, "");
@@ -91,6 +92,7 @@ function SensorRow({ v, equipment, taken, canManage }: { v: SensorView; equipmen
               <option key={e.id} value={e.id}>
                 {e.name}
                 {e.auto ? "" : "（計画では手入力）"}
+                {e.from ? `（${Number(e.from.slice(5, 7))}/${Number(e.from.slice(8, 10))}から）` : ""}
                 {taken.has(e.id) && taken.get(e.id) !== v.deviceName ? `（いま：${taken.get(e.id)}）` : ""}
               </option>
             ))}
