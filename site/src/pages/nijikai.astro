@@ -32,12 +32,12 @@ const faqs: [string, string][] = [
   badges={['予約なしでもOK', `${set.価格}`, set.飲み放題, set.品数, '21時以降・2名様〜']}
   heroImage="/images/gallery-table.jpg"
   points={[
-    { icon: 'glass', title: set.飲み放題, body: `${set.価格}で、${set.飲み放題}。時間を気にせず、もう一軒楽しめます。`, photo: '/images/nikai-set.jpg', pos: '27% 62%', zoom: 1.9 },
-    { icon: 'utensils', title: set.品数, body: 'おつまみに、おばんざいの小鉢を3種お出しします（日によって変わります）。', photo: '/images/nikai-set.jpg', pos: 'center 76%', zoom: 1.9 },
-    { icon: 'group', title: '大人数でも', body: `${b.宴会最大人数}。掘りごたつ個室（8名様）もあります。`, photo: '/images/gallery-private-room.jpg' },
-    { icon: 'clock', title: '遅くまで営業', body: `${hours}。金・土は25時まで。`, photo: '/images/gallery-gaikan-yoru.jpg', pos: 'center 35%' },
-    { icon: 'receipt', title: '領収書OK', body: b.領収書対応 },
-    { icon: 'calendar', title: 'ご予約なしでもOK', body: '21時以降なら、お店に入って「二次会セット」とお伝えいただければご注文いただけます。席を確実に取りたい日は、ネット予約（8名様まで・24時間受付）が便利です。' },
+    { big: '90分', name: '飲み放題付き', sub: set.価格 },
+    { big: '3種', name: 'おばんざい小鉢', sub: '日によって変わります' },
+    { big: '36名', name: '大人数でも', sub: '掘りごたつ個室（8名様）も' },
+    { big: '25時', name: '金・土は25時まで', sub: '日〜木は24時まで' },
+    { big: '領収書', name: 'インボイス対応', sub: '宛名・但し書きOK' },
+    { big: '21時〜', name: '予約なしでもOK', sub: '確実なのはネット予約' },
   ]}
   facts={[
     ['yen', '料金', `${set.価格}（${set.飲み放題}・${set.品数}）`],

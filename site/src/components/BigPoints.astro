@@ -1,0 +1,48 @@
+---
+/*
+ * 推しポイントを「品書き」のように見せる共通の形（店主指示 2026-11-12）。
+ * 「ダサい・文字が多くて見にくい・写真が荒い」との指摘で、アイコン・カード・写真の切り抜き・長い説明をやめた。
+ * 大きな一言（数字や漢字1〜3文字）＋名前＋短いひとことだけ。罫線で升目に区切る。
+ * 説明を足したくなったら、ここではなく FAQ や宴会の欄へ。
+ */
+interface Props {
+  items: { big: string; name: string; sub?: string }[];
+}
+const { items } = Astro.props;
+---
+<ul class="bp">
+  {items.map((it) => (
+    <li class="bp__item">
+      <span class="bp__big">{it.big}</span>
+      <span class="bp__name">{it.name}</span>
+      {it.sub && <span class="bp__sub">{it.sub}</span>}
+    </li>
+  ))}
+</ul>
+
+<style>
+  /* 升目：外枠は上下の線だけ。セルの間は 1px の線 */
+  .bp {
+    list-style: none; margin: 0 auto; padding: 0; max-width: 900px;
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 1px; background: var(--line);
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .bp__item {
+    background: var(--bg); min-width: 0;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 1.5rem 0.6rem 1.4rem; gap: 0.35rem;
+  }
+  :global(.section--alt) .bp__item { background: var(--bg-2); }
+  .bp__big {
+    font-family: var(--font-serif); font-weight: 600;
+    font-size: clamp(1.9rem, 7vw, 2.6rem); line-height: 1.1; letter-spacing: 0.02em;
+    color: var(--gold-soft);
+  }
+  .bp__name { font-size: 0.98rem; font-weight: 600; color: var(--text); line-height: 1.5; }
+  .bp__sub { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+  @media (min-width: 760px) {
+    .bp { grid-template-columns: repeat(3, 1fr); }
+    .bp__item { padding: 2rem 1rem 1.8rem; }
+  }
+</style>

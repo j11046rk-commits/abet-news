@@ -1,15 +1,12 @@
 ---
 import site from '../../data/site.json';
-import { withBase } from '../lib/text.js';
+import BigPoints from './BigPoints.astro';
 const f = site.特長;
 /*
- * しっぽり亭の楽しみ方。
- * 「POINT 01」＋丸アイコンのカードを6枚並べると AI 生成感が強い（店主指摘・2026-11-11）。
- * 写真のある名物（黒ラベル・だし巻き）は写真つきで大きく、残りは飾りのない文章で並べる。
- * ドリンクも丸いタグにせず、品書きのように一行で。
+ * しっぽり亭の楽しみ方。大きな一言＋名前＋ひとことの升目だけ（BigPoints.astro）。
+ * 写真の切り抜き・アイコン・長い説明は「ダサい・見にくい・写真が荒い」と店主指摘で外した（2026-11-12）。
  */
-const big = f.items.filter((x) => x.写真);
-const rest = f.items.filter((x) => !x.写真);
+const items = f.items.map((x) => ({ big: x.大きく, name: x.名前, sub: x.ひとこと }));
 ---
 <section class="section" id="features" aria-labelledby="features-title">
   <div class="container">
@@ -18,61 +15,14 @@ const rest = f.items.filter((x) => !x.写真);
       <h2 class="section__title" id="features-title">{f.見出し}</h2>
       <p class="section__lead">{f.リード}</p>
     </div>
-
-    <div class="feat-big">
-      {big.map((item) => (
-        <figure class="feat-big__item">
-          <span class="feat-big__photo">
-            <img src={withBase(item.写真)} alt={item.alt} width="800" height="600" loading="lazy" decoding="async" style={`object-position:${item.位置 || 'center'};transform-origin:${item.位置 || 'center'};transform:scale(${item.拡大 || 1})`} />
-          </span>
-          <figcaption>
-            <h3 class="feat-big__title">{item.見出し}</h3>
-            <p class="feat-big__text">{item.本文}</p>
-          </figcaption>
-        </figure>
-      ))}
-    </div>
-
-    <ul class="feat-list">
-      {rest.map((item) => (
-        <li class="feat-list__item">
-          <h3 class="feat-list__title">{item.見出し}</h3>
-          <p class="feat-list__text">{item.本文}</p>
-        </li>
-      ))}
-    </ul>
-
+    <BigPoints items={items} />
     {f.ドリンク && f.ドリンク.length > 0 && (
-      <p class="drinks">
-        <span class="drinks__label">ドリンク</span>
-        <span class="drinks__list">{f.ドリンク.join('・')}</span>
-      </p>
+      <p class="drinks"><span class="drinks__label">ドリンク</span><span>{f.ドリンク.join('・')}</span></p>
     )}
   </div>
 </section>
 
 <style>
-  .feat-big { display: grid; grid-template-columns: 1fr; gap: 2rem; max-width: 980px; margin: 0 auto; }
-  .feat-big__item { margin: 0; }
-  .feat-big__photo { display: block; aspect-ratio: 3 / 2; overflow: hidden; border-radius: 3px; background: var(--bg-3); }
-  .feat-big__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .feat-big__title { margin: 1rem 0 0.4rem; font-size: 1.25rem; color: var(--text); }
-  .feat-big__text { margin: 0; font-size: 0.92rem; color: var(--text-dim); line-height: 1.85; }
-
-  .feat-list { list-style: none; margin: 2.4rem auto 0; padding: 0; max-width: 980px; display: grid; grid-template-columns: 1fr; column-gap: 3rem; }
-  .feat-list__item { border-top: 1px solid var(--line); padding: 1.1rem 0; }
-  .feat-list__title { margin: 0 0 0.35rem; font-size: 1.05rem; color: var(--text); }
-  .feat-list__text { margin: 0; font-size: 0.88rem; color: var(--text-dim); line-height: 1.8; }
-
-  .drinks {
-    max-width: 980px; margin: 1.6rem auto 0; padding-top: 1rem; border-top: 1px solid var(--line);
-    display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; font-size: 0.9rem;
-  }
+  .drinks { max-width: 900px; margin: 1.2rem auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3rem 0.9rem; font-size: 0.88rem; color: var(--text); text-align: center; }
   .drinks__label { font-family: var(--font-serif); color: var(--gold-soft); letter-spacing: 0.1em; }
-  .drinks__list { color: var(--text); line-height: 1.8; }
-
-  @media (min-width: 760px) {
-    .feat-big { grid-template-columns: 1fr 1fr; gap: 2.5rem; }
-    .feat-list { grid-template-columns: 1fr 1fr; }
-  }
 </style>
