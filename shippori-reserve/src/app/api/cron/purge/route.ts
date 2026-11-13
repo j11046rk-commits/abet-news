@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { BACKUP_LAST_KEY, backupNotice, daysSinceBackup } from "@/lib/backup-watch";
+import { pushLine } from "@/lib/line";
 
 /**
  * 連絡先の保存期間の実行（1日1回・Vercelの定期実行から）。
@@ -42,6 +44,22 @@ export async function GET(request: Request) {
     .lt("created_at", new Date(Date.now() - 30 * 86400_000).toISOString());
   if (msgErr) console.error("line_messages_purge_failed", msgErr.message);
 
+  /*
+   * データの控え（バックアップ）が止まっていないかも、毎日ここで見る（lib/backup-watch.ts）。
+   * 控えは店主のMacが取りに来るので、Macが止まっていることはこちら側からしか気づけない。
+   * 8日以上止まっていたら店のLINEへ（8日目に1回、あとは3日おき）。見張りが転んでも消去の結果は変えない。
+   */
+  let backupDays: number | null = null;
+  try {
+    const { data: last } = await admin.from("settings").select("value").eq("key", BACKUP_LAST_KEY).maybeSingle();
+    const now = new Date();
+    backupDays = daysSinceBackup(last?.value, now);
+    const notice = backupNotice(last?.value, now);
+    if (notice) await pushLine(notice);
+  } catch (e) {
+    console.error("backup_watch_failed", e instanceof Error ? e.name : "unknown");
+  }
+
   // 消した件数は audit_logs にも残る（reservations.purge）。
-  return NextResponse.json({ ok: true, purged: data ?? 0 });
+  return NextResponse.json({ ok: true, purged: data ?? 0, backupDays });
 }
