@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { broadcastLineCustomers, pushLine } from "@/lib/line";
+import { broadcastLineCustomers, pushLine, pushLineBooking } from "@/lib/line";
 import { customerQuota, customerReach, RESERVED_FOR_BOOKINGS } from "@/lib/line-quota";
 import { CLOSED_WEEKDAYS } from "@/lib/constants";
 import { isHoliday } from "@/lib/holidays";
@@ -37,7 +37,8 @@ import { fmtDateJa, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
  *   ⑦ 残り通数が読めない・足りない … 配信は1回で友だちの人数ぶんを使う。
  *      ここで使い切ると、予約の控え（絶対に届けたいもの）が月末に止まる
  *
- * ⑦で止めたときは店のグループに知らせる。黙って止まる仕組みにしない。
+ * ⑦で止めたときは店長に知らせる。黙って止まる仕組みにしない。
+ * （配信した・見送ったの知らせは店長個人あて。送信エラーや記録の失敗のような異常だけ、グループ全員へ）
  * （⑤⑥は「決めたとおりに間を空けているだけ」なので、毎回知らせない）
  */
 
@@ -155,7 +156,7 @@ export async function GET(request: Request) {
   if (reach === null) {
     // 読めない＝送らない、は方針どおり。ただし黙らない——LINEの統計APIが
     // 恒常的に読めなくなると、この機能は誰にも気づかれないまま永久に止まる。
-    await pushLine("⚠️ 本日のクーポン配信を見送りました（LINEの友だち数を取得できません）。");
+    await pushLineBooking("⚠️ 本日のクーポン配信を見送りました（LINEの友だち数を取得できません）。");
     return NextResponse.json({ ok: true, skipped: "no-reach", reach });
   }
   if (reach === 0) {
@@ -163,7 +164,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: "no-reach", reach });
   }
   if (quota?.remaining == null || quota.remaining - reach < RESERVED_FOR_BOOKINGS) {
-    await pushLine(
+    await pushLineBooking(
       [
         "⚠️ 本日のクーポン配信を見送りました（LINEの残り通数が足りません）。",
         `友だち ${reach} 名 / 残り ${quota?.remaining ?? "不明"} 通`,
@@ -239,7 +240,7 @@ export async function GET(request: Request) {
     console.error("quiet_day_record_failed", recErr.message);
     await pushLine("⚠️ クーポン配信の記録に失敗しました。次回の配信間隔が正しく守られない可能性があります。");
   }
-  await pushLine(
+  await pushLineBooking(
     [
       `📣 本日（${dateJa}）のクーポンを配信しました。`,
       // 判定に使った数をそのまま出す。以前は「予約0件」と固定で書いていて、

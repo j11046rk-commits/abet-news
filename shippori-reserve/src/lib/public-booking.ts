@@ -13,7 +13,7 @@ import { verifyLineIdToken } from "@/lib/line-login";
 import { courseBlockReason, type NetCourse } from "@/lib/net-course";
 import { planSeats, type PlanUnit } from "@/lib/seat-plan";
 import { fmtDateJa, isoToMinutes, minutesToIso, minutesToLabel, nowJst, shiftDate, todayBizDate, weekdayOf } from "@/lib/time";
-import { pushLine, pushLineUser } from "@/lib/line";
+import { pushLineBooking, pushLineUser } from "@/lib/line";
 import { surname } from "@/lib/staff";
 import type { BusinessMode, Reservation, SeatUnit } from "@/lib/types";
 
@@ -1031,7 +1031,7 @@ async function notifyCancelled(r: CancelRow): Promise<void> {
   try {
     const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
     const seat = (r.seat_note ?? "").trim();
-    await pushLine(
+    await pushLineBooking(
       [
         "❌ ネット予約がキャンセルされました",
         "",

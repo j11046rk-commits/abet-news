@@ -62,6 +62,17 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
   }
   const mark = (device_id: string, kind: AlertKind) =>
     admin.from("haccp_sensor_alerts").upsert({ device_id, kind, sent_at: now.toISOString() });
+  /*
+   * ★「送った」と記録するのは、LINEが受け取ったときだけ。
+   *   以前は送れなくても記録していたので、月の通数を使い切った2026年11月は、
+   *   冷凍庫①の温度計が3日止まっていたのに「知らせ済み」になり、誰にも届かないまま
+   *   次の知らせも12時間待ちになっていた。記録しなければ、次の読み取り（30分後）でまた試す。
+   */
+  const notify = async (device_id: string, kind: AlertKind, text: string) => {
+    if (!(await pushLine(text))) return;
+    alerts++;
+    await mark(device_id, kind);
+  };
 
   for (const s of list) {
     const eq = eqOf(s.equipment_id);
@@ -83,8 +94,7 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
       failed.push(name);
       const sent = sentBy.get(s.device_id) ?? {};
       if (!paused && s.equipment_id && (!sent.error || now.getTime() - Date.parse(sent.error) >= 6 * 3600_000)) {
-        if (await pushLine(alertText("error", name, null, null))) alerts++;
-        await mark(s.device_id, "error");
+        await notify(s.device_id, "error", alertText("error", name, null, null));
       }
       continue;
     }
@@ -101,12 +111,14 @@ export async function pollSensors(): Promise<{ read: number; failed: string[]; a
     const sent = sentBy.get(s.device_id) ?? {};
     const { send, recovered } = decideAlerts(rs, limits, sent, now);
     for (const k of send) {
-      if (await pushLine(alertText(k, name, rs[0] ?? null, limits))) alerts++;
-      await mark(s.device_id, k);
+      await notify(s.device_id, k, alertText(k, name, rs[0] ?? null, limits));
     }
     if (recovered) {
-      if (await pushLine(alertText("recovered", name, rs[0] ?? null, limits))) alerts++;
-      await admin.from("haccp_sensor_alerts").delete().eq("device_id", s.device_id).eq("kind", "out_of_range");
+      // 「戻りました」も、送れたときだけ基準外の記録を消す（送れなければ次の読み取りでまた試す）
+      if (await pushLine(alertText("recovered", name, rs[0] ?? null, limits))) {
+        alerts++;
+        await admin.from("haccp_sensor_alerts").delete().eq("device_id", s.device_id).eq("kind", "out_of_range");
+      }
     }
   }
   return { read, failed, alerts };

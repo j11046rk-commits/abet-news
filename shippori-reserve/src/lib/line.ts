@@ -1,4 +1,6 @@
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { BOOKING_TARGET_KEY, bookingRoute, parseBookingTarget, type BookingTarget } from "@/lib/line-route";
 
 /*
  * LINEへの通知。
@@ -27,19 +29,91 @@ import "server-only";
  *   「予約が入った」と気づくのに必要なのは日時・人数・席で、
  *   連絡先が要るのは実際に電話をかけるときだけ——それはアプリの中にある。
  *   LINEのトーク履歴は端末にもクラウドにも残り、こちらでは消せない。
+ *
+ * ★①は無料の月200通。数えられるのは「届いた人数ぶん」。
+ *   店長グループ（6人）へ1回送ると6通減るので、グループあては月33回で終わる。
+ *   2026年11月は予約の知らせだけで9日に使い切り、温度計の止まりと押し忘れが届かなくなった。
+ *   だから送り先を2つに分けてある（店主指定 2026-11-13）。
+ *     pushLine        … グループ全員へ。温度の異常・押し忘れなど、全員が知るべきものだけ
+ *     pushLineBooking … 店長個人へ（1回1通）。予約まわりの知らせはこちら
  */
 
 const PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/push";
 /** LINEが遅くても、お客様の予約確定を待たせない */
 const TIMEOUT_MS = 3000;
+/** 友だちかどうかの確認は、送信そのものより短く切る（分からなければ個人あてに倒す） */
+const FRIEND_CHECK_TIMEOUT_MS = 1500;
 
 /**
- * グループへ1通送る（店のスタッフ向け）。
+ * グループへ1通送る（店のスタッフ向け）。**1回で人数ぶんの通数を使う。**
+ * 予約まわりの知らせには使わない（pushLineBooking を使う）。
  * 設定が無ければ黙って何もしない（開発環境・未設定でも壊れない）。
  * 返り値は送れたかどうか。呼ぶ側はこれを見て分岐しないこと——通知は結果に影響させない。
  */
 export async function pushLine(text: string): Promise<boolean> {
   return pushTo(process.env.LINE_CHANNEL_ACCESS_TOKEN, process.env.LINE_TARGET_ID, text);
+}
+
+/**
+ * 予約まわりの知らせを送る（ネット予約・キャンセル・スタッフ入力・お客様メッセージの転送・クーポン配信）。
+ *
+ * 送り先は settings の line_booking_notify（店長個人）。決め方は lib/line-route.ts。
+ *   ・店長が「しっぽり亭レポート」を友だち追加している … 店長個人へ1通
+ *   ・まだ追加していない … 今までどおりグループへ送り、追加を促す一文を添える
+ *   ・設定が無い … 今までどおりグループへ
+ *   ・actorProfileId が店長本人 … 送らない（本人が入力した予約）
+ *
+ * 返り値は送れたかどうか。pushLine と同じく、呼ぶ側はこれで分岐しないこと。
+ */
+export async function pushLineBooking(
+  text: string,
+  opts: { actorProfileId?: string | null } = {},
+): Promise<boolean> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) return false;
+
+  const target = await bookingTarget();
+  // 本人の入力ぶんは友だち確認の前に落とす（LINEへの問い合わせを1回減らす）
+  const self = Boolean(target?.profileId) && opts.actorProfileId === target?.profileId;
+  const isFriend = target && !self ? await isStoreFriend(token, target.lineUserId) : null;
+  const route = bookingRoute(target, { isFriend, actorProfileId: opts.actorProfileId });
+
+  if (route.to === "none") return false;
+  if (route.to === "person") return pushTo(token, route.lineUserId, text);
+  return pushTo(token, process.env.LINE_TARGET_ID, route.nudge ? `${text}\n\n${route.nudge}` : text);
+}
+
+/** 予約まわりの知らせの送り先。読めなければ null（＝今までどおりグループへ） */
+async function bookingTarget(): Promise<BookingTarget | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.from("settings").select("value").eq("key", BOOKING_TARGET_KEY).maybeSingle();
+    return parseBookingTarget(data?.value);
+  } catch (e) {
+    console.error("line_booking_target_error", e instanceof Error ? e.name : "unknown");
+    return null;
+  }
+}
+
+/**
+ * その人が「しっぽり亭レポート」を友だち追加しているか。分からなければ null。
+ * LINEは、友だちでない人（とブロックした人）のプロフィールに 404 を返す。
+ * 個人あての push は友だちにしか届かないので、送る前にここで見分ける。
+ */
+async function isStoreFriend(token: string, lineUserId: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(FRIEND_CHECK_TIMEOUT_MS),
+    });
+    if (res.ok) return true;
+    if (res.status === 404) return false;
+    console.error("line_friend_check_failed", res.status);
+    return null;
+  } catch (e) {
+    console.error("line_friend_check_error", e instanceof Error ? e.name : "unknown");
+    return null;
+  }
 }
 
 /**

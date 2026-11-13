@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { BOT_REFERENCE, createNetReservation, normalizePhone, type NetBookingInput } from "@/lib/public-booking";
-import { pushLine, pushLineUser } from "@/lib/line";
+import { pushLineBooking, pushLineUser } from "@/lib/line";
 import { RATE, clientIp, recordAttempt, sweepSometimes, withinLimit } from "@/lib/rate-limit";
 import { surname } from "@/lib/staff";
 import { fmtDateJa, minutesToLabel } from "@/lib/time";
@@ -142,7 +142,7 @@ async function notifyLine(body: NetBookingInput, seatNote: string, courseLabel?:
       : "日時未確認";
     const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
 
-    await pushLine(
+    await pushLineBooking(
       [
         "🔔 ネット予約が入りました",
         "",

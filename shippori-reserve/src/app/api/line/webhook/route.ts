@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LINE_USER_ID_RE, verifyLineSignature } from "@/lib/line-login";
-import { pushLine, replyLineUser } from "@/lib/line";
+import { pushLineBooking, replyLineUser } from "@/lib/line";
 
 /**
  * LINEからの通知の受け口（友だち追加・ブロック・トークのメッセージ）。
@@ -9,7 +9,8 @@ import { pushLine, replyLineUser } from "@/lib/line";
  * ★受けるのは**お客様向けアカウント**（しっぽり亭 家庭料理おばんざい居酒屋）の通知。
  *   お客様が友だち追加するのはこちらで、店のレポート用アカウントとは別物。
  *   お客様への自動返信も同じアカウントから返す（pushLineUser）。
- *   店への申し送りだけ、いつものレポート用グループへ流す（pushLine）。
+ *   店への申し送りだけ、レポート用アカウントから店長個人へ流す（pushLineBooking。
+ *   2026-11-13〜 グループあてをやめた——1回で6通使い、月の枠を使い切ったため）。
  *
  * ★必ず 200 を返す。
  *   LINEは失敗した通知を何度も送り直し、続くと配信自体を止めてしまう。
@@ -170,7 +171,7 @@ export async function POST(request: Request) {
           .lt("created_at", new Date(Date.now() - 30 * 86400_000).toISOString());
         if (delErr) console.error("line_messages_cleanup_failed", delErr.message);
 
-        await pushLine(
+        await pushLineBooking(
           `【お客様の公式LINEにメッセージ】\n${text}\n\n（アプリの予約一覧からご対応ください）`,
         );
 

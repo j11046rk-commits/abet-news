@@ -12,7 +12,7 @@ import {
 import { can, HEARD_FROM, SOURCES, STATUSES } from "@/lib/constants";
 import { computeSeatUsage, EXCLUSIVE_SEAT, NO_SEAT } from "@/lib/seats";
 import { fmtDateJa, minutesToIso, minutesToLabel } from "@/lib/time";
-import { pushLine } from "@/lib/line";
+import { pushLineBooking } from "@/lib/line";
 import { surname } from "@/lib/staff";
 import type { Reservation, ReservationSource, ReservationStatus } from "@/lib/types";
 
@@ -188,8 +188,9 @@ export async function createReservation(input: ReservationInput): Promise<Action
     };
   }
 
-  // 店長LINEへ知らせる（店長会議 2026-11-04：現場にいない人が入れた予約にも気づけるように）
-  await notifyManualBooking(input, me.display_name);
+  // 店長へ知らせる（店長会議 2026-11-04：現場にいない人が入れた予約にも気づけるように）。
+  // 2026-11-13〜 グループではなく店長個人あて。店長本人が入れたぶんは送らない（lib/line-route.ts）
+  await notifyManualBooking(input, me.display_name, me.id);
 
   revalidatePath("/");
   revalidatePath("/reservations");
@@ -198,11 +199,11 @@ export async function createReservation(input: ReservationInput): Promise<Action
 }
 
 /**
- * 手入力の予約も、ネット予約と同じく店長LINEに1通知らせる。
+ * 手入力の予約も、ネット予約と同じく店長に1通知らせる（店長個人あて・入力した本人が店長なら送らない）。
  * 中身もネット予約の通知に揃える（日時・お名前の姓・人数・席・コース）。電話番号やメモは送らない。
  * 誰が受けたか（受付者・流入元）を添える。送れなくても予約の登録には影響させない。
  */
-async function notifyManualBooking(input: ReservationInput, registrar: string): Promise<void> {
+async function notifyManualBooking(input: ReservationInput, registrar: string, registrarId: string): Promise<void> {
   try {
     const app = process.env.NEXT_PUBLIC_APP_URL ?? "https://yoyaku.shipporitei.jp";
     let course = "";
@@ -213,7 +214,7 @@ async function notifyManualBooking(input: ReservationInput, registrar: string): 
     }
     const source = SOURCES.find((s) => s.value === input.source)?.label ?? "";
     const seat = (input.seat_note ?? "").trim();
-    await pushLine(
+    await pushLineBooking(
       [
         "🔔 予約が入りました（スタッフ入力）",
         "",
@@ -227,6 +228,7 @@ async function notifyManualBooking(input: ReservationInput, registrar: string): 
       ]
         .filter((l) => l !== "")
         .join("\n"),
+      { actorProfileId: registrarId },
     );
   } catch {
     // 通知は落ちても予約に影響させない
